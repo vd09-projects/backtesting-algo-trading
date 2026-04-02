@@ -1,0 +1,42 @@
+# Binaries
+/cmd/backtest/backtest
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test output
+*.test
+*.out
+coverage.html
+coverage.txt
+
+# Go build cache (not needed in repo)
+/vendor/
+
+# Local cache directory used by the Zerodha provider
+.cache/
+
+# Environment / secrets
+.env
+*.env
+config.local.yaml
+secrets.yaml
+
+# Zerodha access token (refreshed daily, never commit)
+access_token.txt
+*.token
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# LLMs
+.claude/
