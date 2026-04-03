@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-02 | **Open tasks:** 6 | **Next up:** TASK-0004
+**Last updated:** 2026-04-03 | **Open tasks:** 5 | **Next up:** TASK-0005
 
 ---
 
@@ -13,24 +13,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0004] Engine — portfolio state and trade log
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-01
-- **Source:** project
-- **Context:** Wires signals to portfolio state: open/close positions, track cash, accumulate the trade log. No slippage or commission yet — clean fills at stated price. Execution realism comes in TASK-0005.
-- **Acceptance criteria:**
-  - [ ] `Portfolio` type tracking: current cash, open positions (map[instrument]Position), closed trades ([]Trade)
-  - [ ] Signal-to-order translation: Buy → open long position, Sell → close position (no shorting in v1)
-  - [ ] Cash debited on open, credited on close; guard against buying more than available cash
-  - [ ] Trade log populated with each closed trade (entry/exit price, quantity, instrument, timestamps)
-  - [ ] Tests: specific signal sequence → specific portfolio states and trade log entries
-  - [ ] Test: no position opened if cash insufficient
-- **Notes:** Fills at the stated price here — slippage and commission added in TASK-0005. Keeps concerns separated and testable independently.
-
----
 
 ### [TASK-0005] Engine — order execution model (fills, slippage, commission, benchmark)
 

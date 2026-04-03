@@ -20,17 +20,17 @@ type EngineConfig struct {
 }
 
 // BarResult is the engine's record for a single processed bar.
-// Signal is collected here; order execution is added in TASK-0004.
 type BarResult struct {
 	Candle model.Candle
 	Signal model.Signal
 }
 
 // Engine runs a backtest by feeding candles from a DataProvider to a Strategy
-// one bar at a time and collecting the resulting signals.
+// one bar at a time, collecting signals and updating portfolio state.
 type Engine struct {
-	config     EngineConfig
+	config    EngineConfig
 	barResults []BarResult
+	portfolio  *Portfolio
 }
 
 // New creates an Engine with the given config.
@@ -39,16 +39,21 @@ func New(cfg EngineConfig) *Engine {
 }
 
 // Results returns the per-bar results after Run completes.
-// The slice is nil until Run is called.
 func (e *Engine) Results() []BarResult {
 	return e.barResults
 }
 
-// Run fetches candles from provider, then feeds them to strategy one bar at a time.
-// It enforces:
+// Portfolio returns the portfolio state after Run completes.
+// Returns nil until Run is called.
+func (e *Engine) Portfolio() *Portfolio {
+	return e.portfolio
+}
+
+// Run fetches candles from provider, feeds them to strategy one bar at a time,
+// and applies each signal to the portfolio. It enforces:
 //   - No-lookahead: strategy receives candles[:i+1] at bar i, never future bars.
 //   - Lookback: strategy.Next is not called until at least strategy.Lookback() candles
-//     have been seen. Bars before the lookback threshold are skipped silently.
+//     have been seen.
 func (e *Engine) Run(p provider.DataProvider, s strategy.Strategy) error {
 	if e.config.Instrument == "" {
 		return fmt.Errorf("engine: instrument must not be empty")
@@ -73,16 +78,25 @@ func (e *Engine) Run(p provider.DataProvider, s strategy.Strategy) error {
 		return fmt.Errorf("engine: strategy %q declared lookback %d, must be >= 1", s.Name(), lookback)
 	}
 
+	e.portfolio = newPortfolio(e.config.InitialCash)
 	e.barResults = make([]BarResult, 0, len(candles)-lookback+1)
 
 	for i := range candles {
-		// Enforce lookback: skip bars until we have enough history.
 		if i+1 < lookback {
 			continue
 		}
 
-		// No-lookahead: strategy only sees candles up to and including the current bar.
 		signal := s.Next(candles[:i+1])
+
+		if err := e.portfolio.applySignal(
+			signal,
+			e.config.Instrument,
+			candles[i].Close,
+			candles[i].Timestamp,
+			e.config.PositionSizeFraction,
+		); err != nil {
+			return fmt.Errorf("engine: bar %d: %w", i, err)
+		}
 
 		e.barResults = append(e.barResults, BarResult{
 			Candle: candles[i],

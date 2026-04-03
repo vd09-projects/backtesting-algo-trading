@@ -26,3 +26,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-02 00:00 | TASK-0002 | status → done | all acceptance criteria met | Candle/Timeframe/Signal/Position/Trade/OrderConfig in separate files; table-driven tests for Duration, Candle validation, Trade P&L; go test ./... passes |
 | 2026-04-02 00:00 | TASK-0003 | status → in-progress | starting implementation | |
 | 2026-04-02 00:00 | TASK-0003 | status → done | all acceptance criteria met | Engine struct, EngineConfig, Run method, BarResult; no-lookahead + lookback enforced; 8 tests passing |
+| 2026-04-03 00:00 | TASK-0004 | status → in-progress | starting implementation | |
+| 2026-04-03 00:00 | TASK-0004 | status → done | all acceptance criteria met | Portfolio (cash, positions, trade log), applySignal wired into Run; no-pyramid guard, insufficient-cash guard; 9 tests passing |
