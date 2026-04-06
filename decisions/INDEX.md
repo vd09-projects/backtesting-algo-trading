@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-07-hold-signal-not-passed-to-portfolio
+    title: "SignalHold filtered at engine level — never passed to portfolio"
+    date: 2026-04-07
+    status: accepted
+    category: convention
+    tags: [engine, portfolio, signal, hold, applySignal, convention, coverage]
+    path: convention/2026-04-07-hold-signal-not-passed-to-portfolio.md
+    summary: "Engine guards with `if pendingSignal != SignalHold` before calling applySignal; Hold is filtered at the call site, not inside the portfolio layer. applySignal retains a defensive Hold branch covered by whitebox test."
+
+  - id: 2026-04-07-max-drawdown-from-equity-curve
+    title: "MaxDrawdown computed from equity curve, not per-trade losses"
+    date: 2026-04-07
+    status: accepted
+    category: algorithm
+    tags: [analytics, drawdown, equity-curve, metrics, algorithm]
+    path: algorithm/2026-04-07-max-drawdown-from-equity-curve.md
+    summary: "MaxDrawdown uses the standard peak-to-trough definition on the running equity curve. Per-trade drawdown was rejected as it understates risk from consecutive losers. A peak>0 guard means all-loss sequences report 0% drawdown."
+
+  - id: 2026-04-07-breakeven-counts-as-loss
+    title: "Break-even trades classified as losses in analytics"
+    date: 2026-04-07
+    status: accepted
+    category: convention
+    tags: [analytics, win-rate, pnl, trade, classification, convention]
+    path: convention/2026-04-07-breakeven-counts-as-loss.md
+    summary: "Trades with RealizedPnL <= 0 count as losses. Break-even is not a third category — it inflates win rate and adds struct complexity for a near-impossible edge case on real commission-bearing fills."
+
   - id: 2026-04-06-value-semantics-for-domain-types
     title: "Value semantics for domain model types (Candle, Config)"
     date: 2026-04-06
