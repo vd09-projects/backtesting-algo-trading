@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-04 | **Open tasks:** 4 | **Next up:** TASK-0006
+**Last updated:** 2026-04-06 | **Open tasks:** 3 | **Next up:** TASK-0007
 
 ---
 
@@ -13,23 +13,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0006] Analytics — P&L, win rate, and max drawdown
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-01
-- **Source:** project
-- **Context:** Standalone package that takes a trade log and computes performance metrics. No engine reference — pure function over []Trade.
-- **Acceptance criteria:**
-  - [ ] `internal/analytics/` package with `Compute(trades []Trade) Report` function
-  - [ ] `Report` struct: TotalPnL, WinRate (%), MaxDrawdown (%), TradeCount, WinCount, LossCount
-  - [ ] MaxDrawdown computed correctly from equity curve (not just single-trade losses)
-  - [ ] Tests with known trade sequences and hand-verified expected metric values
-  - [ ] Edge cases tested: empty trade log, all winners, all losers, single trade
-- **Notes:** Start simple. Sharpe, Sortino, equity curves are future work — don't add them here.
-
----
 
 ### [TASK-0007] [ANALYSIS] Zerodha API — auth flow, rate limits, and historical data constraints
 
