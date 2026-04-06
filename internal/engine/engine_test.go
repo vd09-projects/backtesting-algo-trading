@@ -174,6 +174,28 @@ func TestRun_NoCandles(t *testing.T) {
 	assert.Contains(t, err.Error(), "no candles")
 }
 
+func TestRun_LookbackTooSmall(t *testing.T) {
+	candles := makeCandles(5)
+	p := &stubProvider{candles: candles}
+	s := &stubStrategy{lookback: 0, signal: model.SignalHold}
+
+	err := engine.New(defaultConfig()).Run(context.Background(), p, s)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "lookback")
+}
+
+func TestRun_InvalidSignalPropagatesError(t *testing.T) {
+	// Strategy emits an invalid signal. The engine queues it as pendingSignal,
+	// then tries to apply it at the next bar's open — applySignal returns an error.
+	candles := makeCandles(3)
+	p := &stubProvider{candles: candles}
+	s := &stubStrategy{lookback: 1, signal: model.Signal("BOGUS")}
+
+	err := engine.New(defaultConfig()).Run(context.Background(), p, s)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "BOGUS")
+}
+
 func TestRun_ValidationErrors(t *testing.T) {
 	candles := makeCandles(5)
 

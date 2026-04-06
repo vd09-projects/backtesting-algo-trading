@@ -160,6 +160,18 @@ func TestPortfolio_BuySellBuyOpensSecondPosition(t *testing.T) {
 	assert.Len(t, closedTrades(port), 1)
 }
 
+func TestPortfolio_CommissionPushesOverCashNoBuy(t *testing.T) {
+	// Cash=100, sizeFraction=1.0, flat commission=5.
+	// cost=100, qty=1, fillPrice=100, entryCommission=5, totalCost=105 > 100 → buy skipped.
+	port := runWithSignals(t, 100, 1.0,
+		model.OrderConfig{CommissionModel: model.CommissionFlat, CommissionValue: 5},
+		[]model.Signal{model.SignalBuy},
+	)
+
+	assert.Empty(t, port.Positions, "buy must be skipped when commission pushes total cost over cash")
+	assert.InDelta(t, 100.0, port.Cash, 1e-6)
+}
+
 func TestPortfolio_HoldIsNoop(t *testing.T) {
 	port := runWithSignals(t, 10_000, 1.0, model.OrderConfig{}, []model.Signal{
 		model.SignalHold, model.SignalHold,
