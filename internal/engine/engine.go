@@ -1,6 +1,8 @@
+// Package engine implements the backtesting execution loop.
 package engine
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -9,8 +11,8 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 )
 
-// EngineConfig holds all parameters needed to run a backtest.
-type EngineConfig struct {
+// Config holds all parameters needed to run a backtest.
+type Config struct {
 	Instrument           string
 	From                 time.Time
 	To                   time.Time
@@ -28,13 +30,13 @@ type BarResult struct {
 // Engine runs a backtest by feeding candles from a DataProvider to a Strategy
 // one bar at a time, collecting signals and updating portfolio state.
 type Engine struct {
-	config    EngineConfig
+	config     Config
 	barResults []BarResult
 	portfolio  *Portfolio
 }
 
 // New creates an Engine with the given config.
-func New(cfg EngineConfig) *Engine {
+func New(cfg Config) *Engine { //nolint:gocritic // Config is a constructor arg; value semantics are intentional
 	return &Engine{config: cfg}
 }
 
@@ -54,7 +56,7 @@ func (e *Engine) Portfolio() *Portfolio {
 //   - No-lookahead: strategy receives candles[:i+1] at bar i, never future bars.
 //   - Lookback: strategy.Next is not called until at least strategy.Lookback() candles
 //     have been seen.
-func (e *Engine) Run(p provider.DataProvider, s strategy.Strategy) error {
+func (e *Engine) Run(ctx context.Context, p provider.DataProvider, s strategy.Strategy) error {
 	if e.config.Instrument == "" {
 		return fmt.Errorf("engine: instrument must not be empty")
 	}
@@ -65,7 +67,7 @@ func (e *Engine) Run(p provider.DataProvider, s strategy.Strategy) error {
 		return fmt.Errorf("engine: To (%s) must be after From (%s)", e.config.To, e.config.From)
 	}
 
-	candles, err := p.FetchCandles(e.config.Instrument, s.Timeframe(), e.config.From, e.config.To)
+	candles, err := p.FetchCandles(ctx, e.config.Instrument, s.Timeframe(), e.config.From, e.config.To)
 	if err != nil {
 		return fmt.Errorf("engine: fetching candles: %w", err)
 	}
@@ -78,25 +80,35 @@ func (e *Engine) Run(p provider.DataProvider, s strategy.Strategy) error {
 		return fmt.Errorf("engine: strategy %q declared lookback %d, must be >= 1", s.Name(), lookback)
 	}
 
-	e.portfolio = newPortfolio(e.config.InitialCash)
+	e.portfolio = newPortfolio(e.config.InitialCash, e.config.OrderConfig)
 	e.barResults = make([]BarResult, 0, len(candles)-lookback+1)
 
+	// pendingSignal holds the signal from the previous bar, to be filled at
+	// the current bar's open. This enforces the rule: market orders fill at
+	// the next candle's open, not the current bar's close.
+	pendingSignal := model.SignalHold
+
 	for i := range candles {
+		// Apply the previous bar's signal at this bar's open price.
+		if pendingSignal != model.SignalHold {
+			if err := e.portfolio.applySignal(
+				pendingSignal,
+				e.config.Instrument,
+				candles[i].Open,
+				candles[i].Timestamp,
+				e.config.PositionSizeFraction,
+			); err != nil {
+				return fmt.Errorf("engine: fill at bar %d: %w", i, err)
+			}
+			pendingSignal = model.SignalHold
+		}
+
 		if i+1 < lookback {
 			continue
 		}
 
 		signal := s.Next(candles[:i+1])
-
-		if err := e.portfolio.applySignal(
-			signal,
-			e.config.Instrument,
-			candles[i].Close,
-			candles[i].Timestamp,
-			e.config.PositionSizeFraction,
-		); err != nil {
-			return fmt.Errorf("engine: bar %d: %w", i, err)
-		}
+		pendingSignal = signal
 
 		e.barResults = append(e.barResults, BarResult{
 			Candle: candles[i],

@@ -1,0 +1,92 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    # Bug detection
+    - govet
+    - errcheck
+    - staticcheck
+    - bodyclose
+    - sqlclosecheck
+    - durationcheck
+    # Code quality
+    - ineffassign
+    - unused
+    - gocritic
+    - exhaustive
+    - cyclop
+    # Style and consistency
+    - revive
+    - misspell
+  settings:
+    cyclop:
+      max-complexity: 15
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers"
+        - name: var-naming
+        - name: package-comments
+        - name: dot-imports
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: range
+        - name: receiver-naming
+        - name: indent-error-flow
+        - name: superfluous-else
+        - name: unreachable-code
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - (io.Closer).Close
+        - (net/http.ResponseWriter).Write
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    misspell:
+      locale: US
+
+  exclusions:
+    rules:
+      # Test files can use dot imports for testing frameworks
+      - path: _test\.go
+        linters:
+          - revive
+        text: "dot-imports"
+      # Test files don't need exported function comments
+      - path: _test\.go
+        linters:
+          - revive
+        text: "exported"
+      # Allow cuddled errors in test files
+      - path: _test\.go
+        linters:
+          - gocritic
+        text: "ifElseChain"
+
+formatters:
+  enable:
+    - gofumpt
+
+issues:
+  max-same-issues: 0

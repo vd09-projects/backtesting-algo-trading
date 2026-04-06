@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-03 | **Open tasks:** 5 | **Next up:** TASK-0005
+**Last updated:** 2026-04-04 | **Open tasks:** 4 | **Next up:** TASK-0006
 
 ---
 
@@ -13,24 +13,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0005] Engine — order execution model (fills, slippage, commission, benchmark)
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-01
-- **Source:** project
-- **Context:** Adds execution realism on top of TASK-0004. The fill model, slippage, and commission all live here. Also includes the benchmark test for the hot loop.
-- **Acceptance criteria:**
-  - [ ] Market orders fill at next candle's open, not current close — enforced in the fill logic
-  - [ ] Slippage applied at fill: configurable fixed percentage (e.g. 0.05%), deducted from fill price
-  - [ ] Commission applied per trade: configurable flat fee or percentage; Zerodha default baked in (₹20 or 0.03% whichever is lower)
-  - [ ] Trade's realized P&L computed after commission and slippage
-  - [ ] Tests: known candle sequence → exact expected fill prices and P&L values (table-driven)
-  - [ ] Benchmark: `BenchmarkEngineRun` in `internal/engine/engine_bench_test.go` processing 10 years of daily candles — must complete without noticeable delay (set a time budget in the test)
-- **Notes:** With this task done, the engine is functionally complete for v1. TASK-0003 + 0004 + 0005 together = the original monolithic TASK-0005.
-
----
 
 ### [TASK-0006] Analytics — P&L, win rate, and max drawdown
 

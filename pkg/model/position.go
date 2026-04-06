@@ -3,6 +3,7 @@ package model
 // Direction indicates whether a position is long or short.
 type Direction string
 
+// Supported position directions.
 const (
 	DirectionLong  Direction = "long"
 	DirectionShort Direction = "short"

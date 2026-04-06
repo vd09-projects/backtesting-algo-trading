@@ -8,18 +8,48 @@ import (
 )
 
 // Portfolio tracks cash, open positions, and the completed trade log.
-// Fills are at stated price with no slippage or commission — execution realism
-// is added in TASK-0005.
 type Portfolio struct {
-	Cash      float64
-	Positions map[string]model.Position // keyed by instrument
-	Trades    []model.Trade
+	Cash        float64
+	Positions   map[string]model.Position // keyed by instrument
+	Trades      []model.Trade
+	orderConfig model.OrderConfig
 }
 
-func newPortfolio(initialCash float64) *Portfolio {
+func newPortfolio(initialCash float64, cfg model.OrderConfig) *Portfolio {
 	return &Portfolio{
-		Cash:      initialCash,
-		Positions: make(map[string]model.Position),
+		Cash:        initialCash,
+		Positions:   make(map[string]model.Position),
+		orderConfig: cfg,
+	}
+}
+
+// calcFillPrice applies slippage to a base price.
+// Buy fills cost more (price * (1 + slippagePct)); sells receive less (price * (1 - slippagePct)).
+func (p *Portfolio) calcFillPrice(basePrice float64, isBuy bool) float64 {
+	if p.orderConfig.SlippagePct == 0 {
+		return basePrice
+	}
+	if isBuy {
+		return basePrice * (1 + p.orderConfig.SlippagePct)
+	}
+	return basePrice * (1 - p.orderConfig.SlippagePct)
+}
+
+// calcCommission returns the commission cost for a fill of the given trade value (fillPrice * qty).
+func (p *Portfolio) calcCommission(tradeValue float64) float64 {
+	switch p.orderConfig.CommissionModel {
+	case model.CommissionFlat:
+		return p.orderConfig.CommissionValue
+	case model.CommissionPercentage:
+		return tradeValue * p.orderConfig.CommissionValue
+	case model.CommissionZerodha:
+		c := tradeValue * 0.0003 // 0.03%
+		if c > 20 {
+			return 20
+		}
+		return c
+	default:
+		return 0
 	}
 }
 
@@ -52,29 +82,36 @@ func (p *Portfolio) openLong(instrument string, price float64, t time.Time, size
 		return nil
 	}
 
+	fillPrice := p.calcFillPrice(price, true)
 	cost := p.Cash * sizeFraction
-	if cost <= 0 || cost > p.Cash {
-		// Insufficient cash — skip.
+	if cost <= 0 {
+		// Zero or negative budget — skip.
 		return nil
 	}
 
-	quantity := cost / price
-	p.Cash -= cost
+	quantity := cost / fillPrice
+	entryCommission := p.calcCommission(quantity * fillPrice)
+	totalCost := quantity*fillPrice + entryCommission
+	if totalCost > p.Cash {
+		// Commission pushes total over available cash — skip.
+		return nil
+	}
+
+	p.Cash -= totalCost
 	p.Positions[instrument] = model.Position{
 		Instrument: instrument,
 		Direction:  model.DirectionLong,
 		Quantity:   quantity,
-		EntryPrice: price,
+		EntryPrice: fillPrice,
 	}
-	// EntryTime is stored on the Trade when the position closes.
-	// We stash it on a side-channel using the trade log convention:
-	// keep a sentinel open trade with ExitTime zero until closed.
+	// Sentinel open trade; completed in closeLong.
 	p.Trades = append(p.Trades, model.Trade{
 		Instrument: instrument,
 		Direction:  model.DirectionLong,
 		Quantity:   quantity,
-		EntryPrice: price,
+		EntryPrice: fillPrice,
 		EntryTime:  t,
+		Commission: entryCommission,
 	})
 	return nil
 }
@@ -86,25 +123,28 @@ func (p *Portfolio) closeLong(instrument string, price float64, t time.Time) err
 		return nil
 	}
 
-	// Find the open (sentinel) trade and complete it.
+	fillPrice := p.calcFillPrice(price, false)
+	exitCommission := p.calcCommission(fillPrice * pos.Quantity)
+
+	// Find the open sentinel trade and complete it.
 	for i := len(p.Trades) - 1; i >= 0; i-- {
 		tr := &p.Trades[i]
 		if tr.Instrument == instrument && tr.ExitTime.IsZero() {
-			tr.ExitPrice = price
+			tr.ExitPrice = fillPrice
 			tr.ExitTime = t
-			// Clean fill: no slippage or commission. TASK-0005 adds those.
-			tr.RealizedPnL = (price - tr.EntryPrice) * tr.Quantity
+			tr.Commission += exitCommission
+			tr.RealizedPnL = (fillPrice-tr.EntryPrice)*tr.Quantity - tr.Commission
 			break
 		}
 	}
 
-	p.Cash += pos.Quantity * price
+	p.Cash += fillPrice*pos.Quantity - exitCommission
 	delete(p.Positions, instrument)
 	return nil
 }
 
-// openTrades returns trades that have been opened but not yet closed.
-func (p *Portfolio) openTrades() []model.Trade {
+// OpenTrades returns trades that have been opened but not yet closed.
+func (p *Portfolio) OpenTrades() []model.Trade {
 	var open []model.Trade
 	for _, tr := range p.Trades {
 		if tr.ExitTime.IsZero() {
@@ -114,8 +154,8 @@ func (p *Portfolio) openTrades() []model.Trade {
 	return open
 }
 
-// closedTrades returns only completed round-trip trades.
-func (p *Portfolio) closedTrades() []model.Trade {
+// ClosedTrades returns only completed round-trip trades.
+func (p *Portfolio) ClosedTrades() []model.Trade {
 	var closed []model.Trade
 	for _, tr := range p.Trades {
 		if !tr.ExitTime.IsZero() {

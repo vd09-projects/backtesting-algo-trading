@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ type stubProvider struct {
 	err     error
 }
 
-func (s *stubProvider) FetchCandles(_ string, _ model.Timeframe, _, _ time.Time) ([]model.Candle, error) {
+func (s *stubProvider) FetchCandles(_ context.Context, _ string, _ model.Timeframe, _, _ time.Time) ([]model.Candle, error) {
 	return s.candles, s.err
 }
 func (s *stubProvider) SupportedTimeframes() []model.Timeframe { return nil }
@@ -35,9 +36,9 @@ type stubStrategy struct {
 	calls    [][]model.Candle // copy of candles slice passed on each call
 }
 
-func (s *stubStrategy) Name() string                  { return "stub" }
-func (s *stubStrategy) Timeframe() model.Timeframe    { return model.TimeframeDaily }
-func (s *stubStrategy) Lookback() int                 { return s.lookback }
+func (s *stubStrategy) Name() string               { return "stub" }
+func (s *stubStrategy) Timeframe() model.Timeframe { return model.TimeframeDaily }
+func (s *stubStrategy) Lookback() int              { return s.lookback }
 func (s *stubStrategy) Next(candles []model.Candle) model.Signal {
 	cp := make([]model.Candle, len(candles))
 	copy(cp, candles)
@@ -68,8 +69,8 @@ func makeCandles(n int) []model.Candle {
 	return candles
 }
 
-func defaultConfig() engine.EngineConfig {
-	return engine.EngineConfig{
+func defaultConfig() engine.Config {
+	return engine.Config{
 		Instrument:           "TEST",
 		From:                 base,
 		To:                   base.AddDate(0, 0, 30),
@@ -86,7 +87,7 @@ func TestRun_SignalsCollected(t *testing.T) {
 	s := &stubStrategy{lookback: 1, signal: model.SignalBuy}
 
 	e := engine.New(defaultConfig())
-	require.NoError(t, e.Run(p, s))
+	require.NoError(t, e.Run(context.Background(), p, s))
 
 	results := e.Results()
 	assert.Len(t, results, 10)
@@ -102,7 +103,7 @@ func TestRun_LookbackRespected(t *testing.T) {
 	s := &stubStrategy{lookback: 3, signal: model.SignalHold}
 
 	e := engine.New(defaultConfig())
-	require.NoError(t, e.Run(p, s))
+	require.NoError(t, e.Run(context.Background(), p, s))
 
 	assert.Len(t, s.calls, 8, "strategy called once per bar starting at lookback index")
 	assert.Len(t, e.Results(), 8)
@@ -115,7 +116,7 @@ func TestRun_NoLookahead(t *testing.T) {
 	s := &stubStrategy{lookback: 1, signal: model.SignalHold}
 
 	e := engine.New(defaultConfig())
-	require.NoError(t, e.Run(p, s))
+	require.NoError(t, e.Run(context.Background(), p, s))
 
 	for callIdx, seen := range s.calls {
 		expectedLen := callIdx + 1 // bar 0 → 1 candle, bar 1 → 2 candles, …
@@ -131,7 +132,7 @@ func TestRun_BarResultCandleMatchesCurrentBar(t *testing.T) {
 	s := &stubStrategy{lookback: 1, signal: model.SignalHold}
 
 	e := engine.New(defaultConfig())
-	require.NoError(t, e.Run(p, s))
+	require.NoError(t, e.Run(context.Background(), p, s))
 
 	results := e.Results()
 	for i, r := range results {
@@ -147,7 +148,7 @@ func TestRun_LookbackEqualsNCandles(t *testing.T) {
 	s := &stubStrategy{lookback: 5, signal: model.SignalBuy}
 
 	e := engine.New(defaultConfig())
-	require.NoError(t, e.Run(p, s))
+	require.NoError(t, e.Run(context.Background(), p, s))
 
 	assert.Len(t, s.calls, 1)
 	assert.Len(t, s.calls[0], 5)
@@ -158,7 +159,7 @@ func TestRun_ProviderError(t *testing.T) {
 	s := &stubStrategy{lookback: 1, signal: model.SignalHold}
 
 	e := engine.New(defaultConfig())
-	err := e.Run(p, s)
+	err := e.Run(context.Background(), p, s)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "network timeout")
 }
@@ -168,7 +169,7 @@ func TestRun_NoCandles(t *testing.T) {
 	s := &stubStrategy{lookback: 1, signal: model.SignalHold}
 
 	e := engine.New(defaultConfig())
-	err := e.Run(p, s)
+	err := e.Run(context.Background(), p, s)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no candles")
 }
@@ -178,32 +179,32 @@ func TestRun_ValidationErrors(t *testing.T) {
 
 	cases := []struct {
 		name    string
-		cfg     engine.EngineConfig
+		cfg     engine.Config
 		wantErr string
 	}{
 		{
 			name: "empty instrument",
-			cfg: engine.EngineConfig{
-				Instrument:  "",
-				From:        base, To: base.AddDate(0, 0, 10),
+			cfg: engine.Config{
+				Instrument: "",
+				From:       base, To: base.AddDate(0, 0, 10),
 				InitialCash: 100_000,
 			},
 			wantErr: "instrument",
 		},
 		{
 			name: "zero From",
-			cfg: engine.EngineConfig{
-				Instrument:  "TEST",
-				From:        time.Time{}, To: base.AddDate(0, 0, 10),
+			cfg: engine.Config{
+				Instrument: "TEST",
+				From:       time.Time{}, To: base.AddDate(0, 0, 10),
 				InitialCash: 100_000,
 			},
 			wantErr: "From and To",
 		},
 		{
 			name: "To before From",
-			cfg: engine.EngineConfig{
-				Instrument:  "TEST",
-				From:        base.AddDate(0, 0, 10), To: base,
+			cfg: engine.Config{
+				Instrument: "TEST",
+				From:       base.AddDate(0, 0, 10), To: base,
 				InitialCash: 100_000,
 			},
 			wantErr: "must be after",
@@ -214,7 +215,7 @@ func TestRun_ValidationErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := &stubProvider{candles: candles}
 			s := &stubStrategy{lookback: 1, signal: model.SignalHold}
-			err := engine.New(tc.cfg).Run(p, s)
+			err := engine.New(tc.cfg).Run(context.Background(), p, s)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.wantErr)
 		})

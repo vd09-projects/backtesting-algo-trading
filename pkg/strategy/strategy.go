@@ -1,3 +1,4 @@
+// Package strategy defines the Strategy interface that all trading strategies must implement.
 package strategy
 
 import "github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"

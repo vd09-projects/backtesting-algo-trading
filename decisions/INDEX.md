@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-06-value-semantics-for-domain-types
+    title: "Value semantics for domain model types (Candle, Config)"
+    date: 2026-04-06
+    status: accepted
+    category: convention
+    tags: [candle, model, value-semantics, pointer, gocritic, performance, convention]
+    path: convention/2026-04-06-value-semantics-for-domain-types.md
+    summary: "Domain types like Candle and Config use value semantics even when large; pointer semantics would hurt cache locality in slice-heavy hot loops. gocritic hugeParam is suppressed by convention."
+
+  - id: 2026-04-06-context-parameter-deferred
+    title: "context.Context deferred from Run() and DataProvider interface"
+    date: 2026-04-06
+    status: revisit-later
+    category: tradeoff
+    tags: [context, engine, provider, interface, cancellation, zerodha]
+    path: tradeoff/2026-04-06-context-parameter-deferred.md
+    summary: "Run() and DataProvider.FetchCandles() have no context.Context yet. Deferred intentionally — must be added before the Zerodha provider is written, while there is still only one stub implementation to update."
+
   - id: 2026-04-03-no-pyramiding-v1
     title: "No pyramiding — single position per instrument enforced in v1"
     date: 2026-04-03

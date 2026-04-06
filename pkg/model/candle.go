@@ -1,3 +1,4 @@
+// Package model defines the shared domain types used across the backtesting engine.
 package model
 
 import (
@@ -18,7 +19,7 @@ type Candle struct {
 }
 
 // NewCandle constructs a Candle and validates its fields.
-func NewCandle(instrument string, tf Timeframe, ts time.Time, open, high, low, close_, volume float64) (Candle, error) {
+func NewCandle(instrument string, tf Timeframe, ts time.Time, open, high, low, cls, volume float64) (Candle, error) {
 	c := Candle{
 		Instrument: instrument,
 		Timeframe:  tf,
@@ -26,7 +27,7 @@ func NewCandle(instrument string, tf Timeframe, ts time.Time, open, high, low, c
 		Open:       open,
 		High:       high,
 		Low:        low,
-		Close:      close_,
+		Close:      cls,
 		Volume:     volume,
 	}
 	if err := c.Validate(); err != nil {
@@ -36,7 +37,7 @@ func NewCandle(instrument string, tf Timeframe, ts time.Time, open, high, low, c
 }
 
 // Validate checks that the candle fields are self-consistent and non-negative.
-func (c Candle) Validate() error {
+func (c Candle) Validate() error { //nolint:gocritic // value receiver is intentional; Candle is always used by value
 	if c.Instrument == "" {
 		return fmt.Errorf("candle: instrument must not be empty")
 	}

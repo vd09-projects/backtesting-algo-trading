@@ -8,6 +8,7 @@ import (
 // Timeframe represents a candle bar duration.
 type Timeframe string
 
+// Supported candle timeframes.
 const (
 	Timeframe1Min   Timeframe = "1min"
 	Timeframe5Min   Timeframe = "5min"

@@ -56,58 +56,58 @@ func TestNewCandleValid(t *testing.T) {
 
 func TestNewCandleValidation(t *testing.T) {
 	cases := []struct {
-		name                             string
-		instrument                       string
-		open, high, low, close_, volume float64
-		ts                               time.Time
-		wantErrContains                  string
+		name                         string
+		instrument                   string
+		open, high, low, cls, volume float64
+		ts                           time.Time
+		wantErrContains              string
 	}{
 		{
-			name:            "empty instrument",
-			instrument:      "",
-			open:            100, high: 110, low: 95, close_: 105, volume: 500,
+			name:       "empty instrument",
+			instrument: "",
+			open:       100, high: 110, low: 95, cls: 105, volume: 500,
 			ts:              baseTime,
 			wantErrContains: "instrument",
 		},
 		{
-			name:            "zero timestamp",
-			instrument:      "RELIANCE",
-			open:            100, high: 110, low: 95, close_: 105, volume: 500,
+			name:       "zero timestamp",
+			instrument: "RELIANCE",
+			open:       100, high: 110, low: 95, cls: 105, volume: 500,
 			ts:              time.Time{},
 			wantErrContains: "timestamp",
 		},
 		{
-			name:            "negative open",
-			instrument:      "TCS",
-			open:            -1, high: 110, low: 95, close_: 105, volume: 500,
+			name:       "negative open",
+			instrument: "TCS",
+			open:       -1, high: 110, low: 95, cls: 105, volume: 500,
 			ts:              baseTime,
 			wantErrContains: "OHLC",
 		},
 		{
-			name:            "high below low",
-			instrument:      "TCS",
-			open:            100, high: 90, low: 95, close_: 97, volume: 500,
+			name:       "high below low",
+			instrument: "TCS",
+			open:       100, high: 90, low: 95, cls: 97, volume: 500,
 			ts:              baseTime,
 			wantErrContains: "high",
 		},
 		{
-			name:            "open above high",
-			instrument:      "TCS",
-			open:            115, high: 110, low: 95, close_: 105, volume: 500,
+			name:       "open above high",
+			instrument: "TCS",
+			open:       115, high: 110, low: 95, cls: 105, volume: 500,
 			ts:              baseTime,
 			wantErrContains: "open",
 		},
 		{
-			name:            "close below low",
-			instrument:      "TCS",
-			open:            100, high: 110, low: 95, close_: 90, volume: 500,
+			name:       "close below low",
+			instrument: "TCS",
+			open:       100, high: 110, low: 95, cls: 90, volume: 500,
 			ts:              baseTime,
 			wantErrContains: "close",
 		},
 		{
-			name:            "negative volume",
-			instrument:      "TCS",
-			open:            100, high: 110, low: 95, close_: 105, volume: -1,
+			name:       "negative volume",
+			instrument: "TCS",
+			open:       100, high: 110, low: 95, cls: 105, volume: -1,
 			ts:              baseTime,
 			wantErrContains: "volume",
 		},
@@ -116,7 +116,7 @@ func TestNewCandleValidation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := model.NewCandle(tc.instrument, model.TimeframeDaily, tc.ts,
-				tc.open, tc.high, tc.low, tc.close_, tc.volume)
+				tc.open, tc.high, tc.low, tc.cls, tc.volume)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.wantErrContains)
 		})

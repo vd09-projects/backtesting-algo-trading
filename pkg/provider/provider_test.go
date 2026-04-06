@@ -1,6 +1,7 @@
 package provider_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
@@ -11,7 +12,7 @@ import (
 // signature at compile time. It is not a real provider.
 type stubProvider struct{}
 
-func (s *stubProvider) FetchCandles(_ string, _ model.Timeframe, _, _ time.Time) ([]model.Candle, error) {
+func (s *stubProvider) FetchCandles(_ context.Context, _ string, _ model.Timeframe, _, _ time.Time) ([]model.Candle, error) {
 	return nil, nil
 }
 
