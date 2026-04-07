@@ -32,3 +32,9 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-04 00:00 | TASK-0005 | status → done | all acceptance criteria met | Fill at next open via pending-signal buffer; slippage (pct); CommissionFlat/Percentage/Zerodha (₹20 cap); Trade.Commission field; 22 tests + BenchmarkEngineRun 256µs/op (budget 1ms) |
 | 2026-04-06 00:00 | TASK-0006 | status → in-progress | starting implementation | |
 | 2026-04-06 00:00 | TASK-0006 | status → done | all acceptance criteria met | Compute([]Trade) Report; TotalPnL, WinRate, MaxDrawdown (equity curve), TradeCount, WinCount, LossCount; 7 tests covering empty/single/all-winners/all-losers/mixed/breakeven; go test -race passes |
+| 2026-04-07 00:00 | TASK-0007 | status → done | all acceptance criteria met | Six decisions recorded in decisions/infrastructure/; auth prototype at cmd/authtest/main.go; unblocks TASK-0008 and TASK-0009 |
+| 2026-04-07 00:00 | TASK-0008 | status → todo | blocker TASK-0007 resolved | unblocked |
+| 2026-04-07 00:00 | TASK-0009 | status → todo | blocker TASK-0007 resolved | unblocked |
+| 2026-04-07 00:00 | TASK-0010 | created | priority: medium, source: project | Output package — result formatting and JSON export |
+| 2026-04-07 00:00 | TASK-0011 | created | priority: medium, source: project | CLI entrypoint — cmd/backtest wiring |
+| 2026-04-07 00:00 | TASK-0012 | created | priority: low, source: project | First concrete strategy — SMA crossover |
