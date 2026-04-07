@@ -8,6 +8,60 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-07-zerodha-instrument-token-lookup
+    title: "Zerodha instrument token lookup — CSV download at provider init"
+    date: 2026-04-07
+    status: accepted
+    category: architecture
+    tags: [zerodha, provider, instrument-token, instruments-csv, lookup, init, kite-connect]
+    path: architecture/2026-04-07-zerodha-instrument-token-lookup.md
+    summary: "Provider downloads /instruments CSV once at init, builds map[exchange:symbol]→token in memory. Skips per-call download (wasteful) and file caching (unnecessary complexity for v1). ErrInstrumentNotFound returned for unknown symbols."
+
+  - id: 2026-04-07-timeframe-weekly-unsupported-in-zerodha
+    title: "TimeframeWeekly excluded from Zerodha SupportedTimeframes"
+    date: 2026-04-07
+    status: accepted
+    category: convention
+    tags: [zerodha, provider, timeframe, weekly, kite-connect, model, SupportedTimeframes]
+    path: convention/2026-04-07-timeframe-weekly-unsupported-in-zerodha.md
+    summary: "Kite Connect has no weekly interval. TimeframeWeekly stays in pkg/model (valid type, may be served by future providers) but is omitted from ZerodhaProvider.SupportedTimeframes(). Engine must validate strategy timeframe against SupportedTimeframes before calling FetchCandles."
+
+  - id: 2026-04-07-stdlib-dotenv-no-godotenv
+    title: "stdlib .env parser — no godotenv dependency"
+    date: 2026-04-07
+    status: accepted
+    category: tradeoff
+    tags: [dependencies, dotenv, credentials, prototype, stdlib, convention]
+    path: tradeoff/2026-04-07-stdlib-dotenv-no-godotenv.md
+    summary: "25-line stdlib implementation chosen over github.com/joho/godotenv. Covers all actual use cases (KEY=value, blank lines, # comments). Repo rule: no new dependencies without justification. Local to cmd/authtest — not a shared utility."
+
+  - id: 2026-04-07-zerodha-cache-strategy
+    title: "Zerodha provider — local file-based caching strategy"
+    date: 2026-04-07
+    status: accepted
+    category: infrastructure
+    tags: [zerodha, cache, provider, file-cache, json, invalidation, kite-connect]
+    path: infrastructure/2026-04-07-zerodha-cache-strategy.md
+    summary: "File-based JSON cache in .cache/zerodha/ keyed on exact (instrument, timeframe, from, to). Historical data never invalidates; recent data (to >= today) has 1-hour TTL. CachedProvider is a DataProvider decorator — cache is above the chunk loop so a hit skips all API calls."
+
+  - id: 2026-04-07-zerodha-pagination-strategy
+    title: "Zerodha historical data — pagination and rate-limit strategy"
+    date: 2026-04-07
+    status: accepted
+    category: architecture
+    tags: [zerodha, provider, pagination, chunking, rate-limit, historical-data, kite-connect]
+    path: architecture/2026-04-07-zerodha-pagination-strategy.md
+    summary: "Fixed 350ms sleep between chunks (≈2.85 req/sec). chunkDateRange splits [from,to) into windows using per-interval maxDays map with safety margins. Limits are community-established (not published by Zerodha) — must verify in Phase 5 prototype before finalising constants."
+
+  - id: 2026-04-07-zerodha-auth-strategy
+    title: "Zerodha auth strategy — manual token paste for v1"
+    date: 2026-04-07
+    status: accepted
+    category: architecture
+    tags: [zerodha, auth, kite-connect, access-token, provider, session]
+    path: architecture/2026-04-07-zerodha-auth-strategy.md
+    summary: "Manual copy-paste of request_token chosen over local HTTP server for v1. Token persisted to ~/.config/backtest/token.json with 6AM IST expiry. Auth is internal to the provider — not exposed through DataProvider interface."
+
   - id: 2026-04-07-hold-signal-not-passed-to-portfolio
     title: "SignalHold filtered at engine level — never passed to portfolio"
     date: 2026-04-07
@@ -47,11 +101,11 @@ decisions:
   - id: 2026-04-06-context-parameter-deferred
     title: "context.Context deferred from Run() and DataProvider interface"
     date: 2026-04-06
-    status: revisit-later
+    status: accepted
     category: tradeoff
     tags: [context, engine, provider, interface, cancellation, zerodha]
     path: tradeoff/2026-04-06-context-parameter-deferred.md
-    summary: "Run() and DataProvider.FetchCandles() have no context.Context yet. Deferred intentionally — must be added before the Zerodha provider is written, while there is still only one stub implementation to update."
+    summary: "context.Context deferred until just before Zerodha provider was written. Resolved 2026-04-07: both Run() and FetchCandles() now accept ctx as first param. Interface is correct before any real provider code landed."
 
   - id: 2026-04-03-no-pyramiding-v1
     title: "No pyramiding — single position per instrument enforced in v1"

@@ -3,7 +3,7 @@
 | Field    | Value            |
 |----------|------------------|
 | Date     | 2026-04-06       |
-| Status   | revisit-later    |
+| Status   | accepted         |
 | Category | tradeoff         |
 | Tags     | context, engine, provider, interface, cancellation, zerodha |
 
@@ -35,4 +35,11 @@ If the Zerodha provider gets written without this change, every existing impleme
 
 ## Revisit trigger
 
-Before writing any code in `pkg/provider/zerodha/`. That is the last safe moment to change the `DataProvider` interface without migration cost.
+N/A — resolved.
+
+## Resolution (2026-04-07)
+
+Context was added to both `Engine.Run(ctx context.Context, ...)` and
+`DataProvider.FetchCandles(ctx context.Context, ...)` before any Zerodha provider code was
+written. The trigger condition was met and the interface is correct. All test stubs were updated
+at the same time. No retroactive migration was needed.
