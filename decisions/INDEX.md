@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-08-godoc-required-on-exported-types
+    title: "Godoc comments are required on all exported types and functions"
+    date: 2026-04-08
+    status: accepted
+    category: convention
+    tags: [godoc, naming, revive, convention, documentation, exported]
+    path: convention/2026-04-08-godoc-required-on-exported-types.md
+    summary: "All exported identifiers must have a doc comment starting with the identifier name. Enforced by revive linter (exported rule) — missing comments fail CI. Unexported identifiers are not checked but should be commented when logic is non-obvious."
+
+  - id: 2026-04-08-no-package-name-stutter-in-zerodha
+    title: "Types in pkg/provider/zerodha must not repeat the package name"
+    date: 2026-04-08
+    status: accepted
+    category: convention
+    tags: [zerodha, naming, revive, convention, provider, stutter]
+    path: convention/2026-04-08-no-package-name-stutter-in-zerodha.md
+    summary: "ZerodhaProvider renamed to Provider (zerodha.ZerodhaProvider stutters). Convention: all exported types in pkg/provider/zerodha omit the 'Zerodha' prefix — the package name provides the context. Revive linter enforces this."
+
   - id: 2026-04-08-provider-validates-via-model-newcandle
     title: "Provider validates API responses via model.NewCandle at parse time"
     date: 2026-04-08
@@ -51,7 +69,7 @@ decisions:
     category: convention
     tags: [zerodha, provider, timeframe, weekly, kite-connect, model, SupportedTimeframes]
     path: convention/2026-04-07-timeframe-weekly-unsupported-in-zerodha.md
-    summary: "Kite Connect has no weekly interval. TimeframeWeekly stays in pkg/model (valid type, may be served by future providers) but is omitted from ZerodhaProvider.SupportedTimeframes(). Engine must validate strategy timeframe against SupportedTimeframes before calling FetchCandles."
+    summary: "Kite Connect has no weekly interval. TimeframeWeekly stays in pkg/model (valid type, may be served by future providers) but is omitted from zerodha.Provider.SupportedTimeframes(). Engine must validate strategy timeframe against SupportedTimeframes before calling FetchCandles."
 
   - id: 2026-04-07-stdlib-dotenv-no-godotenv
     title: "stdlib .env parser — no godotenv dependency"
