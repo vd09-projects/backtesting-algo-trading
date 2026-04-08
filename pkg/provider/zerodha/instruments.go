@@ -16,7 +16,7 @@ import (
 func loadInstrumentsCSV(ctx context.Context, client *http.Client, baseURL, apiKey, accessToken string) (map[string]int64, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/instruments", http.NoBody)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build instruments request: %w", err)
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("token %s:%s", apiKey, accessToken))
 	req.Header.Set("X-Kite-Version", kiteVersion)

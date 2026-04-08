@@ -53,7 +53,7 @@ func ExchangeToken(ctx context.Context, client *http.Client, baseURL, apiKey, re
 		strings.NewReader(form.Encode()),
 	)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("build session exchange request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("X-Kite-Version", kiteVersion)
@@ -94,7 +94,10 @@ func SaveToken(path, accessToken string) error {
 	if err != nil {
 		return fmt.Errorf("marshal token: %w", err)
 	}
-	return os.WriteFile(path, data, 0o600)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return fmt.Errorf("write token file: %w", err)
+	}
+	return nil
 }
 
 // LoadToken reads the token record from path and returns the access token.

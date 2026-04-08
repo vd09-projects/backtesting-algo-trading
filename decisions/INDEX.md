@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-09-error-wrapping-required-at-every-call-site
+    title: "Every error return must be wrapped with call-site context"
+    date: 2026-04-09
+    status: accepted
+    category: convention
+    tags: [error-handling, wrapping, fmt.Errorf, convention, zerodha, provider]
+    path: convention/2026-04-09-error-wrapping-required-at-every-call-site.md
+    summary: "All error returns must use fmt.Errorf(\"context: %w\", err) — bare return err is disallowed. Wrapping message describes the operation, not the error. Exceptions: intentional best-effort discards (nolint) and propagating already-wrapped sentinels like ErrAuthRequired."
+
   - id: 2026-04-08-godoc-required-on-exported-types
     title: "Godoc comments are required on all exported types and functions"
     date: 2026-04-08
