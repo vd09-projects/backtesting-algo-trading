@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-09-no-type-name-stutter-project-wide
+    title: "No type-name stutter — project-wide convention"
+    date: 2026-04-09
+    status: accepted
+    category: convention
+    tags: [naming, revive, convention, stutter, output, Config]
+    path: convention/2026-04-09-no-type-name-stutter-project-wide.md
+    summary: "Exported types must not repeat their package name (output.OutputConfig → output.Config). Revive linter enforces this project-wide. Task acceptance criteria that name types describe intent, not the literal identifier — the no-stutter rule takes precedence."
+
+  - id: 2026-04-09-io-writer-in-config-for-stdout-testability
+    title: "io.Writer field in Config for stdout testability"
+    date: 2026-04-09
+    status: accepted
+    category: convention
+    tags: [output, testing, io.Writer, Config, testability, stdout, convention]
+    path: convention/2026-04-09-io-writer-in-config-for-stdout-testability.md
+    summary: "output.Config.Stdout io.Writer (nil → os.Stdout) allows unit tests to capture stdout via bytes.Buffer without OS-level pipe hacks. Follows the same injectable-via-Config pattern as sleep injection in the zerodha provider."
+
   - id: 2026-04-09-error-wrapping-required-at-every-call-site
     title: "Every error return must be wrapped with call-site context"
     date: 2026-04-09

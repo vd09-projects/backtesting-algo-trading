@@ -19,18 +19,19 @@ _Nothing in progress._
 
 ### [TASK-0010] Output package — result formatting and JSON export
 
-- **Status:** todo
+- **Status:** done
 - **Priority:** medium
 - **Created:** 2026-04-07
+- **Completed:** 2026-04-09
 - **Source:** project
 - **Context:** `internal/analytics/` produces a `Report`; `internal/output/` needs to format it for human consumption and persist it as JSON. Without this, backtest results only exist in memory.
 - **Acceptance criteria:**
-  - [ ] `internal/output/` package with `Write(report analytics.Report, cfg OutputConfig) error`
-  - [ ] Human-readable text summary printed to stdout (P&L, win rate, max drawdown, trade count)
-  - [ ] JSON export to a configurable output file path
-  - [ ] `OutputConfig` specifies: output file path, whether to print to stdout
-  - [ ] Tests: known `Report` → expected JSON output (table-driven)
-  - [ ] Edge case: empty report (zero trades) produces valid output, not a crash
+  - [x] `internal/output/` package with `Write(report analytics.Report, cfg OutputConfig) error`
+  - [x] Human-readable text summary printed to stdout (P&L, win rate, max drawdown, trade count)
+  - [x] JSON export to a configurable output file path
+  - [x] `OutputConfig` specifies: output file path, whether to print to stdout
+  - [x] Tests: known `Report` → expected JSON output (table-driven)
+  - [x] Edge case: empty report (zero trades) produces valid output, not a crash
 
 ---
 
