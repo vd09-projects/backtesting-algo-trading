@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-08-provider-validates-via-model-newcandle
+    title: "Provider validates API responses via model.NewCandle at parse time"
+    date: 2026-04-08
+    status: accepted
+    category: convention
+    tags: [zerodha, provider, candle, validation, model, NewCandle, parseKiteCandles, convention]
+    path: convention/2026-04-08-provider-validates-via-model-newcandle.md
+    summary: "Providers call model.NewCandle (with Validate) rather than constructing struct literals. Catches invalid API data (e.g. OHLC=0 for suspended instruments) at the data boundary. Convention: providers validate, engine and analytics trust."
+
+  - id: 2026-04-08-dohttp-centralizes-auth-errors
+    title: "`doHTTP` helper centralizes 401/403 → ErrAuthRequired mapping"
+    date: 2026-04-08
+    status: accepted
+    category: architecture
+    tags: [zerodha, provider, http, auth, error-handling, ErrAuthRequired, doHTTP, convention]
+    path: architecture/2026-04-08-dohttp-centralizes-auth-errors.md
+    summary: "Package-private doHTTP maps HTTP 401/403 → ErrAuthRequired in one place. Every HTTP call in the package gets correct auth error handling automatically. New call sites can't accidentally miss the mapping."
+
+  - id: 2026-04-08-sleep-injection-via-config
+    title: "Sleep injection via Config for rate-limit throttling"
+    date: 2026-04-08
+    status: accepted
+    category: convention
+    tags: [zerodha, provider, testing, sleep, config, injection, rate-limit, convention]
+    path: convention/2026-04-08-sleep-injection-via-config.md
+    summary: "Config.Sleep func(time.Duration) defaults to time.Sleep; tests pass a no-op. Chosen over global variable (violates no-global-state rule), build tags (hidden dependency), and Sleeper interface (overkill for one function). Preferred pattern for all injectable behaviors in this package."
+
   - id: 2026-04-07-zerodha-instrument-token-lookup
     title: "Zerodha instrument token lookup — CSV download at provider init"
     date: 2026-04-07

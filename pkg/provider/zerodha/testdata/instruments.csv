@@ -1,0 +1,6 @@
+instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange
+256265,1001,NIFTY 50,"NIFTY 50",0,,0,0.05,50,INDEX,INDICES,NSE
+260105,1016,SENSEX,"SENSEX",0,,0,0.05,10,INDEX,INDICES,BSE
+738561,2885,RELIANCE,"Reliance Industries",0,,0,0.05,1,EQ,NSE,NSE
+5633,22,INFY,"Infosys Limited",0,,0,0.05,1,EQ,NSE,NSE
+225537,882,GOLDPETAL,"Gold Petal",0,,0,1,1,FUT,MCX-FUT,MCX

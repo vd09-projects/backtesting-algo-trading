@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-07 | **Open tasks:** 5 | **Next up:** TASK-0008
+**Last updated:** 2026-04-08 | **Open tasks:** 5 | **Next up:** TASK-0009
 
 ---
 
@@ -8,15 +8,9 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
-_No tasks in progress._
-
-## Up Next
-
-<!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
 ### [TASK-0008] Zerodha provider — auth, token refresh, and FetchCandles
 
-- **Status:** todo
+- **Status:** in-progress
 - **Priority:** medium
 - **Created:** 2026-04-01
 - **Source:** project
@@ -31,6 +25,10 @@ _No tasks in progress._
 - **Notes:** Auth strategy and pagination decisions in `decisions/infrastructure/`. Token persisted to `~/.config/backtest/token.json` with 6AM IST expiry. Chunk strategy: per-interval maxDays map, 350ms sleep between chunks.
 
 ---
+
+## Up Next
+
+<!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
 ### [TASK-0009] Zerodha provider — local caching layer
 

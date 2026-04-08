@@ -38,3 +38,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-07 00:00 | TASK-0010 | created | priority: medium, source: project | Output package — result formatting and JSON export |
 | 2026-04-07 00:00 | TASK-0011 | created | priority: medium, source: project | CLI entrypoint — cmd/backtest wiring |
 | 2026-04-07 00:00 | TASK-0012 | created | priority: low, source: project | First concrete strategy — SMA crossover |
+| 2026-04-08 00:00 | TASK-0008 | status → in-progress | starting implementation | |
