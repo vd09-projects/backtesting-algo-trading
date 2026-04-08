@@ -1,4 +1,4 @@
-// cmd/providertest exercises the real ZerodhaProvider against the live Kite Connect API.
+// cmd/providertest exercises the real Provider against the live Kite Connect API.
 // It is NOT production code — manual smoke test for TASK-0008 verification.
 //
 // Usage:
@@ -27,7 +27,10 @@ func tokenFilePath() string {
 	if p := os.Getenv("BACKTEST_TOKEN_PATH"); p != "" {
 		return p
 	}
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fatalf("UserHomeDir: %v", err)
+	}
 	return home + "/.config/backtest/token.json"
 }
 
@@ -49,13 +52,13 @@ func main() {
 
 	ctx := context.Background()
 
-	fmt.Println("\nConstructing ZerodhaProvider (downloads instruments CSV)…")
-	p, err := zerodha.NewZerodhaProvider(ctx, zerodha.Config{
+	fmt.Println("\nConstructing Provider (downloads instruments CSV)…")
+	p, err := zerodha.NewProvider(ctx, zerodha.Config{
 		APIKey:      apiKey,
 		AccessToken: accessToken,
 	})
 	if err != nil {
-		fatalf("NewZerodhaProvider: %v", err)
+		fatalf("NewProvider: %v", err)
 	}
 	fmt.Printf("✓ Provider ready. Supported timeframes: %v\n", p.SupportedTimeframes())
 
@@ -128,7 +131,7 @@ func loadDotEnv(path string) {
 	if err != nil {
 		return
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck // close on a read-only file is non-actionable
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -140,7 +143,7 @@ func loadDotEnv(path string) {
 			continue
 		}
 		if os.Getenv(strings.TrimSpace(key)) == "" {
-			os.Setenv(strings.TrimSpace(key), strings.TrimSpace(value)) //nolint:errcheck
+			os.Setenv(strings.TrimSpace(key), strings.TrimSpace(value)) //nolint:errcheck // key is non-empty and contains no '=' (already split on it)
 		}
 	}
 }

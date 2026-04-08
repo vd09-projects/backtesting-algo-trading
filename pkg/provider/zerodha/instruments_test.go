@@ -21,11 +21,11 @@ func TestParseInstrumentsCSV_basic(t *testing.T) {
 	}
 
 	want := map[string]int64{
-		"NSE:NIFTY 50":    256265,
-		"BSE:SENSEX":      260105,
-		"NSE:RELIANCE":    738561,
-		"NSE:INFY":        5633,
-		"MCX:GOLDPETAL":   225537,
+		"NSE:NIFTY 50":  256265,
+		"BSE:SENSEX":    260105,
+		"NSE:RELIANCE":  738561,
+		"NSE:INFY":      5633,
+		"MCX:GOLDPETAL": 225537,
 	}
 
 	for key, wantToken := range want {

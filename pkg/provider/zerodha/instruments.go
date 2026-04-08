@@ -92,4 +92,3 @@ func parseInstrumentsCSV(data []byte) (map[string]int64, error) {
 	}
 	return tokens, nil
 }
-

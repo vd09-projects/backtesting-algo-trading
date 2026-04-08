@@ -118,12 +118,15 @@ func TestLoadToken_expired(t *testing.T) {
 		AccessToken: "old-token",
 		ExpiresAt:   time.Now().UTC().Add(-1 * time.Hour), // already expired
 	}
-	data, _ := json.Marshal(rec)
+	data, err := json.Marshal(rec)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := LoadToken(path)
+	_, err = LoadToken(path)
 	if !errors.Is(err, ErrAuthRequired) {
 		t.Errorf("want ErrAuthRequired for expired token, got %v", err)
 	}
@@ -137,12 +140,15 @@ func TestLoadToken_empty_access_token(t *testing.T) {
 		AccessToken: "",
 		ExpiresAt:   time.Now().UTC().Add(1 * time.Hour),
 	}
-	data, _ := json.Marshal(rec)
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	data, err := json.Marshal(rec)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if err = os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := LoadToken(path)
+	_, err = LoadToken(path)
 	if !errors.Is(err, ErrAuthRequired) {
 		t.Errorf("want ErrAuthRequired for empty token, got %v", err)
 	}
@@ -170,12 +176,102 @@ func TestExchangeToken_success(t *testing.T) {
 
 func TestExchangeToken_http_error(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "unauthorised", http.StatusUnauthorized)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}))
 	defer srv.Close()
 
 	_, err := ExchangeToken(context.Background(), srv.Client(), srv.URL, "key", "reqtok", "secret")
 	if err == nil {
 		t.Fatal("want error, got nil")
+	}
+}
+
+func TestExchangeToken_invalid_url(t *testing.T) {
+	_, err := ExchangeToken(context.Background(), http.DefaultClient, "://bad-url", "key", "reqtok", "secret")
+	if err == nil {
+		t.Fatal("want error for invalid base URL, got nil")
+	}
+}
+
+func TestExchangeToken_malformed_json(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`not json`))
+	}))
+	defer srv.Close()
+
+	_, err := ExchangeToken(context.Background(), srv.Client(), srv.URL, "key", "reqtok", "secret")
+	if err == nil {
+		t.Fatal("want error for malformed JSON, got nil")
+	}
+}
+
+func TestExchangeToken_empty_access_token_in_response(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"success","data":{"access_token":""}}`))
+	}))
+	defer srv.Close()
+
+	_, err := ExchangeToken(context.Background(), srv.Client(), srv.URL, "key", "reqtok", "secret")
+	if err == nil {
+		t.Fatal("want error for empty access_token, got nil")
+	}
+}
+
+func TestSaveToken_mkdir_failure(t *testing.T) {
+	dir := t.TempDir()
+	// Create a regular file where a directory needs to be so MkdirAll fails.
+	blockingFile := filepath.Join(dir, "notadir")
+	if err := os.WriteFile(blockingFile, []byte{}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := SaveToken(filepath.Join(blockingFile, "token.json"), "tok")
+	if err == nil {
+		t.Fatal("want error when parent path is a file, got nil")
+	}
+}
+
+func TestSaveToken_write_failure(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root can write to read-only directories")
+	}
+	dir := t.TempDir()
+	readOnly := filepath.Join(dir, "readonly")
+	if err := os.MkdirAll(readOnly, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	err := SaveToken(filepath.Join(readOnly, "token.json"), "tok")
+	if err == nil {
+		t.Fatal("want error writing to read-only directory, got nil")
+	}
+}
+
+func TestLoadToken_unreadable_file(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root can read files with mode 0")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "token.json")
+	if err := os.WriteFile(path, []byte(`{}`), 0o000); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadToken(path)
+	if err == nil {
+		t.Fatal("want error for unreadable file, got nil")
+	}
+	if errors.Is(err, ErrAuthRequired) {
+		t.Errorf("want a read error, not ErrAuthRequired")
+	}
+}
+
+func TestLoadToken_bad_json(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "token.json")
+	if err := os.WriteFile(path, []byte(`not json`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadToken(path)
+	if err == nil {
+		t.Fatal("want error for bad JSON, got nil")
 	}
 }

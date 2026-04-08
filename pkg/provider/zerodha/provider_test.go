@@ -43,18 +43,18 @@ func newTestServer(t *testing.T, candleJSON []byte, requestCount *atomic.Int32) 
 	}))
 }
 
-func TestNewZerodhaProvider_success(t *testing.T) {
+func TestNewProvider_success(t *testing.T) {
 	srv := newTestServer(t, []byte(`{"data":{"candles":[]}}`), nil)
 	defer srv.Close()
 
-	p, err := NewZerodhaProvider(t.Context(), Config{
+	p, err := NewProvider(t.Context(), Config{
 		APIKey:      "key",
 		AccessToken: "token",
 		BaseURL:     srv.URL,
 		HTTPClient:  srv.Client(),
 	})
 	if err != nil {
-		t.Fatalf("NewZerodhaProvider: %v", err)
+		t.Fatalf("NewProvider: %v", err)
 	}
 	if len(p.tokens) == 0 {
 		t.Error("tokens map is empty after construction")
@@ -64,27 +64,27 @@ func TestNewZerodhaProvider_success(t *testing.T) {
 	}
 }
 
-func TestNewZerodhaProvider_empty_api_key(t *testing.T) {
-	_, err := NewZerodhaProvider(t.Context(), Config{AccessToken: "tok"})
+func TestNewProvider_empty_api_key(t *testing.T) {
+	_, err := NewProvider(t.Context(), Config{AccessToken: "tok"})
 	if !errors.Is(err, ErrAuthRequired) {
 		t.Errorf("want ErrAuthRequired, got %v", err)
 	}
 }
 
-func TestNewZerodhaProvider_empty_access_token(t *testing.T) {
-	_, err := NewZerodhaProvider(t.Context(), Config{APIKey: "key"})
+func TestNewProvider_empty_access_token(t *testing.T) {
+	_, err := NewProvider(t.Context(), Config{APIKey: "key"})
 	if !errors.Is(err, ErrAuthRequired) {
 		t.Errorf("want ErrAuthRequired, got %v", err)
 	}
 }
 
-func TestNewZerodhaProvider_instruments_error(t *testing.T) {
+func TestNewProvider_instruments_error(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "server error", http.StatusInternalServerError)
 	}))
 	defer srv.Close()
 
-	_, err := NewZerodhaProvider(t.Context(), Config{
+	_, err := NewProvider(t.Context(), Config{
 		APIKey: "key", AccessToken: "tok",
 		BaseURL: srv.URL, HTTPClient: srv.Client(),
 	})
@@ -97,7 +97,7 @@ func TestSupportedTimeframes(t *testing.T) {
 	srv := newTestServer(t, []byte(`{"data":{"candles":[]}}`), nil)
 	defer srv.Close()
 
-	p, err := NewZerodhaProvider(t.Context(), Config{
+	p, err := NewProvider(t.Context(), Config{
 		APIKey: "key", AccessToken: "tok",
 		BaseURL: srv.URL, HTTPClient: srv.Client(),
 	})
@@ -127,7 +127,7 @@ func TestFetchCandles_daily_fixture(t *testing.T) {
 	srv := newTestServer(t, fixtureJSON, nil)
 	defer srv.Close()
 
-	p, err := NewZerodhaProvider(t.Context(), Config{
+	p, err := NewProvider(t.Context(), Config{
 		APIKey: "key", AccessToken: "tok",
 		BaseURL: srv.URL, HTTPClient: srv.Client(),
 		Sleep: func(time.Duration) {}, // no-op in tests
@@ -181,7 +181,7 @@ func TestFetchCandles_instrument_not_found(t *testing.T) {
 	srv := newTestServer(t, []byte(`{"data":{"candles":[]}}`), nil)
 	defer srv.Close()
 
-	p, err := NewZerodhaProvider(t.Context(), Config{
+	p, err := NewProvider(t.Context(), Config{
 		APIKey: "key", AccessToken: "tok",
 		BaseURL: srv.URL, HTTPClient: srv.Client(),
 	})
@@ -200,7 +200,7 @@ func TestFetchCandles_unsupported_timeframe(t *testing.T) {
 	srv := newTestServer(t, []byte(`{"data":{"candles":[]}}`), nil)
 	defer srv.Close()
 
-	p, err := NewZerodhaProvider(t.Context(), Config{
+	p, err := NewProvider(t.Context(), Config{
 		APIKey: "key", AccessToken: "tok",
 		BaseURL: srv.URL, HTTPClient: srv.Client(),
 	})
@@ -216,7 +216,10 @@ func TestFetchCandles_unsupported_timeframe(t *testing.T) {
 }
 
 func TestFetchCandles_auth_error(t *testing.T) {
-	csvData, _ := os.ReadFile(filepath.Join("testdata", "instruments.csv"))
+	csvData, err := os.ReadFile(filepath.Join("testdata", "instruments.csv"))
+	if err != nil {
+		t.Fatalf("read instruments testdata: %v", err)
+	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/instruments" {
@@ -228,7 +231,7 @@ func TestFetchCandles_auth_error(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p, err := NewZerodhaProvider(t.Context(), Config{
+	p, err := NewProvider(t.Context(), Config{
 		APIKey: "key", AccessToken: "tok",
 		BaseURL: srv.URL, HTTPClient: srv.Client(),
 	})
@@ -248,7 +251,7 @@ func TestFetchCandles_chunked_makes_multiple_requests(t *testing.T) {
 	srv := newTestServer(t, []byte(`{"data":{"candles":[]}}`), &count)
 	defer srv.Close()
 
-	p, err := NewZerodhaProvider(t.Context(), Config{
+	p, err := NewProvider(t.Context(), Config{
 		APIKey: "key", AccessToken: "tok",
 		BaseURL:    srv.URL,
 		HTTPClient: srv.Client(),
@@ -272,15 +275,18 @@ func TestFetchCandles_chunked_makes_multiple_requests(t *testing.T) {
 	}
 }
 
-func TestFetchCandles_context_cancelled(t *testing.T) {
+func TestFetchCandles_context_canceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 
 	// Cancel after the first chunk is served.
+	instrumentsCSV, err := os.ReadFile(filepath.Join("testdata", "instruments.csv"))
+	if err != nil {
+		t.Fatalf("read instruments testdata: %v", err)
+	}
 	var requestsDone atomic.Int32
 	cancelSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/instruments" {
-			csvData, _ := os.ReadFile(filepath.Join("testdata", "instruments.csv"))
-			_, _ = w.Write(csvData)
+			_, _ = w.Write(instrumentsCSV)
 			return
 		}
 		n := requestsDone.Add(1)
@@ -294,8 +300,8 @@ func TestFetchCandles_context_cancelled(t *testing.T) {
 	}))
 	defer cancelSrv.Close()
 
-	// Re-construct with the cancelling server.
-	p2, err := NewZerodhaProvider(t.Context(), Config{
+	// Re-construct with the canceling server.
+	p2, err := NewProvider(t.Context(), Config{
 		APIKey: "key", AccessToken: "tok",
 		BaseURL:    cancelSrv.URL,
 		HTTPClient: cancelSrv.Client(),

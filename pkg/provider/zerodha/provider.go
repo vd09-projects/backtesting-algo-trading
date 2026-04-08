@@ -11,10 +11,10 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
 )
 
-// compile-time check that ZerodhaProvider satisfies the DataProvider interface.
-var _ provider.DataProvider = (*ZerodhaProvider)(nil)
+// compile-time check that Provider satisfies the DataProvider interface.
+var _ provider.DataProvider = (*Provider)(nil)
 
-// Config configures the ZerodhaProvider.
+// Config configures the Provider.
 type Config struct {
 	APIKey      string
 	AccessToken string
@@ -28,11 +28,11 @@ type Config struct {
 	Sleep func(time.Duration)
 }
 
-// ZerodhaProvider implements provider.DataProvider using the Kite Connect API.
+// Provider implements provider.DataProvider using the Kite Connect API.
 // Instrument token lookup is resolved once at construction time from the instruments master CSV.
 // Auth token management (login flow, token persistence) is the caller's responsibility;
 // pass a valid AccessToken in Config. FetchCandles returns ErrAuthRequired on 401/403.
-type ZerodhaProvider struct {
+type Provider struct {
 	apiKey      string
 	accessToken string
 	baseURL     string
@@ -41,10 +41,10 @@ type ZerodhaProvider struct {
 	tokens      map[string]int64 // "EXCHANGE:TRADINGSYMBOL" → instrument_token
 }
 
-// NewZerodhaProvider creates a ZerodhaProvider and downloads the instruments CSV.
+// NewProvider creates a Provider and downloads the instruments CSV.
 // Returns ErrAuthRequired if APIKey or AccessToken is empty.
 // The instruments download makes one HTTP call and takes ~1s at startup.
-func NewZerodhaProvider(ctx context.Context, cfg Config) (*ZerodhaProvider, error) {
+func NewProvider(ctx context.Context, cfg Config) (*Provider, error) {
 	if cfg.APIKey == "" || cfg.AccessToken == "" {
 		return nil, ErrAuthRequired
 	}
@@ -63,7 +63,7 @@ func NewZerodhaProvider(ctx context.Context, cfg Config) (*ZerodhaProvider, erro
 		return nil, fmt.Errorf("zerodha: load instruments: %w", err)
 	}
 
-	return &ZerodhaProvider{
+	return &Provider{
 		apiKey:      cfg.APIKey,
 		accessToken: cfg.AccessToken,
 		baseURL:     cfg.BaseURL,
@@ -75,7 +75,7 @@ func NewZerodhaProvider(ctx context.Context, cfg Config) (*ZerodhaProvider, erro
 
 // SupportedTimeframes returns the timeframes supported by the Kite Connect historical API.
 // TimeframeWeekly is intentionally omitted — Kite Connect has no weekly interval.
-func (p *ZerodhaProvider) SupportedTimeframes() []model.Timeframe {
+func (p *Provider) SupportedTimeframes() []model.Timeframe {
 	return []model.Timeframe{
 		model.Timeframe1Min,
 		model.Timeframe5Min,
@@ -92,7 +92,7 @@ func (p *ZerodhaProvider) SupportedTimeframes() []model.Timeframe {
 // Returns ErrInstrumentNotFound if the instrument is not in the instruments map.
 // Returns ErrUnsupportedTimeframe for TimeframeWeekly.
 // Returns ErrAuthRequired if the API returns 401 or 403.
-func (p *ZerodhaProvider) FetchCandles(ctx context.Context, instrument string, tf model.Timeframe, from, to time.Time) ([]model.Candle, error) {
+func (p *Provider) FetchCandles(ctx context.Context, instrument string, tf model.Timeframe, from, to time.Time) ([]model.Candle, error) {
 	token, ok := p.tokens[instrument]
 	if !ok {
 		return nil, fmt.Errorf("%w: %q", ErrInstrumentNotFound, instrument)
@@ -130,7 +130,7 @@ func (p *ZerodhaProvider) FetchCandles(ctx context.Context, instrument string, t
 // fetchChunk fetches candles for a single date window from the Kite API.
 // from and to are converted to IST before formatting, as the API interprets
 // query parameters in IST time.
-func (p *ZerodhaProvider) fetchChunk(ctx context.Context, instrument string, tf model.Timeframe, token int64, interval string, from, to time.Time) ([]model.Candle, error) {
+func (p *Provider) fetchChunk(ctx context.Context, instrument string, tf model.Timeframe, token int64, interval string, from, to time.Time) ([]model.Candle, error) {
 	endpoint := fmt.Sprintf("%s/instruments/historical/%d/%s", p.baseURL, token, interval)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
