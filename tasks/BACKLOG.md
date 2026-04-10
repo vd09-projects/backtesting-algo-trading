@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-10 | **Open tasks:** 13 | **Next up:** TASK-0011
+**Last updated:** 2026-04-10 | **Open tasks:** 12 | **Next up:** TASK-0025
 
 ---
 
@@ -15,23 +15,6 @@ _Nothing in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0011] CLI entrypoint — cmd/backtest wiring
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-07
-- **Source:** project
-- **Context:** The engine, analytics, and output packages all exist but nothing wires them together into a runnable command. This task produces the first end-to-end `go run cmd/backtest` invocation.
-- **Acceptance criteria:**
-  - [ ] `cmd/backtest/main.go` parses flags: `--instrument`, `--from`, `--to`, `--timeframe`, `--cash`, `--strategy`, `--out` (output file)
-  - [ ] Wires provider → engine → analytics → output in the correct order
-  - [ ] Strategy selected by name from a registry of available strategies (at minimum one stub)
-  - [ ] Graceful error handling: invalid flags, provider errors, engine errors each produce a useful message and non-zero exit code
-  - [ ] `go run cmd/backtest --help` documents all flags
-- **Notes:** Can be started structurally before TASK-0012 with a stub strategy registry entry. Final wiring requires at least one real strategy.
-
----
 
 ### [TASK-0025] Data quality — verify corporate action handling in Zerodha historical data
 
