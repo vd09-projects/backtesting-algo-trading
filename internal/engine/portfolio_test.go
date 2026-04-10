@@ -318,6 +318,72 @@ func TestPortfolio_SlippageAndCommission(t *testing.T) {
 	}
 }
 
+// ── equity curve integration tests ───────────────────────────────────────────
+
+func TestPortfolio_EquityCurve_HoldOnly(t *testing.T) {
+	// No signals → no trades → equity stays at initial cash for every bar.
+	port := runWithSignals(t, 10_000, 1.0, model.OrderConfig{}, []model.Signal{
+		model.SignalHold, model.SignalHold, model.SignalHold,
+	})
+	// runWithSignals adds one trailing candle: 3 signals + 1 = 4 candles total.
+	curve := port.EquityCurve()
+	require.Len(t, curve, 4)
+	for i, pt := range curve {
+		assert.InDelta(t, 10_000.0, pt.Value, 1e-6, "bar %d: expected cash-only equity", i)
+	}
+}
+
+func TestPortfolio_EquityCurve_BuyHoldSell(t *testing.T) {
+	// Controlled candles (no slippage, no commission, sizeFraction=1.0, cash=1000):
+	//   bar0: Open=100, Close=100  — Buy signal emitted; no fill yet
+	//   bar1: Open=100, Close=110  — Buy fills at Open=100: qty=10, cash=0; MtM at close=110 → 1100
+	//   bar2: Open=110, Close=120  — holding; MtM at close=120 → 1200
+	//   bar3: Open=120, Close=130  — Sell fills at Open=120: cash=1200; equity=1200
+	t0 := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
+	candles := []model.Candle{
+		{Instrument: "X", Timeframe: model.TimeframeDaily, Timestamp: t0, Open: 100, High: 105, Low: 95, Close: 100, Volume: 1000},
+		{Instrument: "X", Timeframe: model.TimeframeDaily, Timestamp: t0.Add(24 * time.Hour), Open: 100, High: 115, Low: 99, Close: 110, Volume: 1000},
+		{Instrument: "X", Timeframe: model.TimeframeDaily, Timestamp: t0.Add(48 * time.Hour), Open: 110, High: 125, Low: 109, Close: 120, Volume: 1000},
+		{Instrument: "X", Timeframe: model.TimeframeDaily, Timestamp: t0.Add(72 * time.Hour), Open: 120, High: 135, Low: 119, Close: 130, Volume: 1000},
+	}
+
+	cfg := engine.Config{
+		Instrument:           "X",
+		From:                 t0,
+		To:                   t0.AddDate(0, 0, 5),
+		InitialCash:          1_000,
+		PositionSizeFraction: 1.0,
+	}
+	s := &signalStrategy{signals: []model.Signal{model.SignalBuy, model.SignalHold, model.SignalSell}}
+	prov := &stubProvider{candles: candles}
+
+	e := engine.New(cfg)
+	require.NoError(t, e.Run(context.Background(), prov, s))
+	port := e.Portfolio()
+
+	curve := port.EquityCurve()
+	require.Len(t, curve, 4)
+
+	assert.Equal(t, t0, curve[0].Timestamp)
+	assert.Equal(t, t0.Add(24*time.Hour), curve[1].Timestamp)
+	assert.Equal(t, t0.Add(48*time.Hour), curve[2].Timestamp)
+	assert.Equal(t, t0.Add(72*time.Hour), curve[3].Timestamp)
+
+	assert.InDelta(t, 1_000.0, curve[0].Value, 1e-6, "bar0: no fill yet, cash only")
+	assert.InDelta(t, 1_100.0, curve[1].Value, 1e-6, "bar1: long 10@100, MtM close=110")
+	assert.InDelta(t, 1_200.0, curve[2].Value, 1e-6, "bar2: long 10@100, MtM close=120")
+	assert.InDelta(t, 1_200.0, curve[3].Value, 1e-6, "bar3: sold at open=120, cash=1200")
+}
+
+func TestPortfolio_EquityCurve_LengthMatchesCandles(t *testing.T) {
+	// Equity curve must have exactly one entry per candle.
+	// runWithSignals with 2 signals produces len(signals)+1 = 3 candles.
+	port := runWithSignals(t, 10_000, 0.1, model.OrderConfig{}, []model.Signal{
+		model.SignalBuy, model.SignalSell,
+	})
+	assert.Len(t, port.EquityCurve(), 3)
+}
+
 // ── helpers to inspect portfolio state ───────────────────────────────────────
 
 func closedTrades(p *engine.Portfolio) []model.Trade { return p.ClosedTrades() }

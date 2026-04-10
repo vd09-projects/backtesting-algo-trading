@@ -8,6 +8,51 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-10-nse-annualization-factors
+    title: "NSE annualization factors for Sharpe and volatility calculations"
+    date: 2026-04-10
+    status: accepted
+    category: convention
+    tags: [NSE, annualization, sharpe, volatility, timeframe, 15min, daily, bars-per-year, analytics, convention]
+    path: convention/2026-04-10-nse-annualization-factors.md
+    summary: "NSE session is 9:15–3:30 IST = 375 min/day. Annualization factors: daily→252, 15min→6300, 1min→94500. US session (390 min/day = 26 bars) must not be used for NSE strategies. All Sharpe, Sortino, and vol-targeting implementations use these constants."
+
+  - id: 2026-04-10-corporate-action-verification-gate
+    title: "Zerodha corporate action verification required before running any strategy"
+    date: 2026-04-10
+    status: accepted
+    category: infrastructure
+    tags: [zerodha, data-quality, corporate-action, adjusted-prices, unadjusted, split, dividend, gate, TASK-0025]
+    path: infrastructure/2026-04-10-corporate-action-verification-gate.md
+    summary: "TASK-0025 is a mandatory gate before any strategy executes. Zerodha's adjustment behaviour must be verified against a known split event. Unadjusted prices cause phantom drawdowns and corrupted Sharpe — silent failures that waste entire strategy evaluation runs."
+
+  - id: 2026-04-10-strategy-proliferation-gate
+    title: "Strategy proliferation gate — Sharpe ≥ 0.5 vs buy-and-hold before variation strategies"
+    date: 2026-04-10
+    status: accepted
+    category: algorithm
+    tags: [strategy, sharpe, gate, research-methodology, MACD, bollinger-bands, SMA, RSI, buy-and-hold, overfitting]
+    path: algorithm/2026-04-10-strategy-proliferation-gate.md
+    summary: "MACD and Bollinger Bands are only built if the baseline strategy in their thesis category (SMA crossover or RSI) achieves Sharpe ≥ 0.5 vs buy-and-hold after costs. Threshold set before seeing results to prevent post-hoc rationalisation. Low bar: filters dead strategies, not underpowered ones."
+
+  - id: 2026-04-10-equitypoint-in-pkg-model
+    title: "EquityPoint defined in pkg/model, not internal/engine"
+    date: 2026-04-10
+    status: accepted
+    category: convention
+    tags: [equity-curve, model, pkg/model, analytics, architecture, dependency-direction, EquityPoint]
+    path: convention/2026-04-10-equitypoint-in-pkg-model.md
+    summary: "EquityPoint lives in pkg/model so analytics and output can import it without depending on internal/engine. Engine → model is the only valid dep direction; analytics → engine would violate the architecture."
+
+  - id: 2026-04-10-equity-curve-covers-all-bars
+    title: "Equity curve records every bar, including warmup"
+    date: 2026-04-10
+    status: accepted
+    category: convention
+    tags: [equity-curve, engine, portfolio, lookback, warmup, analytics]
+    path: convention/2026-04-10-equity-curve-covers-all-bars.md
+    summary: "RecordEquity is called unconditionally for every candle, including warmup bars. Invariant: len(EquityCurve()) == len(candles) always. Warmup snapshots show cash-only equity (no fills possible yet). Chosen over post-lookback-only recording to give analytics a stable, length-predictable time series."
+
   - id: 2026-04-09-no-type-name-stutter-project-wide
     title: "No type-name stutter — project-wide convention"
     date: 2026-04-09

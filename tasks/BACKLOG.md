@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-10 | **Open tasks:** 15 | **Next up:** TASK-0013
+**Last updated:** 2026-04-10 | **Open tasks:** 14 | **Next up:** TASK-0014
 
 ---
 
@@ -16,31 +16,12 @@ _Nothing in progress._
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0013] Analytics — equity curve time series in Portfolio
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** Sharpe ratio and rolling drawdown require a time series of portfolio equity value, not just per-trade P&L. The Portfolio currently has no mechanism to snapshot equity at each bar; this task adds it.
-- **Acceptance criteria:**
-  - [ ] `Portfolio` tracks an `EquityCurve []EquityPoint` where each point is `{Timestamp time.Time; Value float64}`
-  - [ ] `EquityPoint.Value` = cash + mark-to-market value of any open position at the current bar's close price
-  - [ ] Engine calls a `portfolio.RecordEquity(candle)` method after each bar (open positions marked at close)
-  - [ ] `Portfolio.EquityCurve()` returns the full time series after Run completes
-  - [ ] Tests: known candle/signal sequence → expected equity curve values (table-driven)
-  - [ ] No allocations per-bar beyond the pre-allocated slice (grow-once strategy)
-- **Notes:** This is the prerequisite for TASK-0014 (Sharpe ratio). The `analytics.Compute` signature may need to accept equity curve in addition to trades.
-
----
-
 ### [TASK-0014] Analytics — annualized Sharpe ratio
 
 - **Status:** todo
 - **Priority:** high
 - **Created:** 2026-04-10
 - **Source:** session
-- **Blocked by:** TASK-0013
 - **Context:** Win rate and max drawdown alone are insufficient to evaluate a strategy. Sharpe ratio is the primary signal-to-noise metric; without it, every backtest result is uninterpretable. Must be annualized correctly from the bar return series, not from total P&L.
 - **Acceptance criteria:**
   - [ ] `analytics.Report` gains a `SharpeRatio float64` field

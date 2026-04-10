@@ -80,7 +80,7 @@ func (e *Engine) Run(ctx context.Context, p provider.DataProvider, s strategy.St
 		return fmt.Errorf("engine: strategy %q declared lookback %d, must be >= 1", s.Name(), lookback)
 	}
 
-	e.portfolio = newPortfolio(e.config.InitialCash, e.config.OrderConfig)
+	e.portfolio = newPortfolio(e.config.InitialCash, e.config.OrderConfig, len(candles))
 	e.barResults = make([]BarResult, 0, len(candles)-lookback+1)
 
 	// pendingSignal holds the signal from the previous bar, to be filled at
@@ -102,6 +102,9 @@ func (e *Engine) Run(ctx context.Context, p provider.DataProvider, s strategy.St
 			}
 			pendingSignal = model.SignalHold
 		}
+
+		// Snapshot equity at this bar's close (after fill, before next signal).
+		e.portfolio.RecordEquity(candles[i])
 
 		if i+1 < lookback {
 			continue

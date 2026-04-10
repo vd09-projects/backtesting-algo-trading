@@ -13,14 +13,37 @@ type Portfolio struct {
 	Positions   map[string]model.Position // keyed by instrument
 	Trades      []model.Trade
 	orderConfig model.OrderConfig
+	equityCurve []model.EquityPoint
 }
 
-func newPortfolio(initialCash float64, cfg model.OrderConfig) *Portfolio {
+// newPortfolio creates a Portfolio with the given initial cash and order config.
+// capacity pre-allocates the equity curve slice; pass 0 if unknown.
+func newPortfolio(initialCash float64, cfg model.OrderConfig, capacity int) *Portfolio {
 	return &Portfolio{
 		Cash:        initialCash,
 		Positions:   make(map[string]model.Position),
 		orderConfig: cfg,
+		equityCurve: make([]model.EquityPoint, 0, capacity),
 	}
+}
+
+// RecordEquity snapshots total portfolio value at candle.Close.
+// Value = cash + mark-to-market value of the open position in candle.Instrument (if any).
+// Call once per bar after applying any pending signal.
+func (p *Portfolio) RecordEquity(candle model.Candle) { //nolint:gocritic // Candle is a value type at API boundaries; pointer would leak internals
+	value := p.Cash
+	if pos, ok := p.Positions[candle.Instrument]; ok {
+		value += pos.Quantity * candle.Close
+	}
+	p.equityCurve = append(p.equityCurve, model.EquityPoint{
+		Timestamp: candle.Timestamp,
+		Value:     value,
+	})
+}
+
+// EquityCurve returns the equity time series recorded by RecordEquity.
+func (p *Portfolio) EquityCurve() []model.EquityPoint {
+	return p.equityCurve
 }
 
 // calcFillPrice applies slippage to a base price.
