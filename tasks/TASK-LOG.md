@@ -42,3 +42,27 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-09 00:00 | TASK-0008 | status → done | all acceptance criteria met; archived | |
 | 2026-04-09 00:00 | TASK-0009 | status → in-progress | pkg/provider/zerodha/cache/ implemented; all tests green | |
 | 2026-04-09 00:00 | TASK-0009 | status → done | verified end-to-end via cmd/providertest; archived | |
+| 2026-04-09 00:00 | TASK-0010 | status → done | all acceptance criteria met; archived to 2026-04.md | |
+| 2026-04-10 00:00 | TASK-0013 | created | priority: high, source: session | Equity curve time series in Portfolio — prerequisite for Sharpe |
+| 2026-04-10 00:00 | TASK-0014 | created | priority: high, source: session | Annualized Sharpe ratio in analytics; blocked by TASK-0013 |
+| 2026-04-10 00:00 | TASK-0011 | reprioritized | medium → high | Critical path for running any end-to-end test |
+| 2026-04-10 00:00 | TASK-0012 | reprioritized | low → high | First runnable strategy needed before anything can be validated |
+| 2026-04-10 00:00 | TASK-0015 | created | priority: high, source: session | RSI mean-reversion strategy — second baseline |
+| 2026-04-10 00:00 | TASK-0016 | created | priority: medium, source: session | Profit factor, avg win/loss, Sortino ratio |
+| 2026-04-10 00:00 | TASK-0017 | created | priority: medium, source: session | Drawdown duration tracking |
+| 2026-04-10 00:00 | TASK-0018 | created | priority: medium, source: session | Buy-and-hold benchmark comparison |
+| 2026-04-10 00:00 | TASK-0019 | created | priority: medium, source: session | MACD trend-following strategy |
+| 2026-04-10 00:00 | TASK-0020 | created | priority: medium, source: session | Bollinger Band mean-reversion strategy |
+| 2026-04-10 00:00 | TASK-0021 | created | priority: medium, source: session | Volatility-based position sizing |
+| 2026-04-10 00:00 | TASK-0022 | created | priority: low, source: session | Walk-forward validation framework |
+| 2026-04-10 00:00 | TASK-0023 | created | priority: low, source: session | Parameter sweep runner |
+| 2026-04-10 00:00 | TASK-0024 | created | priority: low, source: session | Monte Carlo bootstrap for Sharpe confidence intervals |
+| 2026-04-10 01:00 | TASK-0025 | created | priority: high, source: session | Data quality — verify corporate action handling in Zerodha historical data; placed before TASK-0012 |
+| 2026-04-10 01:00 | TASK-0018 | reprioritized | moved from Todo (Backlog) to Up Next | Must be available when first strategy results arrive, not after profit factor/Sortino |
+| 2026-04-10 01:00 | TASK-0021 | reprioritized | moved from Todo (Backlog) to Up Next | Sizing must be in place before more strategies are added, not retrofitted later |
+| 2026-04-10 01:00 | TASK-0019 | updated | added explicit conditional gate: cancel if SMA crossover + RSI both fail Sharpe >= 0.5 vs buy-and-hold | |
+| 2026-04-10 01:00 | TASK-0020 | updated | added explicit conditional gate: cancel if RSI mean-reversion fails Sharpe >= 0.5 vs buy-and-hold | |
+| 2026-04-10 02:00 | TASK-0016 | updated | added CalmarRatio to acceptance criteria; Calmar = annualized return / max drawdown | |
+| 2026-04-10 02:00 | TASK-0014 | updated | fixed NSE 15min annualization factor: 252*26 → 252*25 (NSE session = 375 min = 25 bars/day) | |
+| 2026-04-10 03:00 | TASK-0016 | updated | title updated to include Calmar; now matches acceptance criteria scope | |
+| 2026-04-10 03:00 | TASK-0021 | updated | vol sizing criterion clarified: formula yields notional (₹), divide by fillPrice to get quantity; instrumentVol specified as non-annualized daily std dev | |
