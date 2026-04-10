@@ -118,6 +118,22 @@ func TestWrite_StdoutSummary(t *testing.T) {
 	}
 }
 
+func TestWrite_StdoutIncludesSharpe(t *testing.T) {
+	report := analytics.Report{SharpeRatio: 1.2345}
+
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{PrintToStdout: true, Stdout: &buf}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	if !strings.Contains(buf.String(), "Sharpe") {
+		t.Errorf("stdout summary missing Sharpe line:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "1.2345") {
+		t.Errorf("stdout summary missing Sharpe value 1.2345:\n%s", buf.String())
+	}
+}
+
 func TestWrite_StdoutDisabled(t *testing.T) {
 	// When PrintToStdout is false, Stdout writer must not be touched.
 	cfg := output.Config{

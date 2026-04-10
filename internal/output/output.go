@@ -41,8 +41,8 @@ func Write(report analytics.Report, cfg Config) error {
 
 func printSummary(w io.Writer, r analytics.Report) error {
 	_, err := fmt.Fprintf(w,
-		"=== Backtest Results ===\nTrades:       %d\nWin Rate:     %.2f%%\nTotal P&L:    %.2f\nMax Drawdown: %.2f%%\n",
-		r.TradeCount, r.WinRate, r.TotalPnL, r.MaxDrawdown,
+		"=== Backtest Results ===\nTrades:       %d\nWin Rate:     %.2f%%\nTotal P&L:    %.2f\nMax Drawdown: %.2f%%\nSharpe Ratio: %.4f\n",
+		r.TradeCount, r.WinRate, r.TotalPnL, r.MaxDrawdown, r.SharpeRatio,
 	)
 	if err != nil {
 		return fmt.Errorf("output: write summary: %w", err)
