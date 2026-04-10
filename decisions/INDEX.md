@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-10-sharpe-zero-for-degenerate-inputs
+    title: "Sharpe returns 0 for degenerate inputs — Compute() stays error-free"
+    date: 2026-04-10
+    status: accepted
+    category: tradeoff
+    tags: [sharpe, analytics, error-handling, pure-function, Compute, degenerate, zero-variance, timeframe, API-design]
+    path: tradeoff/2026-04-10-sharpe-zero-for-degenerate-inputs.md
+    summary: "Compute() returns SharpeRatio=0 for <3 equity points, zero-variance curves, or unknown timeframes. Keeps the function error-free and consistent with other zero-default metrics. Requires sharpeAnnualizationFactor switch to stay exhaustive — 100% coverage enforces this."
+
+  - id: 2026-04-10-sharpe-sample-variance
+    title: "Sharpe ratio uses sample variance (n-1), not population variance (n)"
+    date: 2026-04-10
+    status: accepted
+    category: algorithm
+    tags: [sharpe, analytics, variance, statistics, standard-deviation, sample, population, equity-curve]
+    path: algorithm/2026-04-10-sharpe-sample-variance.md
+    summary: "Sample std dev (÷ n-1) chosen over population std dev (÷ n). Backtests are finite samples — population variance systematically underestimates variance and inflates Sharpe, especially on short intraday windows. Consistent with Bloomberg, QuantLib, and standard quant practice."
+
   - id: 2026-04-10-nse-annualization-factors
     title: "NSE annualization factors for Sharpe and volatility calculations"
     date: 2026-04-10
