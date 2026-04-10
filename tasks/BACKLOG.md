@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-10 | **Open tasks:** 14 | **Next up:** TASK-0014
+**Last updated:** 2026-04-10 | **Open tasks:** 13 | **Next up:** TASK-0011
 
 ---
 
@@ -15,24 +15,6 @@ _Nothing in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0014] Analytics — annualized Sharpe ratio
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** Win rate and max drawdown alone are insufficient to evaluate a strategy. Sharpe ratio is the primary signal-to-noise metric; without it, every backtest result is uninterpretable. Must be annualized correctly from the bar return series, not from total P&L.
-- **Acceptance criteria:**
-  - [ ] `analytics.Report` gains a `SharpeRatio float64` field
-  - [ ] Sharpe computed from the equity curve's per-bar returns: `mean(r) / stddev(r) * sqrt(N)` where N is bars per year for the strategy's timeframe
-  - [ ] Annualization factor: daily bars → 252, 15min NSE bars → 252*25 (NSE session is 9:15–3:30 = 375 min = 25 bars/day), 1min NSE bars → 252*375, etc.
-  - [ ] Handles edge cases: fewer than 2 bars, zero variance (constant equity)
-  - [ ] Tests: known return sequence → hand-verified expected Sharpe (table-driven, at least 4 cases)
-  - [ ] `output.printSummary` updated to include Sharpe ratio in the printed report
-- **Notes:** Sharpe > 2.5 on daily bars for a non-HFT strategy is a red flag — note this in comments. Blocked on TASK-0013 for the equity curve input.
-
----
 
 ### [TASK-0011] CLI entrypoint — cmd/backtest wiring
 
