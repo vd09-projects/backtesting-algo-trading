@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-10 | **Open tasks:** 11 | **Next up:** TASK-0012
+**Last updated:** 2026-04-13 | **Open tasks:** 10 | **Next up:** TASK-0015
 
 ---
 
@@ -15,25 +15,6 @@ _Nothing in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0012] First concrete strategy — SMA crossover
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-07
-- **Source:** project
-- **Context:** The engine needs at least one real strategy to prove the full pipeline end-to-end. SMA crossover (fast SMA crosses above/below slow SMA) is the simplest meaningful momentum strategy and a good integration test of the go-talib dependency. Treat this as a "dirty test" baseline — the number it produces matters less than confirming the plumbing works.
-- **Acceptance criteria:**
-  - [ ] Live price-continuity check: fetch a NIFTY 50 stock with a known split/bonus (e.g. MRF 1:10 split 2023-10-18 or Wipro 1:1 bonus 2024-01-11) via the provider and confirm no price gap at the event date — must pass before trusting any strategy result
-  - [ ] `strategies/smacrossover/` package implementing the `Strategy` interface
-  - [ ] Uses `github.com/markcheno/go-talib` for SMA computation — no hand-rolled math
-  - [ ] Configurable fast and slow period (e.g. 10/50); defaults baked in
-  - [ ] Lookback returns `slowPeriod` so the engine starts feeding at the right bar
-  - [ ] Tests: known OHLCV sequence → expected signal at each bar (table-driven)
-  - [ ] No import of any concrete type outside `pkg/` — only interfaces and model types
-- **Notes:** Priority upgraded from low to high — without a runnable strategy, nothing else can be validated. TASK-0025 (data quality gate) is now closed — Kite Connect day candles are adjusted for splits/bonuses. The price-continuity check is the first acceptance criterion: TASK-0025 research was documentation-only with no live API call; this is the live verification.
-
----
 
 ### [TASK-0015] Strategy — RSI mean-reversion
 

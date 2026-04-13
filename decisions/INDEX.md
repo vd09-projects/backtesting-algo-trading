@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-13-sma-lookback-returns-slow-period-with-guard
+    title: "SMA crossover Lookback() returns slowPeriod, crossover guard handles first bar"
+    date: 2026-04-13
+    status: accepted
+    category: algorithm
+    tags: [sma-crossover, lookback, guard, slowPeriod, strategy, interface, TASK-0012]
+    path: algorithm/2026-04-13-sma-lookback-returns-slow-period-with-guard.md
+    summary: "Lookback() returns slowPeriod per acceptance criterion; an internal guard (n <= slowPeriod → Hold) handles the one bar where previous slow SMA is not yet valid. Pattern to reuse for any future crossover strategy."
+
+  - id: 2026-04-13-sma-crossover-strict-crossover-vs-level-comparison
+    title: "SMA crossover: strict crossover detection, not level comparison"
+    date: 2026-04-13
+    status: accepted
+    category: algorithm
+    tags: [sma-crossover, signal-semantics, crossover, level-comparison, strategy, Next, BarResult, TASK-0012]
+    path: algorithm/2026-04-13-sma-crossover-strict-crossover-vs-level-comparison.md
+    summary: "Strict crossover (Buy/Sell only on transition bar) chosen over level comparison (Buy every bar fast>slow). Behaviorally equivalent under no-pyramiding, but strict crossover is semantically correct: Signal means 'act now', not 'regime is bullish'. Keeps BarResult logs diagnostic."
+
   - id: 2026-04-10-zerodha-daily-candles-adjusted-for-corporate-actions
     title: "Zerodha daily candles are adjusted for corporate actions — no adjustment layer needed"
     date: 2026-04-10
