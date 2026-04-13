@@ -78,7 +78,8 @@ func TokenFilePath() string {
 // an access token. It prompts the user to open a URL and paste the
 // request_token from the redirect. The token is saved to tokenPath on success;
 // a save failure prints a warning but does not abort.
-func LoginFlow(ctx context.Context, apiKey, apiSecret, tokenPath string) (string, error) {
+// client and baseURL are injected so callers can substitute a test server.
+func LoginFlow(ctx context.Context, client *http.Client, baseURL, apiKey, apiSecret, tokenPath string) (string, error) {
 	fmt.Printf("\nOpen this URL in your browser:\n\n  %s\n\n", zerodha.LoginURL(apiKey))
 	fmt.Println("After login, copy the request_token from the redirect URL and paste it here.")
 
@@ -95,10 +96,7 @@ func LoginFlow(ctx context.Context, apiKey, apiSecret, tokenPath string) (string
 		return "", fmt.Errorf("request_token cannot be empty")
 	}
 
-	accessToken, err := zerodha.ExchangeToken(
-		ctx, http.DefaultClient, "https://api.kite.trade",
-		apiKey, requestToken, apiSecret,
-	)
+	accessToken, err := zerodha.ExchangeToken(ctx, client, baseURL, apiKey, requestToken, apiSecret)
 	if err != nil {
 		return "", fmt.Errorf("ExchangeToken: %w", err)
 	}

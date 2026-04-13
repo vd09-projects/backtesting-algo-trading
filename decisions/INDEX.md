@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-13-function-parameter-injection-for-testability
+    title: "Function-parameter injection for testability — complement to Config injection"
+    date: 2026-04-13
+    status: accepted
+    category: convention
+    tags: [testability, dependency-injection, http.Client, function-parameters, LoginFlow, cmdutil, convention]
+    path: convention/2026-04-13-function-parameter-injection-for-testability.md
+    summary: "Stateless helper functions that call injectable external code (HTTP client, base URL) should accept the dependency as a function parameter, not via a new Config struct. Pattern: callers pass real dependencies explicitly; tests pass httptest.Server clients. Complement to Config-level injection for long-lived structs."
+
+  - id: 2026-04-13-vol-targeting-algorithm-choices
+    title: "Vol-targeting sizing: algorithm choices for window, returns, zero-vol, and cap"
+    date: 2026-04-13
+    status: accepted
+    category: algorithm
+    tags: [volatility-targeting, position-sizing, SizingModel, log-returns, sample-variance, 20-bar-window, no-lookahead, TASK-0021]
+    path: algorithm/2026-04-13-vol-targeting-algorithm-choices.md
+    summary: "20-bar rolling sample std dev of daily log returns. Zero vol → fraction=0 → buy skipped (not fallback to fixed). Fraction capped at 1.0. Vol computed from candles[:i] at fill time (no lookahead). Sample variance consistent with Sharpe. EWMA and simple returns rejected for v1."
+
   - id: 2026-04-13-sma-lookback-returns-slow-period-with-guard
     title: "SMA crossover Lookback() returns slowPeriod, crossover guard handles first bar"
     date: 2026-04-13

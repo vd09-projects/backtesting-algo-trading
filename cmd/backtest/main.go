@@ -26,6 +26,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -145,7 +146,7 @@ func buildProvider(ctx context.Context) (*cache.CachedProvider, error) {
 	accessToken, err := zerodha.LoadToken(path)
 	if err != nil {
 		fmt.Println("No valid saved token — starting Kite Connect login flow.")
-		accessToken, err = cmdutil.LoginFlow(ctx, apiKey, apiSecret, path)
+		accessToken, err = cmdutil.LoginFlow(ctx, http.DefaultClient, "https://api.kite.trade", apiKey, apiSecret, path)
 		if err != nil {
 			return nil, fmt.Errorf("login: %w", err)
 		}

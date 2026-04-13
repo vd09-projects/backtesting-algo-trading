@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-13 | **Open tasks:** 12 | **Next up:** TASK-0021
+**Last updated:** 2026-04-13 | **Open tasks:** 12 | **Next up:** TASK-0015
 
 ---
 
@@ -8,30 +8,26 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
-_Nothing in progress._
+### [TASK-0021] Engine — volatility-based position sizing
+
+- **Status:** in-progress
+- **Priority:** medium
+- **Created:** 2026-04-10
+- **Source:** session
+- **Context:** The current portfolio uses a fixed fraction of cash per trade (`PositionSizeFraction`). This ignores instrument volatility — a quiet stock gets the same dollar risk as a volatile one. Volatility targeting sizes each trade so the expected dollar risk is constant, which improves risk-adjusted returns on any strategy. Must be introduced before additional strategies are built so results are comparable across strategies and sizing doesn't need to be retrofitted.
+- **Acceptance criteria:**
+  - [x] `model.SizingModel` typed enum: `SizingFixed` (current behavior), `SizingVolatilityTarget`
+  - [x] `engine.Config` gains `SizingModel` and `VolatilityTarget float64` (annualized, e.g. 0.10 = 10%)
+  - [x] When `SizingVolatilityTarget`: position notional (₹) = `(cash * volTarget) / (instrumentVol * sqrt(252))` where `instrumentVol` is the 20-bar realized std dev of daily returns (not annualized); position quantity = notional / fillPrice
+  - [x] Existing `SizingFixed` behavior unchanged — backward compatible
+  - [x] Tests: given known vol, expected position size is correct; vol=0 edge case handled
+- **Notes:** Moved to top of queue. Fixed-fraction sizing on a mean-reversion strategy (holds for months) vs a crossover strategy (turns over weekly) produces non-comparable risk-adjusted results. Vol targeting must be in before SMA crossover and RSI mean-rev results are interpreted side by side. **Holdout:** All strategy runs use 2015-2022 data only. 2023-present reserved as holdout.
 
 ---
 
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0021] Engine — volatility-based position sizing
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** The current portfolio uses a fixed fraction of cash per trade (`PositionSizeFraction`). This ignores instrument volatility — a quiet stock gets the same dollar risk as a volatile one. Volatility targeting sizes each trade so the expected dollar risk is constant, which improves risk-adjusted returns on any strategy. Must be introduced before additional strategies are built so results are comparable across strategies and sizing doesn't need to be retrofitted.
-- **Acceptance criteria:**
-  - [ ] `model.SizingModel` typed enum: `SizingFixed` (current behavior), `SizingVolatilityTarget`
-  - [ ] `engine.Config` gains `SizingModel` and `VolatilityTarget float64` (annualized, e.g. 0.10 = 10%)
-  - [ ] When `SizingVolatilityTarget`: position notional (₹) = `(cash * volTarget) / (instrumentVol * sqrt(252))` where `instrumentVol` is the 20-bar realized std dev of daily returns (not annualized); position quantity = notional / fillPrice
-  - [ ] Existing `SizingFixed` behavior unchanged — backward compatible
-  - [ ] Tests: given known vol, expected position size is correct; vol=0 edge case handled
-- **Notes:** Moved to top of queue. Fixed-fraction sizing on a mean-reversion strategy (holds for months) vs a crossover strategy (turns over weekly) produces non-comparable risk-adjusted results. Vol targeting must be in before SMA crossover and RSI mean-rev results are interpreted side by side. **Holdout:** All strategy runs use 2015-2022 data only. 2023-present reserved as holdout.
-
----
 
 ### [TASK-0015] Strategy — RSI mean-reversion
 

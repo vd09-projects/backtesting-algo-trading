@@ -15,6 +15,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -38,7 +39,7 @@ func main() {
 	accessToken, err := zerodha.LoadToken(path)
 	if err != nil {
 		fmt.Println("No valid saved token found — starting login flow.")
-		accessToken, err = cmdutil.LoginFlow(ctx, apiKey, apiSecret, path)
+		accessToken, err = cmdutil.LoginFlow(ctx, http.DefaultClient, "https://api.kite.trade", apiKey, apiSecret, path)
 		if err != nil {
 			cmdutil.Fatalf("login: %v", err)
 		}

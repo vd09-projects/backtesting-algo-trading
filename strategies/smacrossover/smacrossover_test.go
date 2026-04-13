@@ -58,7 +58,8 @@ func TestNew_validPeriods(t *testing.T) {
 // --- Metadata tests ---
 
 func TestStrategy_Name(t *testing.T) {
-	s, _ := smacrossover.New(model.TimeframeDaily, 10, 50)
+	s, err := smacrossover.New(model.TimeframeDaily, 10, 50)
+	require.NoError(t, err)
 	require.Equal(t, "sma-crossover", s.Name())
 }
 
@@ -66,13 +67,15 @@ func TestStrategy_Timeframe(t *testing.T) {
 	for _, tf := range []model.Timeframe{
 		model.Timeframe1Min, model.Timeframe5Min, model.TimeframeDaily,
 	} {
-		s, _ := smacrossover.New(tf, 10, 50)
+		s, err := smacrossover.New(tf, 10, 50)
+		require.NoError(t, err)
 		require.Equal(t, tf, s.Timeframe())
 	}
 }
 
 func TestStrategy_Lookback_equalsSlowPeriod(t *testing.T) {
-	s, _ := smacrossover.New(model.TimeframeDaily, 10, 50)
+	s, err := smacrossover.New(model.TimeframeDaily, 10, 50)
+	require.NoError(t, err)
 	require.Equal(t, 50, s.Lookback())
 }
 
@@ -90,7 +93,8 @@ func TestStrategy_Lookback_equalsSlowPeriod(t *testing.T) {
 //     n=9 → Hold (already below)
 
 func TestStrategy_Next_holdDuringLookback(t *testing.T) {
-	s, _ := smacrossover.New(model.TimeframeDaily, 3, 5)
+	s, err := smacrossover.New(model.TimeframeDaily, 3, 5)
+	require.NoError(t, err)
 	// Exactly slowPeriod (5) candles: guard must return Hold.
 	closes := []float64{10, 10, 10, 10, 10}
 	got := s.Next(makeCandles(closes))
@@ -102,7 +106,8 @@ func TestStrategy_Next_bullishCrossover(t *testing.T) {
 	closes := append(make([]float64, 0, 10),
 		10, 10, 10, 10, 10, 10, 10, 20, 20, 20)
 
-	s, _ := smacrossover.New(model.TimeframeDaily, 3, 5)
+	s, err := smacrossover.New(model.TimeframeDaily, 3, 5)
+	require.NoError(t, err)
 
 	cases := []struct {
 		nCandles int
@@ -126,7 +131,8 @@ func TestStrategy_Next_bearishCrossover(t *testing.T) {
 	closes := append(make([]float64, 0, 10),
 		20, 20, 20, 20, 20, 20, 20, 10, 10, 10)
 
-	s, _ := smacrossover.New(model.TimeframeDaily, 3, 5)
+	s, err := smacrossover.New(model.TimeframeDaily, 3, 5)
+	require.NoError(t, err)
 
 	cases := []struct {
 		nCandles int
@@ -149,7 +155,8 @@ func TestStrategy_Next_noSignalWhenAlreadyCrossed(t *testing.T) {
 	// Start fast already above slow for all bars — no crossover ever fires.
 	// Prices are monotonically increasing so SMA3 > SMA5 from the start.
 	closes := []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	s, _ := smacrossover.New(model.TimeframeDaily, 3, 5)
+	s, err := smacrossover.New(model.TimeframeDaily, 3, 5)
+	require.NoError(t, err)
 
 	// n=6: both prev and curr have fast > slow — no crossover → Hold
 	got := s.Next(makeCandles(closes[:6]))
@@ -162,7 +169,8 @@ func TestStrategy_Next_equalSMAs_noSignal(t *testing.T) {
 	for i := range closes {
 		closes[i] = 100
 	}
-	s, _ := smacrossover.New(model.TimeframeDaily, 3, 5)
+	s, err := smacrossover.New(model.TimeframeDaily, 3, 5)
+	require.NoError(t, err)
 
 	for n := 6; n <= 10; n++ {
 		got := s.Next(makeCandles(closes[:n]))

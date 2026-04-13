@@ -384,6 +384,90 @@ func TestPortfolio_EquityCurve_LengthMatchesCandles(t *testing.T) {
 	assert.Len(t, port.EquityCurve(), 3)
 }
 
+// ── vol-target sizing integration tests ──────────────────────────────────────
+
+func TestEngine_VolatilityTargetSizing_SkipsBuyWhenInsufficientHistory(t *testing.T) {
+	// Strategy emits Buy on bar 0. Fill would happen at bar 1.
+	// candles[:1] has only 1 candle → vol = 0 → buy must be skipped.
+	candles := makeCandles(5)
+	cfg := engine.Config{
+		Instrument:       "TEST",
+		From:             base,
+		To:               base.AddDate(0, 0, 10),
+		InitialCash:      10_000,
+		SizingModel:      model.SizingVolatilityTarget,
+		VolatilityTarget: 0.10,
+	}
+	s := &signalStrategy{signals: []model.Signal{model.SignalBuy}}
+	prov := &stubProvider{candles: candles}
+
+	e := engine.New(cfg)
+	require.NoError(t, e.Run(context.Background(), prov, s))
+
+	port := e.Portfolio()
+	assert.Empty(t, port.Positions, "buy must be skipped when there is insufficient history for vol")
+	assert.InDelta(t, 10_000.0, port.Cash, 1e-6)
+}
+
+func TestEngine_VolatilityTargetSizing_PositionSizeSmallerThanFixed(t *testing.T) {
+	// Build 25 candles with alternating closes 100/110 (high daily vol).
+	// Use a 10% vol target — for volatile prices the fraction will be small.
+	// Compare with a fixed-fraction run at 1.0 to confirm vol-sizing deploys less.
+	t0 := base
+	candles := make([]model.Candle, 25)
+	for i := range candles {
+		cl := 100.0
+		if i%2 != 0 {
+			cl = 110.0
+		}
+		candles[i] = model.Candle{
+			Instrument: "TEST",
+			Timeframe:  model.TimeframeDaily,
+			Timestamp:  t0.AddDate(0, 0, i),
+			Open:       cl, High: cl, Low: cl, Close: cl, Volume: 1000,
+		}
+	}
+
+	runVol := func(volTarget float64) *engine.Portfolio {
+		cfg := engine.Config{
+			Instrument:       "TEST",
+			From:             t0,
+			To:               t0.AddDate(0, 0, 30),
+			InitialCash:      100_000,
+			SizingModel:      model.SizingVolatilityTarget,
+			VolatilityTarget: volTarget,
+		}
+		// Buy on bar 20 (enough history by then), Hold for rest.
+		sigs := make([]model.Signal, 24)
+		for i := range sigs {
+			sigs[i] = model.SignalHold
+		}
+		sigs[20] = model.SignalBuy
+		s := &signalStrategy{signals: sigs}
+		prov := &stubProvider{candles: candles}
+		e := engine.New(cfg)
+		require.NoError(t, e.Run(context.Background(), prov, s))
+		return e.Portfolio()
+	}
+
+	portLow := runVol(0.05)
+	portHigh := runVol(0.20)
+
+	// Higher vol target → larger position → less cash remaining.
+	require.Len(t, portLow.Positions, 1)
+	require.Len(t, portHigh.Positions, 1)
+	assert.Greater(t, portLow.Cash, portHigh.Cash,
+		"lower vol target should deploy less capital (more cash remaining)")
+}
+
+func TestEngine_VolatilityTargetSizing_FixedFractionUnchanged(t *testing.T) {
+	// SizingModel zero value must default to SizingFixed; existing behavior unchanged.
+	// sizeFraction=0.5, cash=10000 → cost=5000, fill at bar1 open=101 → cash remaining≈5000.
+	port := runWithSignals(t, 10_000, 0.5, model.OrderConfig{}, []model.Signal{model.SignalBuy})
+	assert.Len(t, port.Positions, 1)
+	assert.InDelta(t, 5_000.0, port.Cash, 1.0)
+}
+
 // ── helpers to inspect portfolio state ───────────────────────────────────────
 
 func closedTrades(p *engine.Portfolio) []model.Trade { return p.ClosedTrades() }

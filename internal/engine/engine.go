@@ -18,7 +18,9 @@ type Config struct {
 	To                   time.Time
 	InitialCash          float64
 	OrderConfig          model.OrderConfig
-	PositionSizeFraction float64 // fraction of available cash to deploy per trade, e.g. 0.1 = 10%
+	PositionSizeFraction float64           // fraction of available cash to deploy per trade (SizingFixed), e.g. 0.1 = 10%
+	SizingModel          model.SizingModel // default SizingFixed
+	VolatilityTarget     float64           // annualized vol target, e.g. 0.10 = 10% (only used with SizingVolatilityTarget)
 }
 
 // BarResult is the engine's record for a single processed bar.
@@ -91,12 +93,14 @@ func (e *Engine) Run(ctx context.Context, p provider.DataProvider, s strategy.St
 	for i := range candles {
 		// Apply the previous bar's signal at this bar's open price.
 		if pendingSignal != model.SignalHold {
+			// Use candles[:i] (the history the strategy saw) to compute size — no lookahead.
+			sizeFrac := sizeFractionForBar(e.config, candles[:i])
 			if err := e.portfolio.applySignal(
 				pendingSignal,
 				e.config.Instrument,
 				candles[i].Open,
 				candles[i].Timestamp,
-				e.config.PositionSizeFraction,
+				sizeFrac,
 			); err != nil {
 				return fmt.Errorf("engine: fill at bar %d: %w", i, err)
 			}

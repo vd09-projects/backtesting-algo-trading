@@ -3,6 +3,8 @@ package cmdutil_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -136,25 +138,122 @@ func TestFatalf_exits(t *testing.T) {
 
 // ── LoginFlow ─────────────────────────────────────────────────────────────────
 
-// TestLoginFlow_eofStdin verifies LoginFlow returns an error when stdin closes before input.
-func TestLoginFlow_eofStdin(t *testing.T) {
+// pipeStdin replaces os.Stdin with a pipe whose write end has the given content
+// already written and closed. Restores the original stdin via t.Cleanup.
+func pipeStdin(t *testing.T, content string) {
+	t.Helper()
 	origStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := w.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	w.Close() //nolint:errcheck // write-end closed after writing; failure is non-fatal in a test
 	os.Stdin = r
-	w.Close() //nolint:errcheck // closing write-end to signal EOF; failure here is non-fatal in a test
 	t.Cleanup(func() {
 		os.Stdin = origStdin
 		r.Close() //nolint:errcheck // read-end cleanup; failure is non-fatal in a test
 	})
+}
 
+// tokenServer returns an httptest.Server that responds to POST /session/token
+// with a JSON body containing the given access token. Close it with t.Cleanup.
+func tokenServer(t *testing.T, accessToken string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"success","data":{"access_token":"` + accessToken + `"}}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// TestLoginFlow_eofStdin verifies LoginFlow returns an error when stdin closes before input.
+func TestLoginFlow_eofStdin(t *testing.T) {
+	pipeStdin(t, "") // empty write + close → EOF on first Scan
 	_, gotErr := cmdutil.LoginFlow(
-		context.Background(), "key", "secret",
-		filepath.Join(t.TempDir(), "token.json"),
+		context.Background(), http.DefaultClient, "https://api.kite.trade",
+		"key", "secret", filepath.Join(t.TempDir(), "token.json"),
 	)
 	if gotErr == nil {
 		t.Error("LoginFlow() expected error on EOF stdin, got nil")
+	}
+}
+
+func TestLoginFlow_emptyToken(t *testing.T) {
+	pipeStdin(t, "\n") // scan succeeds but token is whitespace-only
+	_, gotErr := cmdutil.LoginFlow(
+		context.Background(), http.DefaultClient, "https://api.kite.trade",
+		"key", "secret", filepath.Join(t.TempDir(), "token.json"),
+	)
+	if gotErr == nil {
+		t.Fatal("LoginFlow() expected error for empty token, got nil")
+	}
+	if gotErr.Error() != "request_token cannot be empty" {
+		t.Errorf("LoginFlow() error = %q, want %q", gotErr.Error(), "request_token cannot be empty")
+	}
+}
+
+func TestLoginFlow_exchangeError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	t.Cleanup(srv.Close)
+
+	pipeStdin(t, "myreqtoken\n")
+	_, gotErr := cmdutil.LoginFlow(
+		context.Background(), srv.Client(), srv.URL,
+		"key", "secret", filepath.Join(t.TempDir(), "token.json"),
+	)
+	if gotErr == nil {
+		t.Fatal("LoginFlow() expected error from ExchangeToken, got nil")
+	}
+}
+
+func TestLoginFlow_success_tokenSaved(t *testing.T) {
+	srv := tokenServer(t, "fresh-access-token")
+	tokenPath := filepath.Join(t.TempDir(), "token.json")
+
+	pipeStdin(t, "myreqtoken\n")
+	got, err := cmdutil.LoginFlow(
+		context.Background(), srv.Client(), srv.URL,
+		"key", "secret", tokenPath,
+	)
+	if err != nil {
+		t.Fatalf("LoginFlow() unexpected error: %v", err)
+	}
+	if got != "fresh-access-token" {
+		t.Errorf("LoginFlow() = %q, want %q", got, "fresh-access-token")
+	}
+	if _, statErr := os.Stat(tokenPath); statErr != nil {
+		t.Errorf("token file not created: %v", statErr)
+	}
+}
+
+func TestLoginFlow_success_saveFails(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root can write to read-only directories")
+	}
+	srv := tokenServer(t, "fresh-access-token")
+
+	dir := t.TempDir()
+	readOnly := filepath.Join(dir, "readonly")
+	if err := os.MkdirAll(readOnly, 0o500); err != nil {
+		t.Fatal(err)
+	}
+
+	pipeStdin(t, "myreqtoken\n")
+	// Save failure must not cause LoginFlow to return an error — it prints a warning only.
+	got, err := cmdutil.LoginFlow(
+		context.Background(), srv.Client(), srv.URL,
+		"key", "secret", filepath.Join(readOnly, "token.json"),
+	)
+	if err != nil {
+		t.Fatalf("LoginFlow() unexpected error when save fails: %v", err)
+	}
+	if got != "fresh-access-token" {
+		t.Errorf("LoginFlow() = %q, want %q", got, "fresh-access-token")
 	}
 }
