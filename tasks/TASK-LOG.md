@@ -83,3 +83,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-13 02:00 | TASK-0017 | updated | notes: removed stale TASK-0013 blocker reference; TASK-0013 is done, task is ready to implement | per Marcus review |
 | 2026-04-13 02:00 | TASK-0027 | created | priority: medium, source: session; strategy correlation analysis before portfolio assembly; do not start until 2+ strategy results exist | per Marcus review |
 | 2026-04-13 | TASK-0021 | status → in-progress | implementation complete: pkg/model/sizing.go (SizingModel enum), internal/engine/sizing.go (computeInstrumentVol + sizeFractionForBar), engine.Config extended; all acceptance criteria met; 98.5% coverage | |
+| 2026-04-13 | TASK-0021 | status → done | all acceptance criteria met; archived to 2026-04.md | commit 5852d63 |
+| 2026-04-13 | TASK-0015 | status → in-progress | strategies/rsimeanrev/ created; all 6 acceptance criteria met; 8 tests passing (go test -race); hand-verified RSI values in test comments | |

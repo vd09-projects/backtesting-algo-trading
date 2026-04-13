@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-13 | **Open tasks:** 12 | **Next up:** TASK-0015
+**Last updated:** 2026-04-13 | **Open tasks:** 11 | **Next up:** TASK-0018
 
 ---
 
@@ -8,44 +8,27 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
-### [TASK-0021] Engine — volatility-based position sizing
+### [TASK-0015] Strategy — RSI mean-reversion
 
 - **Status:** in-progress
-- **Priority:** medium
+- **Priority:** high
 - **Created:** 2026-04-10
 - **Source:** session
-- **Context:** The current portfolio uses a fixed fraction of cash per trade (`PositionSizeFraction`). This ignores instrument volatility — a quiet stock gets the same dollar risk as a volatile one. Volatility targeting sizes each trade so the expected dollar risk is constant, which improves risk-adjusted returns on any strategy. Must be introduced before additional strategies are built so results are comparable across strategies and sizing doesn't need to be retrofitted.
+- **Context:** RSI mean-reversion (buy when RSI < 30, sell when RSI > 70) is the canonical mean-reversion baseline and the complement to SMA crossover's trend-following approach. Running both gives the first real signal on whether this market regime rewards momentum or mean reversion. Treat this as a dirty test — the goal is calibration and regime signal, not a live edge.
 - **Acceptance criteria:**
-  - [x] `model.SizingModel` typed enum: `SizingFixed` (current behavior), `SizingVolatilityTarget`
-  - [x] `engine.Config` gains `SizingModel` and `VolatilityTarget float64` (annualized, e.g. 0.10 = 10%)
-  - [x] When `SizingVolatilityTarget`: position notional (₹) = `(cash * volTarget) / (instrumentVol * sqrt(252))` where `instrumentVol` is the 20-bar realized std dev of daily returns (not annualized); position quantity = notional / fillPrice
-  - [x] Existing `SizingFixed` behavior unchanged — backward compatible
-  - [x] Tests: given known vol, expected position size is correct; vol=0 edge case handled
-- **Notes:** Moved to top of queue. Fixed-fraction sizing on a mean-reversion strategy (holds for months) vs a crossover strategy (turns over weekly) produces non-comparable risk-adjusted results. Vol targeting must be in before SMA crossover and RSI mean-rev results are interpreted side by side. **Holdout:** All strategy runs use 2015-2022 data only. 2023-present reserved as holdout.
+  - [x] `strategies/rsimeanrev/` package implementing the `Strategy` interface
+  - [x] Uses `github.com/markcheno/go-talib` RSI — no hand-rolled calculation
+  - [x] Configurable period (default 14), overbought threshold (default 70), oversold threshold (default 30)
+  - [x] Lookback returns `period + 1` (talib RSI needs one extra bar for the initial smoothing)
+  - [x] Tests: known OHLCV sequence with known RSI values → expected signals (table-driven)
+  - [x] Long-only: buy on oversold, sell/exit on overbought (no shorting in v1)
+- **Notes:** Edge thesis: short-term oversold conditions in Indian equities resolve upward because retail panic selling creates temporary mispricing that larger participants absorb. Exit rule gap: if RSI stays below 30 in a prolonged downtrend and never recovers above 70, the position holds indefinitely with no stop-loss. The equity curve will show long dead-weight positions during bear regimes — distinguish these from the strategy's normal behavior when reading results. After running (with vol-based sizing from TASK-0021), compare Sharpe to SMA crossover and buy-and-hold (TASK-0018), then immediately run parameter sensitivity (TASK-0023). If both strategies underperform buy-and-hold, apply the gates for TASK-0019/0020. **Holdout:** Run on 2015-2022 only. 2023-present reserved as holdout — do not touch until a strategy is being considered for live capital.
 
 ---
 
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0015] Strategy — RSI mean-reversion
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** RSI mean-reversion (buy when RSI < 30, sell when RSI > 70) is the canonical mean-reversion baseline and the complement to SMA crossover's trend-following approach. Running both gives the first real signal on whether this market regime rewards momentum or mean reversion. Treat this as a dirty test — the goal is calibration and regime signal, not a live edge.
-- **Acceptance criteria:**
-  - [ ] `strategies/rsimeanrev/` package implementing the `Strategy` interface
-  - [ ] Uses `github.com/markcheno/go-talib` RSI — no hand-rolled calculation
-  - [ ] Configurable period (default 14), overbought threshold (default 70), oversold threshold (default 30)
-  - [ ] Lookback returns `period + 1` (talib RSI needs one extra bar for the initial smoothing)
-  - [ ] Tests: known OHLCV sequence with known RSI values → expected signals (table-driven)
-  - [ ] Long-only: buy on oversold, sell/exit on overbought (no shorting in v1)
-- **Notes:** Edge thesis: short-term oversold conditions in Indian equities resolve upward because retail panic selling creates temporary mispricing that larger participants absorb. Exit rule gap: if RSI stays below 30 in a prolonged downtrend and never recovers above 70, the position holds indefinitely with no stop-loss. The equity curve will show long dead-weight positions during bear regimes — distinguish these from the strategy's normal behavior when reading results. After running (with vol-based sizing from TASK-0021), compare Sharpe to SMA crossover and buy-and-hold (TASK-0018), then immediately run parameter sensitivity (TASK-0023). If both strategies underperform buy-and-hold, apply the gates for TASK-0019/0020. **Holdout:** Run on 2015-2022 only. 2023-present reserved as holdout — do not touch until a strategy is being considered for live capital.
-
----
 
 ### [TASK-0018] Analytics — buy-and-hold benchmark comparison
 
@@ -60,8 +43,6 @@
   - [ ] `output.printSummary` prints strategy vs benchmark side-by-side
   - [ ] Tests: known candle sequence → hand-verified benchmark metrics
 - **Notes:** Moved up from Todo backlog. The first question after any strategy run is "did this beat buy-and-hold?" — not "what's the Sortino?" Keep it simple: one instrument, fully invested, no rebalancing.
-
----
 
 ---
 

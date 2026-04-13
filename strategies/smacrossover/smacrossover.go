@@ -8,7 +8,11 @@ import (
 
 	talib "github.com/markcheno/go-talib"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 )
+
+// Compile-time assertion: Strategy must satisfy the strategy.Strategy interface.
+var _ strategy.Strategy = (*Strategy)(nil)
 
 // Strategy emits signals based on SMA crossovers.
 type Strategy struct {

@@ -8,8 +8,14 @@
 //	    --to   2024-12-31 \
 //	    --timeframe daily \
 //	    --cash 100000 \
-//	    --strategy stub \
+//	    --strategy sma-crossover \
 //	    --out results.json
+//
+// Available strategies:
+//
+//	stub              — always holds; useful for smoke-testing the pipeline
+//	sma-crossover     — SMA crossover; --fast-period / --slow-period
+//	rsi-mean-reversion — RSI mean-reversion; --rsi-period / --oversold / --overbought
 //
 // Credentials are read from KITE_API_KEY and KITE_API_SECRET environment
 // variables (or a .env file in the working directory). A saved access token is
@@ -38,6 +44,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha/cache"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 	stubstrategy "github.com/vikrantdhawan/backtesting-algo-trading/strategies/stub"
 )
@@ -48,9 +55,12 @@ func main() {
 	toStr := flag.String("to", "", "End date in YYYY-MM-DD (exclusive)")
 	tfStr := flag.String("timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
 	cash := flag.Float64("cash", 100000, "Starting cash in ₹")
-	stratName := flag.String("strategy", "stub", "Strategy name: stub, sma-crossover")
-	fastPeriod := flag.Int("fast-period", 10, "SMA crossover: fast period (default 10)")
-	slowPeriod := flag.Int("slow-period", 50, "SMA crossover: slow period (default 50)")
+	stratName := flag.String("strategy", "stub", "Strategy name: stub, sma-crossover, rsi-mean-reversion")
+	fastPeriod := flag.Int("fast-period", 10, "sma-crossover: fast SMA period")
+	slowPeriod := flag.Int("slow-period", 50, "sma-crossover: slow SMA period")
+	rsiPeriod := flag.Int("rsi-period", 14, "rsi-mean-reversion: RSI period")
+	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold (buy below)")
+	overbought := flag.Float64("overbought", 70, "rsi-mean-reversion: overbought threshold (sell above)")
 	outPath := flag.String("out", "", "Path for JSON results export (omit to skip)")
 	flag.Parse()
 
@@ -82,7 +92,13 @@ func main() {
 		cmdutil.Fatalf("--timeframe %q is not valid; choose one of: 1min, 5min, 15min, daily, weekly", *tfStr)
 	}
 
-	selectedStrategy, err := strategyRegistry(*stratName, tf, *fastPeriod, *slowPeriod)
+	selectedStrategy, err := strategyRegistry(*stratName, tf, strategyParams{
+		fastPeriod: *fastPeriod,
+		slowPeriod: *slowPeriod,
+		rsiPeriod:  *rsiPeriod,
+		oversold:   *oversold,
+		overbought: *overbought,
+	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
 	}
@@ -127,14 +143,24 @@ func main() {
 	}
 }
 
-func strategyRegistry(name string, tf model.Timeframe, fastPeriod, slowPeriod int) (strategy.Strategy, error) {
+type strategyParams struct {
+	fastPeriod int
+	slowPeriod int
+	rsiPeriod  int
+	oversold   float64
+	overbought float64
+}
+
+func strategyRegistry(name string, tf model.Timeframe, p strategyParams) (strategy.Strategy, error) {
 	switch name {
 	case "stub":
 		return stubstrategy.New(tf), nil
 	case "sma-crossover":
-		return smacrossover.New(tf, fastPeriod, slowPeriod)
+		return smacrossover.New(tf, p.fastPeriod, p.slowPeriod)
+	case "rsi-mean-reversion":
+		return rsimeanrev.New(tf, p.rsiPeriod, p.oversold, p.overbought)
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover", name)
+		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover, rsi-mean-reversion", name)
 	}
 }
 

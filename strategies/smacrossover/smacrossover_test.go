@@ -2,32 +2,15 @@ package smacrossover_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/testutil"
 )
 
-// makeCandles builds a slice of daily candles from a close-price series.
-// All OHLC fields are set to the close value so validation passes.
-func makeCandles(closes []float64) []model.Candle {
-	base := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	candles := make([]model.Candle, len(closes))
-	for i, c := range closes {
-		candles[i] = model.Candle{
-			Instrument: "TEST:X",
-			Timeframe:  model.TimeframeDaily,
-			Timestamp:  base.AddDate(0, 0, i),
-			Open:       c,
-			High:       c,
-			Low:        c,
-			Close:      c,
-			Volume:     1000,
-		}
-	}
-	return candles
-}
+// makeCandles is a local alias so test code stays readable.
+func makeCandles(closes []float64) []model.Candle { return testutil.MakeCandles(closes) }
 
 // --- Constructor tests ---
 
