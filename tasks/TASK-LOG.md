@@ -72,3 +72,13 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-10 04:00 | TASK-0013 | status → done | implemented EquityPoint model, Portfolio.RecordEquity, Portfolio.EquityCurve, engine wiring, pre-allocated slice | all tests green, lint clean |
 | 2026-04-10 05:00 | TASK-0014 | status → done | SharpeRatio field on Report; computeSharpe from equity curve per-bar returns; annualization for all 5 timeframes; 11 table-driven tests; output.printSummary updated; analytics 96.3% coverage | all tests green, 0 lint issues |
 | 2026-04-13 00:00 | TASK-0012 | status → done | strategies/smacrossover/ implemented; --fast-period/--slow-period flags wired into cmd/backtest; table-driven tests passing | archived to 2026-04.md |
+| 2026-04-13 01:00 | TASK-0021 | reprioritized | moved to top of Up Next; fixed-fraction sizing produces non-comparable results across strategies with different hold durations; must be done before strategy results are interpreted | per Marcus review |
+| 2026-04-13 01:00 | TASK-0015 | updated | notes: added edge thesis (retail panic → mispricing absorbed by larger participants) and exit-rule gap (no stop-loss; indefinite hold if RSI never recovers) | per Marcus review |
+| 2026-04-13 01:00 | TASK-0023 | reprioritized | low → medium; run immediately after first strategy results, not after four strategies are built; if RSI(14)/30/70 is a local peak and not a plateau, there is no edge | per Marcus review |
+| 2026-04-13 01:00 | TASK-0024 | reprioritized | low → medium; must run before TASK-0022 and TASK-0023; bootstrapped distribution is the input to kill-switch definition (TASK-0026) | per Marcus review |
+| 2026-04-13 01:00 | TASK-0026 | created | priority: high, source: session; blocked by TASK-0024; kill-switch thresholds per strategy before any live capital | per Marcus review |
+| 2026-04-13 02:00 | TASK-0015 | updated | notes: added holdout declaration (2015-2022 train, 2023+ holdout) | per Marcus review |
+| 2026-04-13 02:00 | TASK-0021 | updated | notes: added holdout declaration | per Marcus review |
+| 2026-04-13 02:00 | TASK-0016 | updated | title and acceptance criteria: added TailRatio (95th/5th percentile return); renamed to include tail ratio | per Marcus review |
+| 2026-04-13 02:00 | TASK-0017 | updated | notes: removed stale TASK-0013 blocker reference; TASK-0013 is done, task is ready to implement | per Marcus review |
+| 2026-04-13 02:00 | TASK-0027 | created | priority: medium, source: session; strategy correlation analysis before portfolio assembly; do not start until 2+ strategy results exist | per Marcus review |

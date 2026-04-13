@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-13 | **Open tasks:** 10 | **Next up:** TASK-0015
+**Last updated:** 2026-04-13 | **Open tasks:** 12 | **Next up:** TASK-0021
 
 ---
 
@@ -16,6 +16,23 @@ _Nothing in progress._
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
+### [TASK-0021] Engine — volatility-based position sizing
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-04-10
+- **Source:** session
+- **Context:** The current portfolio uses a fixed fraction of cash per trade (`PositionSizeFraction`). This ignores instrument volatility — a quiet stock gets the same dollar risk as a volatile one. Volatility targeting sizes each trade so the expected dollar risk is constant, which improves risk-adjusted returns on any strategy. Must be introduced before additional strategies are built so results are comparable across strategies and sizing doesn't need to be retrofitted.
+- **Acceptance criteria:**
+  - [ ] `model.SizingModel` typed enum: `SizingFixed` (current behavior), `SizingVolatilityTarget`
+  - [ ] `engine.Config` gains `SizingModel` and `VolatilityTarget float64` (annualized, e.g. 0.10 = 10%)
+  - [ ] When `SizingVolatilityTarget`: position notional (₹) = `(cash * volTarget) / (instrumentVol * sqrt(252))` where `instrumentVol` is the 20-bar realized std dev of daily returns (not annualized); position quantity = notional / fillPrice
+  - [ ] Existing `SizingFixed` behavior unchanged — backward compatible
+  - [ ] Tests: given known vol, expected position size is correct; vol=0 edge case handled
+- **Notes:** Moved to top of queue. Fixed-fraction sizing on a mean-reversion strategy (holds for months) vs a crossover strategy (turns over weekly) produces non-comparable risk-adjusted results. Vol targeting must be in before SMA crossover and RSI mean-rev results are interpreted side by side. **Holdout:** All strategy runs use 2015-2022 data only. 2023-present reserved as holdout.
+
+---
+
 ### [TASK-0015] Strategy — RSI mean-reversion
 
 - **Status:** todo
@@ -30,7 +47,7 @@ _Nothing in progress._
   - [ ] Lookback returns `period + 1` (talib RSI needs one extra bar for the initial smoothing)
   - [ ] Tests: known OHLCV sequence with known RSI values → expected signals (table-driven)
   - [ ] Long-only: buy on oversold, sell/exit on overbought (no shorting in v1)
-- **Notes:** After running, compare Sharpe to SMA crossover and buy-and-hold (TASK-0018). If RSI mean-rev is consistently better than SMA momentum, that's information about the regime. If both underperform buy-and-hold, that's also information — and the gate for TASK-0019/0020 should be applied.
+- **Notes:** Edge thesis: short-term oversold conditions in Indian equities resolve upward because retail panic selling creates temporary mispricing that larger participants absorb. Exit rule gap: if RSI stays below 30 in a prolonged downtrend and never recovers above 70, the position holds indefinitely with no stop-loss. The equity curve will show long dead-weight positions during bear regimes — distinguish these from the strategy's normal behavior when reading results. After running (with vol-based sizing from TASK-0021), compare Sharpe to SMA crossover and buy-and-hold (TASK-0018), then immediately run parameter sensitivity (TASK-0023). If both strategies underperform buy-and-hold, apply the gates for TASK-0019/0020. **Holdout:** Run on 2015-2022 only. 2023-present reserved as holdout — do not touch until a strategy is being considered for live capital.
 
 ---
 
@@ -50,28 +67,25 @@ _Nothing in progress._
 
 ---
 
-### [TASK-0021] Engine — volatility-based position sizing
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** The current portfolio uses a fixed fraction of cash per trade (`PositionSizeFraction`). This ignores instrument volatility — a quiet stock gets the same dollar risk as a volatile one. Volatility targeting sizes each trade so the expected dollar risk is constant, which improves risk-adjusted returns on any strategy. Must be introduced before additional strategies are built so results are comparable across strategies and sizing doesn't need to be retrofitted.
-- **Acceptance criteria:**
-  - [ ] `model.SizingModel` typed enum: `SizingFixed` (current behavior), `SizingVolatilityTarget`
-  - [ ] `engine.Config` gains `SizingModel` and `VolatilityTarget float64` (annualized, e.g. 0.10 = 10%)
-  - [ ] When `SizingVolatilityTarget`: position notional (₹) = `(cash * volTarget) / (instrumentVol * sqrt(252))` where `instrumentVol` is the 20-bar realized std dev of daily returns (not annualized); position quantity = notional / fillPrice
-  - [ ] Existing `SizingFixed` behavior unchanged — backward compatible
-  - [ ] Tests: given known vol, expected position size is correct; vol=0 edge case handled
-- **Notes:** Moved up from Todo backlog. Sizing dominates strategy selection — a mediocre strategy with proper sizing beats a great strategy with bad sizing. Build this before MACD and Bollinger Bands, not after.
-
 ---
 
 ## Blocked
 
 <!-- Waiting on something. Each task must state what it's blocked by. -->
 
-_No blocked tasks (TASK-0014 is in Up Next with its blocker noted there)._
+### [TASK-0026] Rigor — kill-switch definition per strategy
+
+- **Status:** blocked
+- **Priority:** high
+- **Created:** 2026-04-13
+- **Source:** session
+- **Blocked by:** TASK-0024 (Monte Carlo bootstrap — kill-switch thresholds derived from bootstrapped distribution)
+- **Context:** Before any strategy runs with real capital, a pre-committed halt condition must exist. Without it, a normal drawdown turns into parameter tweaking and re-running, which is how you overfit live. The kill-switch is what separates a system from a hobby.
+- **Acceptance criteria:**
+  - [ ] For each strategy, after Monte Carlo bootstrap, define and document: rolling 6-month Sharpe threshold (5th percentile of bootstrapped distribution), max drawdown threshold (1.5× worst in-sample drawdown), max drawdown recovery time threshold (2× worst in-sample recovery)
+  - [ ] Kill-switch parameters written to `decisions/` alongside each strategy's backtest results
+  - [ ] `internal/analytics` or `internal/output` can compare rolling live metrics against these thresholds and flag when a kill-switch is approached
+- **Notes:** The rule when the line is hit: halt and re-evaluate from scratch — never retune parameters mid-drawdown. "Tweak parameters and restart while still in the drawdown" is how a single bad regime turns into a permanent overfit. This task has no implementation until TASK-0024 is done.
 
 ---
 
@@ -79,22 +93,23 @@ _No blocked tasks (TASK-0014 is in Up Next with its blocker noted there)._
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
 
-### [TASK-0016] Analytics — profit factor, average win/loss, Sortino, and Calmar
+### [TASK-0016] Analytics — profit factor, average win/loss, Sortino, Calmar, and tail ratio
 
 - **Status:** todo
 - **Priority:** medium
 - **Created:** 2026-04-10
 - **Source:** session
-- **Context:** Sharpe alone punishes upside volatility. Profit factor (gross profit / gross loss) and average win vs average loss together tell you whether the edge is in hit rate or in payoff ratio — critical for understanding how a strategy will behave in a drawdown. Sortino complements Sharpe by measuring only downside deviation.
+- **Context:** Sharpe alone punishes upside volatility. Profit factor (gross profit / gross loss) and average win vs average loss together tell you whether the edge is in hit rate or in payoff ratio — critical for understanding how a strategy will behave in a drawdown. Sortino complements Sharpe by measuring only downside deviation. Tail ratio reveals short-vol disguise.
 - **Acceptance criteria:**
-  - [ ] `Report` gains: `ProfitFactor float64`, `AvgWin float64`, `AvgLoss float64`, `SortinoRatio float64`, `CalmarRatio float64`
+  - [ ] `Report` gains: `ProfitFactor float64`, `AvgWin float64`, `AvgLoss float64`, `SortinoRatio float64`, `CalmarRatio float64`, `TailRatio float64`
   - [ ] ProfitFactor = sum(winning trade P&L) / abs(sum(losing trade P&L)); returns 0 if no losing trades
   - [ ] AvgWin and AvgLoss are per-trade averages (not total)
   - [ ] Sortino uses downside deviation of per-bar returns (same equity curve as Sharpe, target return = 0)
   - [ ] Calmar = annualized return / max drawdown (%); returns 0 if max drawdown is zero
-  - [ ] Tests: known trade sequences → hand-verified expected values for all five new fields
+  - [ ] TailRatio = 95th percentile per-bar return / abs(5th percentile per-bar return); computed from equity curve returns; returns 0 if 5th percentile is zero
+  - [ ] Tests: known trade sequences → hand-verified expected values for all six new fields
   - [ ] `output.printSummary` updated to include new fields
-- **Notes:** A 35% win rate with PF 1.8 is a fine strategy. A 70% win rate with PF 1.1 is a time bomb. Both print a positive Sharpe. Calmar is particularly revealing for Indian equities, which can sit underwater for 12-18 months after corrections — it directly answers "how much pain per unit of return?"
+- **Notes:** A 35% win rate with PF 1.8 is a fine strategy. A 70% win rate with PF 1.1 is a time bomb. Both print a positive Sharpe. Calmar is particularly revealing for Indian equities, which can sit underwater for 12-18 months after corrections. TailRatio < 1 means the left tail is fatter than the right — the strategy is short-vol in disguise. RSI mean-reversion buys dips, which is structurally short-vol; expect TailRatio < 1 and watch it in 2020/2022 regime slices.
 
 ---
 
@@ -107,10 +122,10 @@ _No blocked tasks (TASK-0014 is in Up Next with its blocker noted there)._
 - **Context:** Max drawdown depth (%) is in the report, but duration is not. A 15% drawdown that recovers in 3 weeks is survivable; a 15% drawdown that lasts 9 months is not. Drawdown duration is an under-appreciated tell — if out-of-sample recovery time diverges from in-sample, the strategy is decaying.
 - **Acceptance criteria:**
   - [ ] `Report` gains: `MaxDrawdownDuration time.Duration` (wall time from peak to recovery or end of test)
-  - [ ] Computed from the equity curve time series (requires TASK-0013)
+  - [ ] Computed from the equity curve time series
   - [ ] If the equity curve never fully recovers by end of test, duration = time from peak to last bar
   - [ ] Tests: equity curve with known peak/trough/recovery → expected duration
-- **Notes:** Blocked on TASK-0013 for equity curve. Can be implemented immediately after.
+- **Notes:** TASK-0013 (equity curve) is done — this task is unblocked and ready to implement.
 
 ---
 
@@ -170,7 +185,7 @@ _No blocked tasks (TASK-0014 is in Up Next with its blocker noted there)._
 ### [TASK-0023] Rigor — parameter sweep runner
 
 - **Status:** todo
-- **Priority:** low
+- **Priority:** medium
 - **Created:** 2026-04-10
 - **Source:** session
 - **Context:** A robust edge has a plateau of working parameter values, not a peak. Parameter sweeps reveal whether a strategy's Sharpe is robust to small parameter changes (real edge) or collapses when you nudge the lookback by 2 bars (curve-fitted noise).
@@ -180,14 +195,14 @@ _No blocked tasks (TASK-0014 is in Up Next with its blocker noted there)._
   - [ ] Each `SweepResult`: parameter value, Sharpe, total P&L, trade count, max drawdown
   - [ ] Output: ranked table of results + identification of the "plateau" (parameter range where Sharpe stays within 80% of peak)
   - [ ] Tests: synthetic strategy with known optimal parameter → sweep correctly identifies the peak
-- **Notes:** Single-parameter first. Multi-dimensional grid search is combinatorially expensive and a path to overfitting. Implement after at least one strategy passes walk-forward (TASK-0022).
+- **Notes:** Single-parameter first. Multi-dimensional grid search is combinatorially expensive and a path to overfitting. **Run immediately after first strategy results are in — before MACD or Bollinger Bands.** If RSI(14) with 30/70 is the only config that produces a reasonable Sharpe and RSI(12) with 28/72 is garbage, there is no edge. Reprioritized from low: this test costs little and should not be deferred to after four strategies are built.
 
 ---
 
 ### [TASK-0024] Rigor — Monte Carlo bootstrap for Sharpe confidence intervals
 
 - **Status:** todo
-- **Priority:** low
+- **Priority:** medium
 - **Created:** 2026-04-10
 - **Source:** session
 - **Context:** A single Sharpe number from a backtest is a point estimate with unknown uncertainty. Monte Carlo bootstrap resamples the trade return sequence thousands of times to produce a confidence interval. The p5 Sharpe from this output is the kill-switch threshold — halt when live rolling Sharpe drops below it.
@@ -197,7 +212,23 @@ _No blocked tasks (TASK-0014 is in Up Next with its blocker noted there)._
   - [ ] Resampling: draw with replacement from the trade return series, recompute Sharpe each iteration
   - [ ] Default 10,000 simulations; configurable
   - [ ] Tests: known return distribution → expected confidence interval shape (statistically sound, not exact values)
-- **Notes:** The p5 Sharpe from this output is the kill-switch threshold — document this explicitly in code comments. Implement last — it only adds value once you have a strategy that's earned a real Sharpe to evaluate.
+- **Notes:** The p5 Sharpe from this output is the kill-switch threshold — document this explicitly in code comments. Reprioritized from low: must run before walk-forward (TASK-0022) and parameter sweep (TASK-0023), because the bootstrapped distribution is the input to the kill-switch definition (TASK-0026). Implement once at least one strategy has results worth evaluating.
+
+---
+
+### [TASK-0027] Rigor — strategy correlation analysis before portfolio assembly
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-04-13
+- **Source:** session
+- **Context:** Running multiple strategies together only provides diversification if they are genuinely uncorrelated. RSI mean-rev and Bollinger Band mean-rev on the same instrument will likely be 0.7+ correlated on daily returns — running both at full vol-target sizing is doubling the bet, not diversifying. Before any multi-strategy portfolio is assembled, pairwise correlations must be measured and sizing adjusted accordingly.
+- **Acceptance criteria:**
+  - [ ] After at least two strategy results are available, compute pairwise Pearson correlation of per-bar equity curve returns for each strategy pair
+  - [ ] Test correlation in stress sub-periods (2020 crash, 2022 bear) separately from the full-period average — strategies that appear uncorrelated on average often correlate strongly in drawdowns
+  - [ ] `internal/analytics` or `internal/output` produces a correlation matrix table alongside multi-strategy results
+  - [ ] Tests: known equity curve pairs with known correlation → expected matrix values
+- **Notes:** Do not start until at least two strategy results exist. Momentum strategies (SMA crossover, MACD) will likely correlate with each other; mean-reversion strategies (RSI, Bollinger) will correlate with each other; the interesting question is momentum vs mean-reversion cross-correlation, which should be low or negative. If two strategies are >0.7 correlated, halve the combined vol-target allocation rather than running both at full size.
 
 ---
 
