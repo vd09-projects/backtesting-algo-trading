@@ -5,6 +5,8 @@ Append-only record of all task operations. Newest entries at the bottom.
 | Date | Task | Action | Details | Notes |
 |------|------|--------|---------|-------|
 | 2026-04-10 | TASK-0011 | status → done | All acceptance criteria met | cmd/backtest/main.go + strategies/stub/ |
+| 2026-04-10 | TASK-0025 | status → in-progress | starting corporate action verification for Zerodha data | |
+| 2026-04-10 | TASK-0025 | status → done | Kite day candles adjusted for splits/bonuses; decision recorded in decisions/infrastructure/ | TASK-0012 and TASK-0015 unblocked |
 | 2026-04-01 00:00 | TASK-0001 | created | priority: critical, source: project | Initialize Go module and folder structure (original) |
 | 2026-04-01 00:00 | TASK-0002 | created | priority: critical, source: project | Define core domain types in pkg/model |
 | 2026-04-01 00:00 | TASK-0003 | created | priority: high, source: project | Define DataProvider interface in pkg/provider (original) |

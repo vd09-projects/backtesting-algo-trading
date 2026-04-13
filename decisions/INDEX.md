@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-10-zerodha-daily-candles-adjusted-for-corporate-actions
+    title: "Zerodha daily candles are adjusted for corporate actions — no adjustment layer needed"
+    date: 2026-04-10
+    status: accepted
+    category: infrastructure
+    tags: [zerodha, data-quality, corporate-action, adjusted-prices, split, bonus, dividend, demerger, daily-candles, intraday, TASK-0025]
+    path: infrastructure/2026-04-10-zerodha-daily-candles-adjusted-for-corporate-actions.md
+    summary: "Kite Connect day candles are adjusted for splits, bonuses, rights, spin-offs, and extraordinary dividends. No adjustment parameter exists — it's automatic and retroactive. Regular dividends are market-adjusted only (not total-return). Intraday candles are NOT adjusted. Demergers use Zerodha's COA methodology (may differ from TradingView). TASK-0012 and TASK-0015 are unblocked."
+
   - id: 2026-04-10-sharpe-zero-for-degenerate-inputs
     title: "Sharpe returns 0 for degenerate inputs — Compute() stays error-free"
     date: 2026-04-10

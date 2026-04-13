@@ -27,8 +27,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
@@ -39,14 +37,9 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha/cache"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 	stubstrategy "github.com/vikrantdhawan/backtesting-algo-trading/strategies/stub"
 )
-
-// strategies is the registry of available strategies, keyed by the name
-// passed to --strategy. Add a new entry here to expose a strategy via the CLI.
-var strategies = map[string]func(model.Timeframe) strategy.Strategy{
-	"stub": func(tf model.Timeframe) strategy.Strategy { return stubstrategy.New(tf) },
-}
 
 func main() {
 	instrument := flag.String("instrument", "NSE:NIFTY 50", "Instrument to backtest (e.g. \"NSE:NIFTY 50\", \"NSE:INFY\")")
@@ -54,7 +47,9 @@ func main() {
 	toStr := flag.String("to", "", "End date in YYYY-MM-DD (exclusive)")
 	tfStr := flag.String("timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
 	cash := flag.Float64("cash", 100000, "Starting cash in ₹")
-	stratName := flag.String("strategy", "stub", "Strategy name: "+availableStrategies())
+	stratName := flag.String("strategy", "stub", "Strategy name: stub, sma-crossover")
+	fastPeriod := flag.Int("fast-period", 10, "SMA crossover: fast period (default 10)")
+	slowPeriod := flag.Int("slow-period", 50, "SMA crossover: slow period (default 50)")
 	outPath := flag.String("out", "", "Path for JSON results export (omit to skip)")
 	flag.Parse()
 
@@ -86,7 +81,7 @@ func main() {
 		cmdutil.Fatalf("--timeframe %q is not valid; choose one of: 1min, 5min, 15min, daily, weekly", *tfStr)
 	}
 
-	selectedStrategy, err := strategyRegistry(*stratName, tf)
+	selectedStrategy, err := strategyRegistry(*stratName, tf, *fastPeriod, *slowPeriod)
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
 	}
@@ -131,21 +126,15 @@ func main() {
 	}
 }
 
-func strategyRegistry(name string, tf model.Timeframe) (strategy.Strategy, error) {
-	fn, ok := strategies[name]
-	if !ok {
-		return nil, fmt.Errorf("unknown strategy %q; available: %s", name, availableStrategies())
+func strategyRegistry(name string, tf model.Timeframe, fastPeriod, slowPeriod int) (strategy.Strategy, error) {
+	switch name {
+	case "stub":
+		return stubstrategy.New(tf), nil
+	case "sma-crossover":
+		return smacrossover.New(tf, fastPeriod, slowPeriod)
+	default:
+		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover", name)
 	}
-	return fn(tf), nil
-}
-
-func availableStrategies() string {
-	names := make([]string, 0, len(strategies))
-	for k := range strategies {
-		names = append(names, k)
-	}
-	sort.Strings(names)
-	return strings.Join(names, ", ")
 }
 
 func buildProvider(ctx context.Context) (*cache.CachedProvider, error) {
