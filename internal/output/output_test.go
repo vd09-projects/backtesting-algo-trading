@@ -3,6 +3,7 @@ package output_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,18 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
 )
+
+// failAfterFirstWriter succeeds on the first Write call, then returns an error.
+// Used to exercise error paths that are only reachable on the second write in a function.
+type failAfterFirstWriter struct{ wrote bool }
+
+func (f *failAfterFirstWriter) Write(p []byte) (int, error) {
+	if f.wrote {
+		return 0, errors.New("write failed")
+	}
+	f.wrote = true
+	return len(p), nil
+}
 
 func TestWrite_JSONOutput(t *testing.T) {
 	tests := []struct {
@@ -180,5 +193,65 @@ func TestWrite_BadFilePath(t *testing.T) {
 	cfg := output.Config{FilePath: "/nonexistent/dir/out.json"}
 	if err := output.Write(analytics.Report{}, cfg); err == nil {
 		t.Error("expected error for bad file path, got nil")
+	}
+}
+
+func TestWrite_StdoutWithBenchmark(t *testing.T) {
+	report := analytics.Report{
+		TotalPnL:    500,
+		WinRate:     75,
+		MaxDrawdown: 10,
+		TradeCount:  4,
+		SharpeRatio: 1.2345,
+	}
+	benchmark := &analytics.BenchmarkReport{
+		TotalReturn:      18.50,
+		AnnualizedReturn: 12.30,
+		MaxDrawdown:      8.75,
+		SharpeRatio:      0.9876,
+	}
+
+	var buf bytes.Buffer
+	cfg := output.Config{
+		PrintToStdout: true,
+		Stdout:        &buf,
+		Benchmark:     benchmark,
+	}
+
+	if err := output.Write(report, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{"Buy-and-Hold Benchmark", "18.50", "12.30", "8.75", "0.9876"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("stdout missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWrite_BenchmarkWriteError(t *testing.T) {
+	// The writer succeeds on the first fmt.Fprintf (strategy summary) and fails on the
+	// second (benchmark section), exercising the "output: write benchmark summary" error path.
+	cfg := output.Config{
+		PrintToStdout: true,
+		Stdout:        &failAfterFirstWriter{},
+		Benchmark:     &analytics.BenchmarkReport{TotalReturn: 10},
+	}
+	if err := output.Write(analytics.Report{}, cfg); err == nil {
+		t.Error("expected error when benchmark write fails, got nil")
+	}
+}
+
+func TestWrite_StdoutNoBenchmarkSection(t *testing.T) {
+	var buf bytes.Buffer
+	cfg := output.Config{PrintToStdout: true, Stdout: &buf}
+
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	if strings.Contains(buf.String(), "Benchmark") {
+		t.Errorf("expected no benchmark section when Benchmark is nil:\n%s", buf.String())
 	}
 }

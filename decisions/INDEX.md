@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-13-benchmark-report-separate-struct
+    title: "BenchmarkReport is a separate struct, not an extension of Report"
+    date: 2026-04-13
+    status: accepted
+    category: convention
+    tags: [benchmark, BenchmarkReport, Report, analytics, struct-design, convention, TASK-0018]
+    path: convention/2026-04-13-benchmark-report-separate-struct.md
+    summary: "BenchmarkReport defined as a separate struct from Report. Report fields (TradeCount, WinRate, TotalPnL) are semantically meaningless for buy-and-hold; sharing a struct would cause silent zero-value misrepresentation. Each output type carries only valid fields for its subject."
+
+  - id: 2026-04-13-benchmark-cagr-from-elapsed-time
+    title: "BenchmarkReport annualized return uses actual elapsed calendar time, not bar-count"
+    date: 2026-04-13
+    status: accepted
+    category: algorithm
+    tags: [benchmark, CAGR, annualized-return, elapsed-time, BenchmarkReport, analytics, TASK-0018]
+    path: algorithm/2026-04-13-benchmark-cagr-from-elapsed-time.md
+    summary: "CAGR uses actual elapsed calendar time (timestamp delta / 365.25) rather than bar-count × annualization factor. CAGR is quoted in calendar years for external comparability; Sharpe uses bar-count annualization because volatility accumulates at bar frequency. The two metrics intentionally use different time bases."
+
   - id: 2026-04-13-function-parameter-injection-for-testability
     title: "Function-parameter injection for testability — complement to Config injection"
     date: 2026-04-13

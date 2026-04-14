@@ -12,9 +12,10 @@ import (
 
 // Config controls where backtest results are written.
 type Config struct {
-	FilePath      string    // destination for JSON export; ignored if empty
-	PrintToStdout bool      // print human-readable summary to stdout
-	Stdout        io.Writer // overrides os.Stdout when PrintToStdout is true; nil means os.Stdout
+	FilePath      string                     // destination for JSON export; ignored if empty
+	PrintToStdout bool                       // print human-readable summary to stdout
+	Stdout        io.Writer                  // overrides os.Stdout when PrintToStdout is true; nil means os.Stdout
+	Benchmark     *analytics.BenchmarkReport // optional; when non-nil, printed alongside strategy results
 }
 
 // Write formats report as a human-readable summary and/or a JSON file.
@@ -25,7 +26,7 @@ func Write(report analytics.Report, cfg Config) error {
 		if w == nil {
 			w = os.Stdout
 		}
-		if err := printSummary(w, report); err != nil {
+		if err := printSummary(w, report, cfg.Benchmark); err != nil {
 			return err
 		}
 	}
@@ -39,13 +40,22 @@ func Write(report analytics.Report, cfg Config) error {
 	return nil
 }
 
-func printSummary(w io.Writer, r analytics.Report) error {
+func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport) error {
 	_, err := fmt.Fprintf(w,
 		"=== Backtest Results ===\nTrades:       %d\nWin Rate:     %.2f%%\nTotal P&L:    %.2f\nMax Drawdown: %.2f%%\nSharpe Ratio: %.4f\n",
 		r.TradeCount, r.WinRate, r.TotalPnL, r.MaxDrawdown, r.SharpeRatio,
 	)
 	if err != nil {
 		return fmt.Errorf("output: write summary: %w", err)
+	}
+	if b != nil {
+		_, err = fmt.Fprintf(w,
+			"\n--- Buy-and-Hold Benchmark ---\nTotal Return:      %.2f%%\nAnnualized Return: %.2f%%\nMax Drawdown:      %.2f%%\nSharpe Ratio:      %.4f\n",
+			b.TotalReturn, b.AnnualizedReturn, b.MaxDrawdown, b.SharpeRatio,
+		)
+		if err != nil {
+			return fmt.Errorf("output: write benchmark summary: %w", err)
+		}
 	}
 	return nil
 }
