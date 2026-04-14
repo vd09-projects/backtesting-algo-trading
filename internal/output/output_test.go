@@ -11,6 +11,7 @@ import (
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
 )
 
 // failAfterFirstWriter succeeds on the first Write call, then returns an error.
@@ -254,4 +255,84 @@ func TestWrite_StdoutNoBenchmarkSection(t *testing.T) {
 	if strings.Contains(buf.String(), "Benchmark") {
 		t.Errorf("expected no benchmark section when Benchmark is nil:\n%s", buf.String())
 	}
+}
+
+// --- WriteSweep tests ---
+
+func makeSweepReport() sweep.Report {
+	return sweep.Report{
+		ParameterName: "period",
+		Results: []sweep.Result{
+			{ParamValue: 14, SharpeRatio: 1.5, TotalPnL: 5000, TradeCount: 20, MaxDrawdown: 8.5},
+			{ParamValue: 12, SharpeRatio: 1.2, TotalPnL: 4200, TradeCount: 22, MaxDrawdown: 9.1},
+			{ParamValue: 20, SharpeRatio: 0.8, TotalPnL: 2100, TradeCount: 15, MaxDrawdown: 12.0},
+		},
+		Plateau: &sweep.PlateauRange{MinParam: 12, MaxParam: 14, Count: 2, MinSharpe: 1.2},
+	}
+}
+
+func TestWriteSweep_ContainsParameterName(t *testing.T) {
+	var buf bytes.Buffer
+	if err := output.WriteSweep(&buf, makeSweepReport()); err != nil {
+		t.Fatalf("WriteSweep: %v", err)
+	}
+	if !strings.Contains(buf.String(), "period") {
+		t.Errorf("output missing parameter name %q:\n%s", "period", buf.String())
+	}
+}
+
+func TestWriteSweep_ContainsAllResults(t *testing.T) {
+	var buf bytes.Buffer
+	if err := output.WriteSweep(&buf, makeSweepReport()); err != nil {
+		t.Fatalf("WriteSweep: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{"14", "12", "20", "1.5", "1.2", "0.8", "5000", "4200", "2100"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWriteSweep_ContainsPlateauInfo(t *testing.T) {
+	var buf bytes.Buffer
+	if err := output.WriteSweep(&buf, makeSweepReport()); err != nil {
+		t.Fatalf("WriteSweep: %v", err)
+	}
+	out := buf.String()
+	// Plateau must mention the range and count.
+	for _, want := range []string{"Plateau", "12", "14", "2"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("plateau section missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWriteSweep_NilPlateauOmitsSection(t *testing.T) {
+	report := sweep.Report{
+		ParameterName: "period",
+		Results:       []sweep.Result{{ParamValue: 10, SharpeRatio: -0.5}},
+		Plateau:       nil,
+	}
+	var buf bytes.Buffer
+	if err := output.WriteSweep(&buf, report); err != nil {
+		t.Fatalf("WriteSweep: %v", err)
+	}
+	if strings.Contains(buf.String(), "Plateau") {
+		t.Errorf("expected no plateau section when Plateau is nil:\n%s", buf.String())
+	}
+}
+
+func TestWriteSweep_WriteError(t *testing.T) {
+	// failWriter always fails on Write — exercises the error return path.
+	if err := output.WriteSweep(&failWriter{}, makeSweepReport()); err == nil {
+		t.Error("expected error from failing writer, got nil")
+	}
+}
+
+// failWriter always returns an error on Write.
+type failWriter struct{}
+
+func (f *failWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
 }

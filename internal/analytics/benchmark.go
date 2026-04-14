@@ -61,7 +61,7 @@ func ComputeBenchmark(candles []model.Candle, initialCash float64) BenchmarkRepo
 	}
 
 	// Sharpe ratio from the close-based equity curve, using the first candle's timeframe.
-	sharpe := computeSharpe(curve, candles[0].Timeframe)
+	sharpe := computeSharpe(computeReturns(curve), candles[0].Timeframe)
 
 	return BenchmarkReport{
 		TotalReturn:      totalReturn,

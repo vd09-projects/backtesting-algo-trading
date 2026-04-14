@@ -227,6 +227,91 @@ func TestComputeSharpe(t *testing.T) {
 	}
 }
 
+// --- ProfitFactor, AvgWin, AvgLoss ---
+
+func TestCompute_ProfitFactor_AllWinners(t *testing.T) {
+	// No losing trades → ProfitFactor = 0 (guard against division by zero).
+	r := analytics.Compute([]model.Trade{trade(100), trade(50)}, nil, "")
+	assertFloatEqual(t, "ProfitFactor", 0, r.ProfitFactor)
+	assertFloatEqual(t, "AvgWin", 75, r.AvgWin)
+	assertFloatEqual(t, "AvgLoss", 0, r.AvgLoss)
+}
+
+func TestCompute_ProfitFactor_AllLosers(t *testing.T) {
+	// No winning trades → ProfitFactor = 0, AvgWin = 0; AvgLoss = (30+20)/2 = 25.
+	r := analytics.Compute([]model.Trade{trade(-30), trade(-20)}, nil, "")
+	assertFloatEqual(t, "ProfitFactor", 0, r.ProfitFactor)
+	assertFloatEqual(t, "AvgWin", 0, r.AvgWin)
+	assertFloatEqual(t, "AvgLoss", 25, r.AvgLoss)
+}
+
+func TestCompute_ProfitFactor_Mixed(t *testing.T) {
+	// grossProfit = 100+50 = 150; grossLoss = 30+20 = 50
+	// PF = 150/50 = 3.0; AvgWin = 150/2 = 75; AvgLoss = 50/2 = 25
+	r := analytics.Compute([]model.Trade{trade(100), trade(50), trade(-30), trade(-20)}, nil, "")
+	assertFloatEqual(t, "ProfitFactor", 3.0, r.ProfitFactor)
+	assertFloatEqual(t, "AvgWin", 75, r.AvgWin)
+	assertFloatEqual(t, "AvgLoss", 25, r.AvgLoss)
+}
+
+// --- SortinoRatio ---
+
+func TestCompute_SortinoRatio(t *testing.T) {
+	// Curve [100, 110, 99, 108.9]; returns [+0.1, -0.1, +0.1]; daily (N=252).
+	//
+	// σ_d = √(sum(min(r,0)²) / n) = √(0.01/3) = 0.1/√3
+	// mean = 0.1/3
+	// Sortino = (mean / σ_d) · √N = (0.1/3)/(0.1/√3) · √252 = (√3/3)·√252 = √756/3 = 2√21
+	curve := makeEquityCurve(100, 110, 99, 108.9)
+	r := analytics.Compute(nil, curve, model.TimeframeDaily)
+	assertFloatEqual(t, "SortinoRatio", 2*math.Sqrt(21), r.SortinoRatio)
+}
+
+func TestCompute_SortinoRatio_ZeroDownside(t *testing.T) {
+	// All returns non-negative → downside deviation = 0 → Sortino = 0.
+	curve := makeEquityCurve(100, 110, 121, 133.1)
+	r := analytics.Compute(nil, curve, model.TimeframeDaily)
+	assertFloatEqual(t, "SortinoRatio", 0, r.SortinoRatio)
+}
+
+// --- CalmarRatio ---
+
+func TestCompute_CalmarRatio(t *testing.T) {
+	// Trades: +200 then -100 → equity 0→200→100 → MaxDrawdown = 50%.
+	// Curve [100, 110, 99, 108.9] daily; returns [+0.1, -0.1, +0.1].
+	// annReturn = (0.1/3) · 252 = 8.4; Calmar = 8.4 / (50/100) = 16.8
+	trades := []model.Trade{trade(200), trade(-100)}
+	curve := makeEquityCurve(100, 110, 99, 108.9)
+	r := analytics.Compute(trades, curve, model.TimeframeDaily)
+	assertFloatEqual(t, "CalmarRatio", 16.8, r.CalmarRatio)
+}
+
+func TestCompute_CalmarRatio_ZeroDrawdown(t *testing.T) {
+	// All winners → MaxDrawdown = 0 → Calmar = 0 (guard against division by zero).
+	trades := []model.Trade{trade(100), trade(200)}
+	curve := makeEquityCurve(100, 110, 99, 108.9)
+	r := analytics.Compute(trades, curve, model.TimeframeDaily)
+	assertFloatEqual(t, "CalmarRatio", 0, r.CalmarRatio)
+}
+
+// --- TailRatio ---
+
+func TestCompute_TailRatio_Symmetric(t *testing.T) {
+	// Curve [100, 110, 99, 108.9]; returns sorted ascending: [-0.1, +0.1, +0.1].
+	// n=3; p5=sorted[⌊0.05·3⌋]=sorted[0]=-0.1; p95=sorted[⌊0.95·3⌋]=sorted[2]=+0.1.
+	// TailRatio = 0.1 / |-0.1| = 1.0
+	curve := makeEquityCurve(100, 110, 99, 108.9)
+	r := analytics.Compute(nil, curve, model.TimeframeDaily)
+	assertFloatEqual(t, "TailRatio", 1.0, r.TailRatio)
+}
+
+func TestCompute_TailRatio_AllPositive(t *testing.T) {
+	// All returns non-negative → p5 >= 0 → TailRatio = 0.
+	curve := makeEquityCurve(100, 110, 121, 133.1)
+	r := analytics.Compute(nil, curve, model.TimeframeDaily)
+	assertFloatEqual(t, "TailRatio", 0, r.TailRatio)
+}
+
 // --- helpers ---
 
 func assertEqual(t *testing.T, field string, want, got int) {

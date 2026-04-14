@@ -54,7 +54,13 @@
       "Bash(gofumpt -w internal/analytics/analytics_test.go)",
       "Bash(go run:*)",
       "WebSearch",
-      "Bash(chmod +x /Users/vikrantdhawan/repos/backtesting-algo-trading/scripts/backtest-examples.sh)"
+      "Bash(chmod +x /Users/vikrantdhawan/repos/backtesting-algo-trading/scripts/backtest-examples.sh)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go test -race ./internal/sweep/)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go test -race ./internal/output/ ./internal/sweep/)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go build ./cmd/sweep/)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go test -race ./...)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec golangci-lint run ./...)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go test -race ./internal/analytics/)"
     ]
   }
 }

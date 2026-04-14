@@ -87,3 +87,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-13 | TASK-0021 | status → in-progress | implementation complete: pkg/model/sizing.go (SizingModel enum), internal/engine/sizing.go (computeInstrumentVol + sizeFractionForBar), engine.Config extended; all acceptance criteria met; 98.5% coverage | |
 | 2026-04-13 | TASK-0021 | status → done | all acceptance criteria met; archived to 2026-04.md | commit 5852d63 |
 | 2026-04-13 | TASK-0015 | status → in-progress | strategies/rsimeanrev/ created; all 6 acceptance criteria met; 8 tests passing (go test -race); hand-verified RSI values in test comments | |
+| 2026-04-14 | TASK-0023 | status → done | internal/sweep/ (Config/Result/Report/PlateauRange, Run, computePlateau); internal/output/output.go (WriteSweep); cmd/sweep/main.go; all tests green, 0 lint issues | archived to 2026-04.md |
+| 2026-04-14 | TASK-0016 | status → done | analytics.Report +6 fields (ProfitFactor, AvgWin, AvgLoss, SortinoRatio, CalmarRatio, TailRatio); computeReturns extracted; 8 new tests; output.printSummary updated; all tests green, 0 lint issues | archived to 2026-04.md |

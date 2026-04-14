@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
 )
 
 // Config controls where backtest results are written.
@@ -20,7 +21,7 @@ type Config struct {
 
 // Write formats report as a human-readable summary and/or a JSON file.
 // Both outputs are optional and controlled by cfg.
-func Write(report analytics.Report, cfg Config) error {
+func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Report and Config are caller-constructed value types; pointer would leak internals
 	if cfg.PrintToStdout {
 		w := cfg.Stdout
 		if w == nil {
@@ -40,10 +41,11 @@ func Write(report analytics.Report, cfg Config) error {
 	return nil
 }
 
-func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport) error {
+func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport) error { //nolint:gocritic // value semantics intentional; r is read-only
 	_, err := fmt.Fprintf(w,
-		"=== Backtest Results ===\nTrades:       %d\nWin Rate:     %.2f%%\nTotal P&L:    %.2f\nMax Drawdown: %.2f%%\nSharpe Ratio: %.4f\n",
-		r.TradeCount, r.WinRate, r.TotalPnL, r.MaxDrawdown, r.SharpeRatio,
+		"=== Backtest Results ===\nTrades:         %d\nWin Rate:       %.2f%%\nTotal P&L:      %.2f\nAvg Win:        %.2f\nAvg Loss:       %.2f\nProfit Factor:  %.4f\nMax Drawdown:   %.2f%%\nSharpe Ratio:   %.4f\nSortino Ratio:  %.4f\nCalmar Ratio:   %.4f\nTail Ratio:     %.4f\n",
+		r.TradeCount, r.WinRate, r.TotalPnL, r.AvgWin, r.AvgLoss, r.ProfitFactor,
+		r.MaxDrawdown, r.SharpeRatio, r.SortinoRatio, r.CalmarRatio, r.TailRatio,
 	)
 	if err != nil {
 		return fmt.Errorf("output: write summary: %w", err)
@@ -60,7 +62,40 @@ func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport)
 	return nil
 }
 
-func writeJSON(path string, r analytics.Report) error {
+// WriteSweep prints a ranked table of sweep results and, if present, the plateau
+// to w. Results are expected to arrive pre-sorted descending by Sharpe ratio.
+func WriteSweep(w io.Writer, report sweep.Report) error {
+	if _, err := fmt.Fprintf(w,
+		"=== Parameter Sweep: %s ===\n%-4s  %-10s  %-8s  %-12s  %-6s  %-8s\n",
+		report.ParameterName,
+		"Rank", report.ParameterName, "Sharpe", "P&L", "Trades", "MaxDD%",
+	); err != nil {
+		return fmt.Errorf("output: write sweep header: %w", err)
+	}
+
+	for i, r := range report.Results {
+		if _, err := fmt.Fprintf(w,
+			"%-4d  %-10.2f  %-8.4f  %-12.2f  %-6d  %-8.2f\n",
+			i+1, r.ParamValue, r.SharpeRatio, r.TotalPnL, r.TradeCount, r.MaxDrawdown,
+		); err != nil {
+			return fmt.Errorf("output: write sweep row %d: %w", i+1, err)
+		}
+	}
+
+	if report.Plateau != nil {
+		p := report.Plateau
+		if _, err := fmt.Fprintf(w,
+			"\nPlateau: %s in [%.2f, %.2f] (%d values, min Sharpe %.4f)\n",
+			report.ParameterName, p.MinParam, p.MaxParam, p.Count, p.MinSharpe,
+		); err != nil {
+			return fmt.Errorf("output: write sweep plateau: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func writeJSON(path string, r analytics.Report) error { //nolint:gocritic // value semantics intentional; r is read-only
 	data, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
 		return fmt.Errorf("output: marshal report: %w", err)

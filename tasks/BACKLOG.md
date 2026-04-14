@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-14 | **Open tasks:** 9 | **Next up:** TASK-0023**
+**Last updated:** 2026-04-14 | **Open tasks:** 7 | **Next up:** TASK-0017**
 
 ---
 
@@ -16,20 +16,7 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0023] Rigor — parameter sweep runner
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** A robust edge has a plateau of working parameter values, not a peak. Parameter sweeps reveal whether a strategy's Sharpe is robust to small parameter changes (real edge) or collapses when you nudge the lookback by 2 bars (curve-fitted noise).
-- **Acceptance criteria:**
-  - [ ] `internal/sweep/` package with `Run(cfg SweepConfig) []SweepResult`
-  - [ ] `SweepConfig`: parameter name, range (min, max, step), fixed engine config, instrument, date range
-  - [ ] Each `SweepResult`: parameter value, Sharpe, total P&L, trade count, max drawdown
-  - [ ] Output: ranked table of results + identification of the "plateau" (parameter range where Sharpe stays within 80% of peak)
-  - [ ] Tests: synthetic strategy with known optimal parameter → sweep correctly identifies the peak
-- **Notes:** Single-parameter first. Multi-dimensional grid search is combinatorially expensive and a path to overfitting. **Run immediately after first strategy results are in — before MACD or Bollinger Bands.** If RSI(14) with 30/70 is the only config that produces a reasonable Sharpe and RSI(12) with 28/72 is garbage, there is no edge. Reprioritized from low: this test costs little and should not be deferred to after four strategies are built.
+<!-- empty -->
 
 ---
 
@@ -56,26 +43,6 @@
 ## Todo (Backlog)
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
-
-### [TASK-0016] Analytics — profit factor, average win/loss, Sortino, Calmar, and tail ratio
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** Sharpe alone punishes upside volatility. Profit factor (gross profit / gross loss) and average win vs average loss together tell you whether the edge is in hit rate or in payoff ratio — critical for understanding how a strategy will behave in a drawdown. Sortino complements Sharpe by measuring only downside deviation. Tail ratio reveals short-vol disguise.
-- **Acceptance criteria:**
-  - [ ] `Report` gains: `ProfitFactor float64`, `AvgWin float64`, `AvgLoss float64`, `SortinoRatio float64`, `CalmarRatio float64`, `TailRatio float64`
-  - [ ] ProfitFactor = sum(winning trade P&L) / abs(sum(losing trade P&L)); returns 0 if no losing trades
-  - [ ] AvgWin and AvgLoss are per-trade averages (not total)
-  - [ ] Sortino uses downside deviation of per-bar returns (same equity curve as Sharpe, target return = 0)
-  - [ ] Calmar = annualized return / max drawdown (%); returns 0 if max drawdown is zero
-  - [ ] TailRatio = 95th percentile per-bar return / abs(5th percentile per-bar return); computed from equity curve returns; returns 0 if 5th percentile is zero
-  - [ ] Tests: known trade sequences → hand-verified expected values for all six new fields
-  - [ ] `output.printSummary` updated to include new fields
-- **Notes:** A 35% win rate with PF 1.8 is a fine strategy. A 70% win rate with PF 1.1 is a time bomb. Both print a positive Sharpe. Calmar is particularly revealing for Indian equities, which can sit underwater for 12-18 months after corrections. TailRatio < 1 means the left tail is fatter than the right — the strategy is short-vol in disguise. RSI mean-reversion buys dips, which is structurally short-vol; expect TailRatio < 1 and watch it in 2020/2022 regime slices.
-
----
 
 ### [TASK-0017] Analytics — drawdown duration tracking
 
