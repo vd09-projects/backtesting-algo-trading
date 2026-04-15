@@ -294,6 +294,63 @@ func TestCompute_CalmarRatio_ZeroDrawdown(t *testing.T) {
 	assertFloatEqual(t, "CalmarRatio", 0, r.CalmarRatio)
 }
 
+// --- MaxDrawdownDuration ---
+
+func TestComputeMaxDrawdownDuration(t *testing.T) {
+	cases := []struct {
+		name    string
+		curve   []model.EquityPoint
+		wantDur time.Duration
+	}{
+		{
+			name:    "empty curve",
+			curve:   nil,
+			wantDur: 0,
+		},
+		{
+			name:    "single point",
+			curve:   makeEquityCurve(100),
+			wantDur: 0,
+		},
+		{
+			name:    "all upward — no drawdown",
+			curve:   makeEquityCurve(100, 110, 120),
+			wantDur: 0,
+		},
+		{
+			// Peak=100@t0, trough=80@t2, recovery=105@t4 (105 >= 100).
+			// Duration = t4 - t0 = 4 hours.
+			name:    "peak-trough-recovery",
+			curve:   makeEquityCurve(100, 90, 80, 95, 105),
+			wantDur: 4 * time.Hour,
+		},
+		{
+			// Peak=100@t0, trough=80@t2, no recovery (95 < 100), last bar=t3.
+			// Duration = t3 - t0 = 3 hours.
+			name:    "peak-trough-no-recovery",
+			curve:   makeEquityCurve(100, 90, 80, 95),
+			wantDur: 3 * time.Hour,
+		},
+		{
+			// First drawdown:  peak=100@t0, trough=90@t1, depth=10%, recovered@t2 (100>=100).
+			// Second drawdown: peak=110@t3, trough=80@t4, depth≈27.3%, recovered@t5 (115>=110).
+			// Max drawdown = second; duration = t5 - t3 = 2 hours.
+			name:    "two drawdowns — max is second one",
+			curve:   makeEquityCurve(100, 90, 100, 110, 80, 115),
+			wantDur: 2 * time.Hour,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := analytics.Compute(nil, tc.curve, model.TimeframeDaily)
+			if r.MaxDrawdownDuration != tc.wantDur {
+				t.Errorf("MaxDrawdownDuration: got %v, want %v", r.MaxDrawdownDuration, tc.wantDur)
+			}
+		})
+	}
+}
+
 // --- TailRatio ---
 
 func TestCompute_TailRatio_Symmetric(t *testing.T) {

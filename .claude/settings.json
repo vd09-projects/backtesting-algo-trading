@@ -60,7 +60,12 @@
       "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go build ./cmd/sweep/)",
       "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go test -race ./...)",
       "Bash(GOROOT=/opt/homebrew/opt/go/libexec golangci-lint run ./...)",
-      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go test -race ./internal/analytics/)"
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go test -race ./internal/analytics/)",
+      "Read(//usr/local/**)",
+      "Read(//opt/homebrew/Cellar/go/1.26.1/**)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go test -race:*)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec /opt/homebrew/opt/go/libexec/bin/go env GOPATH)",
+      "Bash(GOROOT=/opt/homebrew/opt/go/libexec gofumpt -w:*)"
     ]
   }
 }

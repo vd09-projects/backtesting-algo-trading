@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-14 | **Open tasks:** 7 | **Next up:** TASK-0017**
+**Last updated:** 2026-04-15 | **Open tasks:** 8 | **Next up:** TASK-0028
 
 ---
 
@@ -16,7 +16,58 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-<!-- empty -->
+### [TASK-0028] Backtest — run SMA crossover and RSI mean-rev baselines, check proliferation gate
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-04-15
+- **Source:** user
+- **Context:** Two strategies are implemented and the full pipeline is wired. No backtest results
+  exist yet. This is the first live run against real NSE data and answers whether either strategy
+  has a detectable edge over the 2018–2024 window. Period pre-committed (Marcus) to include the
+  2020 crash and 2022 choppy regime. Instrument must be declared here before the first run.
+- **Acceptance criteria:**
+  - [ ] Instrument declared here before any run: **INSTRUMENT: _______** (Nifty 50 constituent,
+        chosen based on trading intent — not changed after seeing results)
+  - [ ] SMA crossover run: `cmd/backtest` CLI, `--strategy sma-crossover`, declared instrument,
+        `--from 2018-01-01 --to 2024-12-31 --timeframe daily`, vol-targeting sizing,
+        Zerodha commission defaults, result saved via `--out`
+  - [ ] RSI mean-rev run: same instrument, same period, same sizing and cost model
+  - [ ] Both outputs include benchmark comparison (TASK-0018 done — already in output)
+  - [ ] Proliferation gate checked and documented:
+        SMA crossover Sharpe ≥ 0.5 vs buy-and-hold? → TASK-0019 proceeds or is cancelled
+        RSI mean-rev Sharpe ≥ 0.5 vs buy-and-hold? → TASK-0020 proceeds or is cancelled
+  - [ ] Gate decisions recorded in `decisions/algorithm/` (one entry per strategy, per
+        `strategy-proliferation-gate` decision already in the journal)
+  - [ ] Equity curve reviewed across three regime windows: 2018–2019 (pre-crash), 2020–2021
+        (crash + recovery), 2022–2024 (grind) — confirm neither strategy shows edge in only
+        one window
+- **Notes:** Instrument selection criteria (Marcus): liquid Nifty 50 constituent, trading
+  continuously since before 2018, no structural break in price series, a name you would consider
+  trading with real capital. Declare one name and stick with it — do not run multiple names and
+  pick the best result. TASK-0017 (drawdown duration) is not a hard dependency but run it first
+  for cleaner output to read. All downstream rigor tasks (TASK-0024, TASK-0022, TASK-0026)
+  depend on the trade return series this run produces.
+
+---
+
+### [TASK-0017] Analytics — drawdown duration tracking
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-04-10
+- **Source:** session
+- **Context:** Max drawdown depth (%) is in the report, but duration is not. A 15% drawdown that
+  recovers in 3 weeks is survivable; a 15% drawdown that lasts 9 months is not. Drawdown duration
+  is an under-appreciated tell — if out-of-sample recovery time diverges from in-sample, the
+  strategy is decaying.
+- **Acceptance criteria:**
+  - [ ] `Report` gains: `MaxDrawdownDuration time.Duration` (wall time from peak to recovery or end of test)
+  - [ ] Computed from the equity curve time series
+  - [ ] If the equity curve never fully recovers by end of test, duration = time from peak to last bar
+  - [ ] Tests: equity curve with known peak/trough/recovery → expected duration
+- **Notes:** TASK-0013 (equity curve) is done — this task is unblocked and ready to implement.
+  Run before TASK-0028 for cleaner backtest output.
 
 ---
 
@@ -43,22 +94,6 @@
 ## Todo (Backlog)
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
-
-### [TASK-0017] Analytics — drawdown duration tracking
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** Max drawdown depth (%) is in the report, but duration is not. A 15% drawdown that recovers in 3 weeks is survivable; a 15% drawdown that lasts 9 months is not. Drawdown duration is an under-appreciated tell — if out-of-sample recovery time diverges from in-sample, the strategy is decaying.
-- **Acceptance criteria:**
-  - [ ] `Report` gains: `MaxDrawdownDuration time.Duration` (wall time from peak to recovery or end of test)
-  - [ ] Computed from the equity curve time series
-  - [ ] If the equity curve never fully recovers by end of test, duration = time from peak to last bar
-  - [ ] Tests: equity curve with known peak/trough/recovery → expected duration
-- **Notes:** TASK-0013 (equity curve) is done — this task is unblocked and ready to implement.
-
----
 
 ### [TASK-0019] Strategy — MACD trend-following
 

@@ -89,3 +89,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-13 | TASK-0015 | status → in-progress | strategies/rsimeanrev/ created; all 6 acceptance criteria met; 8 tests passing (go test -race); hand-verified RSI values in test comments | |
 | 2026-04-14 | TASK-0023 | status → done | internal/sweep/ (Config/Result/Report/PlateauRange, Run, computePlateau); internal/output/output.go (WriteSweep); cmd/sweep/main.go; all tests green, 0 lint issues | archived to 2026-04.md |
 | 2026-04-14 | TASK-0016 | status → done | analytics.Report +6 fields (ProfitFactor, AvgWin, AvgLoss, SortinoRatio, CalmarRatio, TailRatio); computeReturns extracted; 8 new tests; output.printSummary updated; all tests green, 0 lint issues | archived to 2026-04.md |
+| 2026-04-15 | TASK-0028 | created | priority: high, source: user; run both baseline strategies on declared Nifty 50 instrument 2018–2024, check proliferation gate (Sharpe ≥ 0.5), record gate decisions in decisions/algorithm/ | per Marcus + Priya review |
+| 2026-04-15 | TASK-0017 | moved | Todo (Backlog) → Up Next; run before TASK-0028 for cleaner output | |

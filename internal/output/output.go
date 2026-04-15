@@ -43,9 +43,9 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 
 func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport) error { //nolint:gocritic // value semantics intentional; r is read-only
 	_, err := fmt.Fprintf(w,
-		"=== Backtest Results ===\nTrades:         %d\nWin Rate:       %.2f%%\nTotal P&L:      %.2f\nAvg Win:        %.2f\nAvg Loss:       %.2f\nProfit Factor:  %.4f\nMax Drawdown:   %.2f%%\nSharpe Ratio:   %.4f\nSortino Ratio:  %.4f\nCalmar Ratio:   %.4f\nTail Ratio:     %.4f\n",
+		"=== Backtest Results ===\nTrades:         %d\nWin Rate:       %.2f%%\nTotal P&L:      %.2f\nAvg Win:        %.2f\nAvg Loss:       %.2f\nProfit Factor:  %.4f\nMax Drawdown:   %.2f%%\nMax DD Duration:%v\nSharpe Ratio:   %.4f\nSortino Ratio:  %.4f\nCalmar Ratio:   %.4f\nTail Ratio:     %.4f\n",
 		r.TradeCount, r.WinRate, r.TotalPnL, r.AvgWin, r.AvgLoss, r.ProfitFactor,
-		r.MaxDrawdown, r.SharpeRatio, r.SortinoRatio, r.CalmarRatio, r.TailRatio,
+		r.MaxDrawdown, r.MaxDrawdownDuration, r.SharpeRatio, r.SortinoRatio, r.CalmarRatio, r.TailRatio,
 	)
 	if err != nil {
 		return fmt.Errorf("output: write summary: %w", err)

@@ -4,25 +4,27 @@ package analytics
 import (
 	"math"
 	"sort"
+	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
 // Report holds performance metrics computed from a completed trade log and equity curve.
 type Report struct {
-	TotalPnL     float64
-	WinRate      float64 // percentage 0–100
-	MaxDrawdown  float64 // peak-to-trough on equity curve, percentage 0–100
-	TradeCount   int
-	WinCount     int
-	LossCount    int     // includes break-even trades (RealizedPnL <= 0)
-	SharpeRatio  float64 // annualized Sharpe ratio from per-bar equity curve returns
-	ProfitFactor float64 // grossProfit / grossLoss; 0 if no losing trades
-	AvgWin       float64 // average P&L of winning trades; 0 if no winning trades
-	AvgLoss      float64 // average absolute P&L of losing trades; 0 if no losing trades
-	SortinoRatio float64 // annualized Sortino ratio (downside deviation only)
-	CalmarRatio  float64 // annualized return / max drawdown (decimal); 0 if max drawdown is zero
-	TailRatio    float64 // p95 return / |p5 return|; 0 if p5 return >= 0
+	TotalPnL            float64
+	WinRate             float64 // percentage 0–100
+	MaxDrawdown         float64 // peak-to-trough on equity curve, percentage 0–100
+	TradeCount          int
+	WinCount            int
+	LossCount           int           // includes break-even trades (RealizedPnL <= 0)
+	SharpeRatio         float64       // annualized Sharpe ratio from per-bar equity curve returns
+	ProfitFactor        float64       // grossProfit / grossLoss; 0 if no losing trades
+	AvgWin              float64       // average P&L of winning trades; 0 if no winning trades
+	AvgLoss             float64       // average absolute P&L of losing trades; 0 if no losing trades
+	SortinoRatio        float64       // annualized Sortino ratio (downside deviation only)
+	CalmarRatio         float64       // annualized return / max drawdown (decimal); 0 if max drawdown is zero
+	TailRatio           float64       // p95 return / |p5 return|; 0 if p5 return >= 0
+	MaxDrawdownDuration time.Duration // wall time from the max-drawdown peak to first recovery (or last bar if never recovered)
 }
 
 // Compute derives performance metrics from a slice of closed trades and the equity curve.
@@ -79,6 +81,7 @@ func Compute(trades []model.Trade, curve []model.EquityPoint, tf model.Timeframe
 	r.SortinoRatio = computeSortino(returns, tf)
 	r.CalmarRatio = computeCalmar(returns, tf, r.MaxDrawdown)
 	r.TailRatio = computeTailRatio(returns)
+	r.MaxDrawdownDuration = computeMaxDrawdownDuration(curve)
 
 	return r
 }
@@ -209,6 +212,73 @@ func computeCalmar(returns []float64, tf model.Timeframe, maxDrawdownPct float64
 	annReturn := mean * annFactor
 
 	return annReturn / (maxDrawdownPct / 100)
+}
+
+// computeMaxDrawdownDuration returns the wall-clock duration from the peak that
+// precedes the maximum drawdown to the first subsequent bar where equity recovers
+// to that peak value, or to the last bar if the equity never recovers.
+//
+// The peak and drawdown depth are derived from the per-bar equity curve
+// ([]model.EquityPoint), not from the trade-based P&L accumulation that drives
+// Report.MaxDrawdown. In practice the two will agree closely for strategies with
+// frequent trades, but may diverge for low-turnover strategies where the per-bar
+// curve captures intra-trade mark-to-market swings that the closed-trade curve misses.
+//
+// **Decision (2026-04.1.0) — tradeoff: experimental**
+// scope: internal/analytics
+// tags: drawdown, duration, equity-curve
+// owner: priya
+//
+// MaxDrawdownDuration is computed from the per-bar EquityPoint curve because
+// only that series carries timestamps. MaxDrawdown (depth %) is computed from
+// the closed-trade P&L accumulation because that was the original implementation
+// and changing it would break existing tests and the accepted decision at
+// decisions/algorithm/2026-04-07-max-drawdown-from-equity-curve.md. The two
+// metrics may not describe the same drawdown event on low-turnover strategies.
+// Alternative considered: change MaxDrawdown to also use the equity curve (single
+// consistent series). Rejected because it is a behavior change outside this
+// task's scope; file it as a follow-up if both fields need to be consistent.
+func computeMaxDrawdownDuration(curve []model.EquityPoint) time.Duration {
+	if len(curve) < 2 {
+		return 0
+	}
+
+	var (
+		peakIdx   int
+		peakValue = curve[0].Value
+		maxDDPct  float64
+		ddPeakIdx int
+	)
+
+	for i, pt := range curve {
+		if pt.Value > peakValue {
+			peakValue = pt.Value
+			peakIdx = i
+		}
+		if peakValue > 0 {
+			dd := (peakValue - pt.Value) / peakValue * 100
+			if dd > maxDDPct {
+				maxDDPct = dd
+				ddPeakIdx = peakIdx
+			}
+		}
+	}
+
+	if maxDDPct == 0 {
+		return 0
+	}
+
+	ddPeakValue := curve[ddPeakIdx].Value
+	ddPeakTime := curve[ddPeakIdx].Timestamp
+
+	for i := ddPeakIdx + 1; i < len(curve); i++ {
+		if curve[i].Value >= ddPeakValue {
+			return curve[i].Timestamp.Sub(ddPeakTime)
+		}
+	}
+
+	// Equity never recovered — duration runs to the last bar.
+	return curve[len(curve)-1].Timestamp.Sub(ddPeakTime)
 }
 
 // computeTailRatio computes the ratio of the 95th to the absolute 5th percentile of

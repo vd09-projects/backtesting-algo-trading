@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-15-maxdrawdownduration-computed-from-per-bar-equity
+    title: "MaxDrawdownDuration computed from per-bar equity curve, not trade P&L accumulation"
+    date: 2026-04-15
+    status: experimental
+    category: tradeoff
+    tags: [drawdown, duration, equity-curve, analytics, MaxDrawdownDuration, TASK-0017]
+    path: tradeoff/2026-04-15-maxdrawdownduration-computed-from-per-bar-equity.md
+    summary: "MaxDrawdownDuration uses the per-bar EquityPoint curve (timestamps available) while MaxDrawdown depth still uses closed-trade P&L accumulation. On low-turnover strategies the two may reference different drawdown events. Unifying on the equity curve is a deferred follow-up."
+
+  - id: 2026-04-15-instrument-declared-before-first-run
+    title: "Target instrument must be declared in writing before the first backtest run"
+    date: 2026-04-15
+    status: accepted
+    category: algorithm
+    tags: [backtest, instrument, anti-cherry-picking, research-hygiene, methodology, TASK-0028]
+    path: algorithm/2026-04-15-instrument-declared-before-first-run.md
+    summary: "Instrument name must be written into TASK-0028's acceptance criteria before any `go run cmd/backtest` is executed. Post-hoc selection invalidates the proliferation gate check."
+
+  - id: 2026-04-15-baseline-backtest-period-2018-2024
+    title: "Baseline backtest period set to 2018–2024 for NSE strategy evaluation"
+    date: 2026-04-15
+    status: experimental
+    category: algorithm
+    tags: [backtest, period, NSE, regime, training-window, TASK-0028]
+    path: algorithm/2026-04-15-baseline-backtest-period-2018-2024.md
+    summary: "2018-01-01 to 2024-12-31 committed before any run. Chosen to include the 2020 crash and 2022 flat-to-down regime — the two periods that stress-test trend-following and mean-reversion respectively. Testing only on 2020–2021 would be testing in the most favorable possible environment for both strategies."
+
   - id: 2026-04-15-analytics-compute-returns-extracted-helper
     title: "`computeReturns` extracted as package-level helper in `internal/analytics`"
     date: 2026-04-15
