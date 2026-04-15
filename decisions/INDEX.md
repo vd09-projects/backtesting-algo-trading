@@ -8,6 +8,69 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-15-analytics-compute-returns-extracted-helper
+    title: "`computeReturns` extracted as package-level helper in `internal/analytics`"
+    date: 2026-04-15
+    status: experimental
+    category: architecture
+    tags: [refactor, returns, computeReturns, analytics, sharpe, sortino, calmar, tail-ratio, TASK-0016]
+    path: architecture/2026-04-15-analytics-compute-returns-extracted-helper.md
+    summary: "`computeReturns([]EquityPoint) []float64` extracted from `computeSharpe` after four metrics (Sharpe, Sortino, Calmar, TailRatio) all needed the same return series. Eliminates duplication without adding abstraction for its own sake. Function is unexported."
+
+  - id: 2026-04-15-sortino-population-denominator-rollinger-hoffman
+    title: "Sortino uses population-style denominator over all observations (Rollinger-Hoffman)"
+    date: 2026-04-15
+    status: experimental
+    category: convention
+    tags: [sortino, downside-deviation, convention, analytics, rollinger-hoffman, TASK-0016]
+    path: convention/2026-04-15-sortino-population-denominator-rollinger-hoffman.md
+    summary: "Sortino denominator is `sum(min(r,0)²) / n` over all observations (Rollinger-Hoffman), not divided by count of negative returns only. Most common in practice; agrees with Bloomberg. Alternative produces volatile estimates on small samples."
+
+  - id: 2026-04-15-sweep-plateau-non-contiguous-min-max-range
+    title: "Sweep plateau uses non-contiguous min/max range over all qualifying entries"
+    date: 2026-04-15
+    status: experimental
+    category: architecture
+    tags: [sweep, parameter-sweep, plateau, non-contiguous, internal/sweep, TASK-0023]
+    path: architecture/2026-04-15-sweep-plateau-non-contiguous-min-max-range.md
+    summary: "Plateau collects min/max ParamValue of all qualifying entries regardless of contiguity. A non-contiguous gap widens the range rather than splitting it — conservative interpretation. `output.WriteSweep` lives in internal/output (import direction: output→sweep)."
+
+  - id: 2026-04-15-sweep-type-names-no-stutter-lo-hi-params
+    title: "Sweep types renamed to eliminate stutter; `min/max` params renamed to `lo/hi`"
+    date: 2026-04-15
+    status: experimental
+    category: convention
+    tags: [stutter, naming, go-lint, revive, builtinShadow, internal/sweep, TASK-0023]
+    path: convention/2026-04-15-sweep-type-names-no-stutter-lo-hi-params.md
+    summary: "`SweepConfig/SweepResult/SweepReport` renamed to `Config/Result/Report` (no-stutter rule). `min/max` params renamed to `lo/hi` to avoid shadowing Go 1.21 builtins (gocritic builtinShadow). Applies project-wide no-stutter convention to sweep package."
+
+  - id: 2026-04-15-sweep-sequential-execution-no-errgroup
+    title: "Sweep executes parameter steps sequentially — no `errgroup` parallelism"
+    date: 2026-04-15
+    status: experimental
+    category: tradeoff
+    tags: [concurrency, sequential, errgroup, dependencies, internal/sweep, TASK-0023]
+    path: tradeoff/2026-04-15-sweep-sequential-execution-no-errgroup.md
+    summary: "Sequential execution chosen over errgroup parallelism. Constraint: `golang.org/x/sync` not in go.mod; CLAUDE.md prohibits new dependencies without discussion. For 20–50 step daily-bar sweeps, sequential completes in seconds. Upgrade path localized to `Run()`."
+
+  - id: 2026-04-15-sweep-run-returns-report-not-slice
+    title: "`sweep.Run` returns `SweepReport` (results + plateau) rather than `[]SweepResult`"
+    date: 2026-04-15
+    status: experimental
+    category: tradeoff
+    tags: [return-type, plateau, report, internal/sweep, TASK-0023]
+    path: tradeoff/2026-04-15-sweep-run-returns-report-not-slice.md
+    summary: "`Run` returns `SweepReport` so plateau analysis always runs and callers can't accidentally skip it. Cost: slightly heavier return type. Callers who only need the slice use `report.Results`."
+
+  - id: 2026-04-15-sweep-strategy-factory-func-type
+    title: "Sweep uses `StrategyFactory func(float64) (strategy.Strategy, error)` for parameterization"
+    date: 2026-04-15
+    status: experimental
+    category: architecture
+    tags: [parameterization, strategy-factory, sweep, internal/sweep, TASK-0023]
+    path: architecture/2026-04-15-sweep-strategy-factory-func-type.md
+    summary: "Sweep constructs strategies via a caller-supplied `func(float64) (strategy.Strategy, error)` closure. Sweep package stays agnostic to concrete strategy types. Rejected: `ParameterizableStrategy` interface requiring `WithParam` on every concrete strategy."
+
   - id: 2026-04-13-benchmark-report-separate-struct
     title: "BenchmarkReport is a separate struct, not an extension of Report"
     date: 2026-04-13
