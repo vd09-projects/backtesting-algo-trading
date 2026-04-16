@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-15 | **Open tasks:** 8 | **Next up:** TASK-0028
+**Last updated:** 2026-04-16 | **Open tasks:** 7 | **Next up:** TASK-0028
 
 ---
 
@@ -48,26 +48,6 @@
   pick the best result. TASK-0017 (drawdown duration) is not a hard dependency but run it first
   for cleaner output to read. All downstream rigor tasks (TASK-0024, TASK-0022, TASK-0026)
   depend on the trade return series this run produces.
-
----
-
-### [TASK-0017] Analytics — drawdown duration tracking
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** Max drawdown depth (%) is in the report, but duration is not. A 15% drawdown that
-  recovers in 3 weeks is survivable; a 15% drawdown that lasts 9 months is not. Drawdown duration
-  is an under-appreciated tell — if out-of-sample recovery time diverges from in-sample, the
-  strategy is decaying.
-- **Acceptance criteria:**
-  - [ ] `Report` gains: `MaxDrawdownDuration time.Duration` (wall time from peak to recovery or end of test)
-  - [ ] Computed from the equity curve time series
-  - [ ] If the equity curve never fully recovers by end of test, duration = time from peak to last bar
-  - [ ] Tests: equity curve with known peak/trough/recovery → expected duration
-- **Notes:** TASK-0013 (equity curve) is done — this task is unblocked and ready to implement.
-  Run before TASK-0028 for cleaner backtest output.
 
 ---
 
