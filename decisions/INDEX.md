@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-16-curve-data-wired-through-config-fields-rather
+    title: "Equity curve wired into output.Config fields, not a second Write parameter"
+    date: 2026-04-16
+    status: experimental
+    category: tradeoff
+    tags: [config-shape, equity-curve, output, internal/output, TASK-0029]
+    path: tradeoff/2026-04-16-curve-data-wired-through-config-fields-rather.md
+    summary: "Config.CurvePath + Config.Curve chosen over a new Write parameter or a separate WriteCurve function. Extends the existing Config-as-extension-point pattern; all existing callers and tests unchanged."
+
   - id: 2026-04-16-rsi-mean-reversion-proliferation-gate-failed
     title: "RSI mean-reversion fails proliferation gate — NSE:RELIANCE 2018–2025"
     date: 2026-04-16

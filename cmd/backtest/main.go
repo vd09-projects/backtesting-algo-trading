@@ -23,6 +23,17 @@
 //	    --vol-target 0.10 \
 //	    --out results.json
 //
+// With equity curve export:
+//
+//	go run ./cmd/backtest \
+//	    --instrument "NSE:RELIANCE" \
+//	    --from 2018-01-01 \
+//	    --to   2025-01-01 \
+//	    --timeframe daily \
+//	    --strategy sma-crossover \
+//	    --out runs/sma-crossover.json \
+//	    --output-curve runs/sma-crossover-curve.csv
+//
 // Available strategies:
 //
 //	stub              — always holds; useful for smoke-testing the pipeline
@@ -79,6 +90,7 @@ func main() {
 	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold (buy below)")
 	overbought := flag.Float64("overbought", 70, "rsi-mean-reversion: overbought threshold (sell above)")
 	outPath := flag.String("out", "", "Path for JSON results export (omit to skip)")
+	curvePath := flag.String("output-curve", "", "Path for equity curve CSV export (omit to skip)")
 	sizingModel := flag.String("sizing-model", "fixed", "Position sizing model: fixed | vol-target")
 	volTarget := flag.Float64("vol-target", 0.10, "Annualized volatility target when --sizing-model=vol-target (e.g. 0.10 = 10%)")
 	flag.Parse()
@@ -162,13 +174,16 @@ func main() {
 	}
 
 	port := eng.Portfolio()
-	report := analytics.Compute(port.ClosedTrades(), port.EquityCurve(), tf)
+	curve := port.EquityCurve()
+	report := analytics.Compute(port.ClosedTrades(), curve, tf)
 	benchmark := analytics.ComputeBenchmark(eng.Candles(), *cash)
 
 	if err := output.Write(report, output.Config{
 		PrintToStdout: true,
 		FilePath:      *outPath,
 		Benchmark:     &benchmark,
+		CurvePath:     *curvePath,
+		Curve:         curve,
 	}); err != nil {
 		cmdutil.Fatalf("output: %v", err)
 	}

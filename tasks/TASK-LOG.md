@@ -8,6 +8,7 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-10 | TASK-0025 | status → in-progress | starting corporate action verification for Zerodha data | |
 | 2026-04-10 | TASK-0025 | status → done | Kite day candles adjusted for splits/bonuses; decision recorded in decisions/infrastructure/ | TASK-0012 and TASK-0015 unblocked |
 | 2026-04-01 00:00 | TASK-0001 | created | priority: critical, source: project | Initialize Go module and folder structure (original) |
+| 2026-04-16 | TASK-0029 | status → done | all 4 acceptance criteria met | `--output-curve` flag, Config.CurvePath/Curve, writeCurveCSV, round-trip test at 100% |
 | 2026-04-14 | TASK-0015 | status → done | All acceptance criteria met; commit 3f98308 | strategies/rsimeanrev/ |
 | 2026-04-14 | TASK-0018 | status → done | All acceptance criteria met; commit 5e05325 | analytics.ComputeBenchmark + output.Config.Benchmark; 100% analytics coverage |
 | 2026-04-01 00:00 | TASK-0002 | created | priority: critical, source: project | Define core domain types in pkg/model |
@@ -96,3 +97,12 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-16 | TASK-0028 | criteria update | gate decisions recorded: sma-crossover-proliferation-gate-failed.md + rsi-mean-reversion-proliferation-gate-failed.md | 6/7 criteria done; only regime window review remains |
 | 2026-04-16 | TASK-0019 | status → cancelled | SMA crossover failed proliferation gate (Sharpe 0.447); MACD not built per gate rule | archived to 2026-04.md |
 | 2026-04-16 | TASK-0020 | status → cancelled | RSI mean-reversion failed proliferation gate (Sharpe 0.469, 7 trades); Bollinger Bands not built per gate rule | archived to 2026-04.md |
+| 2026-04-16 | TASK-0029 | created | priority: high, source: session | equity curve CSV output; unblocks TASK-0028 regime review |
+| 2026-04-16 | TASK-0030 | created | priority: high, source: session | signal frequency gate N<30 in analytics.Compute |
+| 2026-04-16 | TASK-0031 | created | priority: medium, source: session | RSI signal frequency diagnostic on RELIANCE; pre-condition for mean-reversion re-test |
+| 2026-04-16 | TASK-0032 | created | priority: medium, source: session | 2D parameter sweep + DSR calculation; internal/sweep2d |
+| 2026-04-16 | TASK-0033 | created | priority: medium, source: session | automated proliferation gate PASS/FAIL in CLI output; depends on TASK-0030 |
+| 2026-04-16 | TASK-0034 | created | priority: medium, source: session | regime-split report in analytics; depends on TASK-0029 |
+| 2026-04-16 | TASK-0035 | created | priority: low, source: session | multi-instrument sweep CLI cmd/universe-sweep; depends on TASK-0030 |
+| 2026-04-16 | TASK-0036 | created | priority: low, source: session | Python notebooks layer + file contract |
+| 2026-04-16 | TASK-0024 | criteria update | added Trade.ReturnOnNotional() requirement + explicit Seed int64 in BootstrapConfig for determinism | session review surfaced these gaps |

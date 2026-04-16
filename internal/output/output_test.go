@@ -6,12 +6,15 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
 // failAfterFirstWriter succeeds on the first Write call, then returns an error.
@@ -254,6 +257,85 @@ func TestWrite_StdoutNoBenchmarkSection(t *testing.T) {
 
 	if strings.Contains(buf.String(), "Benchmark") {
 		t.Errorf("expected no benchmark section when Benchmark is nil:\n%s", buf.String())
+	}
+}
+
+// --- WriteCurveCSV tests ---
+
+func TestWrite_CurvePath_RoundTrip(t *testing.T) {
+	curve := []model.EquityPoint{
+		{Timestamp: time.Date(2018, 1, 2, 9, 15, 0, 0, time.UTC), Value: 100000.00},
+		{Timestamp: time.Date(2018, 1, 3, 9, 15, 0, 0, time.UTC), Value: 100250.50},
+		{Timestamp: time.Date(2018, 1, 4, 9, 15, 0, 0, time.UTC), Value: 99875.25},
+	}
+
+	dir := t.TempDir()
+	curvePath := filepath.Join(dir, "curve.csv")
+
+	if err := output.Write(analytics.Report{}, output.Config{
+		CurvePath: curvePath,
+		Curve:     curve,
+	}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(curvePath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	if len(lines) != len(curve)+1 {
+		t.Fatalf("expected %d lines (1 header + %d data), got %d", len(curve)+1, len(curve), len(lines))
+	}
+	if lines[0] != "timestamp,equity_value" {
+		t.Errorf("unexpected header: %q", lines[0])
+	}
+
+	for i, pt := range curve {
+		parts := strings.SplitN(lines[i+1], ",", 2)
+		if len(parts) != 2 {
+			t.Errorf("row %d: expected 2 fields, got %q", i, lines[i+1])
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339, parts[0])
+		if err != nil {
+			t.Errorf("row %d: parse timestamp %q: %v", i, parts[0], err)
+			continue
+		}
+		if !ts.Equal(pt.Timestamp) {
+			t.Errorf("row %d: timestamp got %v, want %v", i, ts, pt.Timestamp)
+		}
+		got, err := strconv.ParseFloat(parts[1], 64)
+		if err != nil {
+			t.Errorf("row %d: parse value %q: %v", i, parts[1], err)
+			continue
+		}
+		if got != pt.Value {
+			t.Errorf("row %d: value got %v, want %v", i, got, pt.Value)
+		}
+	}
+}
+
+func TestWrite_CurvePath_EmptyPath_NoCurveFile(t *testing.T) {
+	// CurvePath is empty — Write must succeed without touching any file.
+	curve := []model.EquityPoint{
+		{Timestamp: time.Date(2018, 1, 2, 9, 15, 0, 0, time.UTC), Value: 100000.00},
+	}
+	if err := output.Write(analytics.Report{}, output.Config{Curve: curve}); err != nil {
+		t.Fatalf("Write with no CurvePath: %v", err)
+	}
+}
+
+func TestWrite_CurvePath_BadPath(t *testing.T) {
+	curve := []model.EquityPoint{
+		{Timestamp: time.Date(2018, 1, 2, 9, 15, 0, 0, time.UTC), Value: 100000.00},
+	}
+	if err := output.Write(analytics.Report{}, output.Config{
+		CurvePath: "/nonexistent/dir/curve.csv",
+		Curve:     curve,
+	}); err == nil {
+		t.Error("expected error for bad curve path, got nil")
 	}
 }
 

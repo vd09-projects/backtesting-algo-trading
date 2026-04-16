@@ -2,13 +2,16 @@
 package output
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
 // Config controls where backtest results are written.
@@ -17,6 +20,8 @@ type Config struct {
 	PrintToStdout bool                       // print human-readable summary to stdout
 	Stdout        io.Writer                  // overrides os.Stdout when PrintToStdout is true; nil means os.Stdout
 	Benchmark     *analytics.BenchmarkReport // optional; when non-nil, printed alongside strategy results
+	CurvePath     string                     // destination for equity curve CSV export; ignored if empty
+	Curve         []model.EquityPoint        // per-bar equity snapshots; written to CurvePath when that field is non-empty
 }
 
 // Write formats report as a human-readable summary and/or a JSON file.
@@ -34,6 +39,12 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 
 	if cfg.FilePath != "" {
 		if err := writeJSON(cfg.FilePath, report); err != nil {
+			return err
+		}
+	}
+
+	if cfg.CurvePath != "" {
+		if err := writeCurveCSV(cfg.CurvePath, cfg.Curve); err != nil {
 			return err
 		}
 	}
@@ -92,6 +103,28 @@ func WriteSweep(w io.Writer, report sweep.Report) error {
 		}
 	}
 
+	return nil
+}
+
+// writeCurveCSV writes the equity curve to path in CSV format.
+//
+// CSV format:
+//
+//	timestamp,equity_value
+//	2018-01-02T09:15:00Z,100000.00
+//
+// Timestamps are RFC 3339 UTC. equity_value is rounded to two decimal places.
+// The file is created or truncated at path before writing. An empty curve
+// writes only the header row.
+func writeCurveCSV(path string, curve []model.EquityPoint) error {
+	var buf bytes.Buffer
+	buf.WriteString("timestamp,equity_value\n")
+	for _, pt := range curve {
+		fmt.Fprintf(&buf, "%s,%.2f\n", pt.Timestamp.UTC().Format(time.RFC3339), pt.Value)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("output: write curve file %q: %w", path, err)
+	}
 	return nil
 }
 
