@@ -13,15 +13,14 @@
       "Bash(golangci-lint --version)",
       "Bash(golangci-lint version:*)",
       "Bash(gofumpt -w:*)",
-      "Bash(git -C /Users/vikrantdhawan/repos/backtesting-algo-trading diff --stat HEAD)",
+      "Bash(git -C /Users/vikrantdhawan/repos/backtesting-algo-trading diff:*)",
       "Bash(git -C /Users/vikrantdhawan/repos/backtesting-algo-trading status --short)",
       "Bash(ls /Users/vikrantdhawan/repos/backtesting-algo-trading/.env*)",
       "WebFetch(domain:kite.trade)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebSearch",
-      "Read(//tmp/**)",
-      "Bash(git -C /Users/vikrantdhawan/repos/backtesting-algo-trading diff HEAD)"
+      "Read(//tmp/**)"
     ]
   }
 }
