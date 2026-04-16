@@ -11,11 +11,28 @@
 //	    --strategy sma-crossover \
 //	    --out results.json
 //
+// With volatility-targeting sizing:
+//
+//	go run ./cmd/backtest \
+//	    --instrument "NSE:INFY" \
+//	    --from 2018-01-01 \
+//	    --to   2025-01-01 \
+//	    --timeframe daily \
+//	    --strategy rsi-mean-reversion \
+//	    --sizing-model vol-target \
+//	    --vol-target 0.10 \
+//	    --out results.json
+//
 // Available strategies:
 //
 //	stub              — always holds; useful for smoke-testing the pipeline
 //	sma-crossover     — SMA crossover; --fast-period / --slow-period
 //	rsi-mean-reversion — RSI mean-reversion; --rsi-period / --oversold / --overbought
+//
+// Sizing models:
+//
+//	fixed      — deploy a fixed fraction of cash per trade (default; controlled by --position-size)
+//	vol-target — size each trade so annualized dollar vol = cash × --vol-target (default 10%)
 //
 // Credentials are read from KITE_API_KEY and KITE_API_SECRET environment
 // variables (or a .env file in the working directory). A saved access token is
@@ -62,6 +79,8 @@ func main() {
 	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold (buy below)")
 	overbought := flag.Float64("overbought", 70, "rsi-mean-reversion: overbought threshold (sell above)")
 	outPath := flag.String("out", "", "Path for JSON results export (omit to skip)")
+	sizingModel := flag.String("sizing-model", "fixed", "Position sizing model: fixed | vol-target")
+	volTarget := flag.Float64("vol-target", 0.10, "Annualized volatility target when --sizing-model=vol-target (e.g. 0.10 = 10%)")
 	flag.Parse()
 
 	// Validate required flags.
@@ -112,12 +131,22 @@ func main() {
 		cmdutil.Fatalf("provider: %v", err)
 	}
 
+	sm, err := parseSizingModel(*sizingModel)
+	if err != nil {
+		cmdutil.Fatalf("--sizing-model: %v", err)
+	}
+	if sm == model.SizingVolatilityTarget && *volTarget <= 0 {
+		cmdutil.Fatalf("--vol-target must be positive when --sizing-model=vol-target (got %.4f)", *volTarget)
+	}
+
 	eng := engine.New(engine.Config{
 		Instrument:           *instrument,
 		From:                 from,
 		To:                   to,
 		InitialCash:          *cash,
 		PositionSizeFraction: 0.1,
+		SizingModel:          sm,
+		VolatilityTarget:     *volTarget,
 		OrderConfig: model.OrderConfig{
 			SlippagePct:     0.0005,
 			CommissionModel: model.CommissionZerodha,
@@ -134,10 +163,12 @@ func main() {
 
 	port := eng.Portfolio()
 	report := analytics.Compute(port.ClosedTrades(), port.EquityCurve(), tf)
+	benchmark := analytics.ComputeBenchmark(eng.Candles(), *cash)
 
 	if err := output.Write(report, output.Config{
 		PrintToStdout: true,
 		FilePath:      *outPath,
+		Benchmark:     &benchmark,
 	}); err != nil {
 		cmdutil.Fatalf("output: %v", err)
 	}
@@ -161,6 +192,17 @@ func strategyRegistry(name string, tf model.Timeframe, p strategyParams) (strate
 		return rsimeanrev.New(tf, p.rsiPeriod, p.oversold, p.overbought)
 	default:
 		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover, rsi-mean-reversion", name)
+	}
+}
+
+func parseSizingModel(s string) (model.SizingModel, error) {
+	switch s {
+	case "fixed":
+		return model.SizingFixed, nil
+	case "vol-target":
+		return model.SizingVolatilityTarget, nil
+	default:
+		return 0, fmt.Errorf("%q is not valid; choose one of: fixed, vol-target", s)
 	}
 }
 

@@ -196,6 +196,28 @@ func TestRun_InvalidSignalPropagatesError(t *testing.T) {
 	assert.Contains(t, err.Error(), "BOGUS")
 }
 
+func TestRun_CandlesExposed(t *testing.T) {
+	// Candles() must return the full fetched series, including lookback bars,
+	// not just the post-lookback bars that appear in Results().
+	candles := makeCandles(10)
+	p := &stubProvider{candles: candles}
+	s := &stubStrategy{lookback: 3, signal: model.SignalHold}
+
+	e := engine.New(defaultConfig())
+	require.NoError(t, e.Run(context.Background(), p, s))
+
+	got := e.Candles()
+	require.Len(t, got, 10, "Candles must include all fetched bars, not just post-lookback bars")
+	for i, c := range candles {
+		assert.Equal(t, c.Timestamp, got[i].Timestamp, "candle %d timestamp mismatch", i)
+	}
+}
+
+func TestRun_CandlesNilBeforeRun(t *testing.T) {
+	e := engine.New(defaultConfig())
+	assert.Nil(t, e.Candles(), "Candles must be nil before Run is called")
+}
+
 func TestRun_ValidationErrors(t *testing.T) {
 	candles := makeCandles(5)
 

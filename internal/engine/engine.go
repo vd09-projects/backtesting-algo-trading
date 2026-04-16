@@ -33,6 +33,7 @@ type BarResult struct {
 // one bar at a time, collecting signals and updating portfolio state.
 type Engine struct {
 	config     Config
+	candles    []model.Candle // full series fetched by Run; nil until Run is called
 	barResults []BarResult
 	portfolio  *Portfolio
 }
@@ -45,6 +46,13 @@ func New(cfg Config) *Engine { //nolint:gocritic // Config is a constructor arg;
 // Results returns the per-bar results after Run completes.
 func (e *Engine) Results() []BarResult {
 	return e.barResults
+}
+
+// Candles returns the full candle series fetched during the last Run call,
+// including bars consumed by the lookback window that do not appear in Results.
+// Returns nil until Run is called.
+func (e *Engine) Candles() []model.Candle {
+	return e.candles
 }
 
 // Portfolio returns the portfolio state after Run completes.
@@ -76,6 +84,7 @@ func (e *Engine) Run(ctx context.Context, p provider.DataProvider, s strategy.St
 	if len(candles) == 0 {
 		return fmt.Errorf("engine: provider returned no candles for %s", e.config.Instrument)
 	}
+	e.candles = candles
 
 	lookback := s.Lookback()
 	if lookback < 1 {

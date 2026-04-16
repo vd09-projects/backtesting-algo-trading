@@ -20,7 +20,8 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebSearch",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(GOROOT=$\\(go1.25.0 env GOROOT\\) golangci-lint run:*)"
     ]
   }
 }
