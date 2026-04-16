@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-16 | **Open tasks:** 7 | **Next up:** TASK-0028
+**Last updated:** 2026-04-16 | **Open tasks:** 5 | **Next up:** TASK-0024
 
 ---
 
@@ -8,46 +8,44 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
-<!-- empty -->
+### [TASK-0028] Backtest — run SMA crossover and RSI mean-rev baselines, check proliferation gate
+
+- **Status:** in-progress
+- **Priority:** high
+- **Created:** 2026-04-15
+- **Source:** user
+- **Context:** Two strategies are implemented and the full pipeline is wired. This is the first
+  live run against real NSE data and answers whether either strategy has a detectable edge over
+  the 2018–2024 window. Period pre-committed (Marcus) to include the 2020 crash and 2022 choppy
+  regime.
+- **Acceptance criteria:**
+  - [x] Instrument declared here before any run: **INSTRUMENT: NSE:RELIANCE** (Reliance Industries,
+        Nifty 50 constituent, continuous trading since before 2018)
+  - [x] SMA crossover run: `--strategy sma-crossover`, `NSE:RELIANCE`,
+        `--from 2018-01-01 --to 2025-01-01 --timeframe daily`, `--sizing-model vol-target --vol-target 0.10`,
+        Zerodha commission defaults, result saved to `runs/sma-crossover-2018-2024.json`
+  - [x] RSI mean-rev run: same instrument, same period, same sizing and cost model,
+        saved to `runs/rsi-mean-rev-2018-2024.json`
+  - [x] Both outputs include benchmark comparison (TASK-0018 — already in output)
+  - [x] Proliferation gate checked:
+        SMA crossover Sharpe = 0.447 — **FAILS gate (< 0.5) → TASK-0019 cancelled**
+        RSI mean-rev Sharpe = 0.469, 7 trades — **FAILS gate (< 0.5, sample too small) → TASK-0020 cancelled**
+  - [x] Gate decisions recorded in `decisions/algorithm/` (one entry per strategy —
+        `2026-04-16-sma-crossover-proliferation-gate-failed.md` and
+        `2026-04-16-rsi-mean-reversion-proliferation-gate-failed.md`)
+  - [ ] Equity curve reviewed across three regime windows: 2018–2019 (pre-crash), 2020–2021
+        (crash + recovery), 2022–2024 (grind) — confirm neither strategy shows edge in only
+        one window
+- **Notes:** MaxDrawdown bug fixed 2026-04-16 (was accumulating P&L from 0; now uses per-bar
+  equity curve via `computeMaxDrawdownDepth`). Re-run results: SMA MaxDrawdown 16.38%, RSI
+  MaxDrawdown 17.36%. CalmarRatio corrected accordingly. All downstream rigor tasks (TASK-0024,
+  TASK-0022, TASK-0026) depend on the trade return series this run produces.
 
 ---
 
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0028] Backtest — run SMA crossover and RSI mean-rev baselines, check proliferation gate
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-15
-- **Source:** user
-- **Context:** Two strategies are implemented and the full pipeline is wired. No backtest results
-  exist yet. This is the first live run against real NSE data and answers whether either strategy
-  has a detectable edge over the 2018–2024 window. Period pre-committed (Marcus) to include the
-  2020 crash and 2022 choppy regime. Instrument must be declared here before the first run.
-- **Acceptance criteria:**
-  - [ ] Instrument declared here before any run: **INSTRUMENT: _______** (Nifty 50 constituent,
-        chosen based on trading intent — not changed after seeing results)
-  - [ ] SMA crossover run: `cmd/backtest` CLI, `--strategy sma-crossover`, declared instrument,
-        `--from 2018-01-01 --to 2024-12-31 --timeframe daily`, vol-targeting sizing,
-        Zerodha commission defaults, result saved via `--out`
-  - [ ] RSI mean-rev run: same instrument, same period, same sizing and cost model
-  - [ ] Both outputs include benchmark comparison (TASK-0018 done — already in output)
-  - [ ] Proliferation gate checked and documented:
-        SMA crossover Sharpe ≥ 0.5 vs buy-and-hold? → TASK-0019 proceeds or is cancelled
-        RSI mean-rev Sharpe ≥ 0.5 vs buy-and-hold? → TASK-0020 proceeds or is cancelled
-  - [ ] Gate decisions recorded in `decisions/algorithm/` (one entry per strategy, per
-        `strategy-proliferation-gate` decision already in the journal)
-  - [ ] Equity curve reviewed across three regime windows: 2018–2019 (pre-crash), 2020–2021
-        (crash + recovery), 2022–2024 (grind) — confirm neither strategy shows edge in only
-        one window
-- **Notes:** Instrument selection criteria (Marcus): liquid Nifty 50 constituent, trading
-  continuously since before 2018, no structural break in price series, a name you would consider
-  trading with real capital. Declare one name and stick with it — do not run multiple names and
-  pick the best result. TASK-0017 (drawdown duration) is not a hard dependency but run it first
-  for cleaner output to read. All downstream rigor tasks (TASK-0024, TASK-0022, TASK-0026)
-  depend on the trade return series this run produces.
 
 ---
 
@@ -74,42 +72,6 @@
 ## Todo (Backlog)
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
-
-### [TASK-0019] Strategy — MACD trend-following
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** MACD (12/26/9 defaults) is the third baseline trend strategy, complementing SMA crossover. It adds signal-line smoothing which reduces whipsaws compared to raw SMA crossover. Running all three momentum strategies together reveals whether the edge (if any) is robust to parameterization or specific to one configuration.
-- **Acceptance criteria:**
-  - [ ] `strategies/macdtrend/` package implementing `Strategy` interface
-  - [ ] Uses `github.com/markcheno/go-talib` MACD — no hand-rolled computation
-  - [ ] Configurable fast (12), slow (26), signal (9) periods; defaults baked in
-  - [ ] Signal: buy when MACD line crosses above signal line; sell when crosses below
-  - [ ] Lookback = slow + signal periods
-  - [ ] Tests: known OHLCV sequence → expected signals
-- **Notes:** **Conditional gate — do not start until SMA crossover and RSI results are reviewed against buy-and-hold benchmark.** If neither beats buy-and-hold after costs with Sharpe >= 0.5, cancel this task. MACD will not rescue a regime that doesn't reward trend-following.
-
----
-
-### [TASK-0020] Strategy — Bollinger Band mean-reversion
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** Bollinger Band mean-reversion (buy at lower band, sell at upper band or middle) is the volatility-adaptive counterpart to RSI mean-reversion. It adapts its thresholds to current volatility, which makes it more robust across different market regimes than fixed RSI thresholds.
-- **Acceptance criteria:**
-  - [ ] `strategies/bollingermeanrev/` package implementing `Strategy` interface
-  - [ ] Uses `github.com/markcheno/go-talib` Bollinger Bands — no hand-rolled computation
-  - [ ] Configurable period (20), std-dev multiplier (2.0); defaults baked in
-  - [ ] Buy signal: close touches or crosses below lower band; sell signal: close touches or crosses above upper band
-  - [ ] Lookback = period
-  - [ ] Tests: known OHLCV sequence → expected signals
-- **Notes:** **Conditional gate — do not start until RSI mean-reversion results are reviewed against buy-and-hold benchmark.** If RSI doesn't beat buy-and-hold after costs with Sharpe >= 0.5, cancel this task.
-
----
 
 ### [TASK-0022] Rigor — walk-forward validation framework
 

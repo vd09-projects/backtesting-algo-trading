@@ -92,3 +92,7 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-15 | TASK-0028 | created | priority: high, source: user; run both baseline strategies on declared Nifty 50 instrument 2018–2024, check proliferation gate (Sharpe ≥ 0.5), record gate decisions in decisions/algorithm/ | per Marcus + Priya review |
 | 2026-04-15 | TASK-0017 | moved | Todo (Backlog) → Up Next; run before TASK-0028 for cleaner output | |
 | 2026-04-16 | TASK-0017 | status → done | MaxDrawdownDuration added to analytics.Report; computeMaxDrawdownDuration from per-bar equity curve; 5 table-driven tests; printSummary updated; lint clean | archived to 2026-04.md |
+| 2026-04-16 | TASK-0028 | status → in-progress | instrument declared: NSE:RELIANCE; both runs complete; gate failed for both strategies (SMA Sharpe=0.447, RSI Sharpe=0.469); MaxDrawdown bug fixed (computeMaxDrawdownDepth from equity curve) | remaining: gate decisions in decisions/algorithm/, regime window review |
+| 2026-04-16 | TASK-0028 | criteria update | gate decisions recorded: sma-crossover-proliferation-gate-failed.md + rsi-mean-reversion-proliferation-gate-failed.md | 6/7 criteria done; only regime window review remains |
+| 2026-04-16 | TASK-0019 | status → cancelled | SMA crossover failed proliferation gate (Sharpe 0.447); MACD not built per gate rule | archived to 2026-04.md |
+| 2026-04-16 | TASK-0020 | status → cancelled | RSI mean-reversion failed proliferation gate (Sharpe 0.469, 7 trades); Bollinger Bands not built per gate rule | archived to 2026-04.md |

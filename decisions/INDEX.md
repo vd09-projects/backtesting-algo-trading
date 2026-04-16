@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-16-rsi-mean-reversion-proliferation-gate-failed
+    title: "RSI mean-reversion fails proliferation gate — NSE:RELIANCE 2018–2025"
+    date: 2026-04-16
+    status: accepted
+    category: algorithm
+    tags: [rsi-mean-reversion, proliferation-gate, sharpe, trade-count, NSE:RELIANCE, TASK-0028, TASK-0020]
+    path: algorithm/2026-04-16-rsi-mean-reversion-proliferation-gate-failed.md
+    summary: "RSI (14/30/70) on NSE:RELIANCE 2018–2025 fails gate: Sharpe 0.469 and only 7 trades (statistically meaningless). 100% win rate is a red flag, not a green one. TASK-0020 (Bollinger Bands) cancelled."
+
+  - id: 2026-04-16-sma-crossover-proliferation-gate-failed
+    title: "SMA Crossover fails proliferation gate — NSE:RELIANCE 2018–2025"
+    date: 2026-04-16
+    status: accepted
+    category: algorithm
+    tags: [sma-crossover, proliferation-gate, sharpe, NSE:RELIANCE, TASK-0028, TASK-0019]
+    path: algorithm/2026-04-16-sma-crossover-proliferation-gate-failed.md
+    summary: "SMA crossover (10/50) on NSE:RELIANCE 2018–2025 fails gate: Sharpe 0.447. 22 trades, ProfitFactor 2.16 but 36% win rate. MaxDrawdownDuration 3.1 years. TASK-0019 (MACD) cancelled."
+
   - id: 2026-04-15-maxdrawdownduration-computed-from-per-bar-equity
     title: "MaxDrawdownDuration computed from per-bar equity curve, not trade P&L accumulation"
     date: 2026-04-15

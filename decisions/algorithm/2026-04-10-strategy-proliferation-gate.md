@@ -45,6 +45,11 @@ The pre-commitment matters as much as the number. The threshold is set before se
 - If one passes and one fails, only the passing variation gets built (e.g., SMA passes → MACD proceeds; RSI fails → no Bollinger Bands).
 - The gate applies to the initial dirty test, not a formal walk-forward. A strategy that barely clears 0.5 in-sample is still treated with skepticism — this is a filter for "alive or dead," not a promotion to production.
 
+## Related decisions
+
+- [SMA crossover fails proliferation gate — NSE:RELIANCE 2018–2025](../algorithm/2026-04-16-sma-crossover-proliferation-gate-failed.md) — gate verdict for the trend-following bucket; Sharpe 0.447, TASK-0019 cancelled
+- [RSI mean-reversion fails proliferation gate — NSE:RELIANCE 2018–2025](../algorithm/2026-04-16-rsi-mean-reversion-proliferation-gate-failed.md) — gate verdict for the mean-reversion bucket; Sharpe 0.469, 7 trades, TASK-0020 cancelled
+
 ## Revisit trigger
 
 If the target universe changes (e.g., switching from daily NSE equities to 15-min futures), reset the gate — different microstructure and cost structure require re-evaluation. The 0.5 threshold was calibrated for daily bar strategies on liquid NSE large-caps with Zerodha commission structure.
