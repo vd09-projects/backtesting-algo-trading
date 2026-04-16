@@ -38,7 +38,6 @@ func Compute(trades []model.Trade, curve []model.EquityPoint, tf model.Timeframe
 	var r Report
 	r.TradeCount = len(trades)
 
-	var equity, peak, maxDD float64
 	var grossProfit, grossLoss float64
 
 	for _, t := range trades {
@@ -51,20 +50,9 @@ func Compute(trades []model.Trade, curve []model.EquityPoint, tf model.Timeframe
 			r.LossCount++
 			grossLoss += t.RealizedPnL // negative
 		}
-
-		equity += t.RealizedPnL
-		if equity > peak {
-			peak = equity
-		}
-		if peak > 0 {
-			dd := (peak - equity) / peak * 100
-			if dd > maxDD {
-				maxDD = dd
-			}
-		}
 	}
 
-	r.MaxDrawdown = maxDD
+	r.MaxDrawdown = computeMaxDrawdownDepth(curve)
 	if r.TradeCount > 0 {
 		r.WinRate = float64(r.WinCount) / float64(r.TradeCount) * 100
 	}
@@ -214,6 +202,28 @@ func computeCalmar(returns []float64, tf model.Timeframe, maxDrawdownPct float64
 	return annReturn / (maxDrawdownPct / 100)
 }
 
+// computeMaxDrawdownDepth returns the peak-to-trough drawdown as a percentage (0–100)
+// from the per-bar equity curve. Returns 0 for fewer than 2 points.
+func computeMaxDrawdownDepth(curve []model.EquityPoint) float64 {
+	if len(curve) < 2 {
+		return 0
+	}
+	peak := curve[0].Value
+	var maxDD float64
+	for _, pt := range curve {
+		if pt.Value > peak {
+			peak = pt.Value
+		}
+		if peak > 0 {
+			dd := (peak - pt.Value) / peak * 100
+			if dd > maxDD {
+				maxDD = dd
+			}
+		}
+	}
+	return maxDD
+}
+
 // computeMaxDrawdownDuration returns the wall-clock duration from the peak that
 // precedes the maximum drawdown to the first subsequent bar where equity recovers
 // to that peak value, or to the last bar if the equity never recovers.
@@ -224,20 +234,8 @@ func computeCalmar(returns []float64, tf model.Timeframe, maxDrawdownPct float64
 // frequent trades, but may diverge for low-turnover strategies where the per-bar
 // curve captures intra-trade mark-to-market swings that the closed-trade curve misses.
 //
-// **Decision (2026-04.1.0) — tradeoff: experimental**
-// scope: internal/analytics
-// tags: drawdown, duration, equity-curve
-// owner: priya
-//
-// MaxDrawdownDuration is computed from the per-bar EquityPoint curve because
-// only that series carries timestamps. MaxDrawdown (depth %) is computed from
-// the closed-trade P&L accumulation because that was the original implementation
-// and changing it would break existing tests and the accepted decision at
-// decisions/algorithm/2026-04-07-max-drawdown-from-equity-curve.md. The two
-// metrics may not describe the same drawdown event on low-turnover strategies.
-// Alternative considered: change MaxDrawdown to also use the equity curve (single
-// consistent series). Rejected because it is a behavior change outside this
-// task's scope; file it as a follow-up if both fields need to be consistent.
+// Both MaxDrawdown (depth %) and MaxDrawdownDuration are now computed from the
+// same per-bar EquityPoint curve, so they always describe the same drawdown event.
 func computeMaxDrawdownDuration(curve []model.EquityPoint) time.Duration {
 	if len(curve) < 2 {
 		return 0

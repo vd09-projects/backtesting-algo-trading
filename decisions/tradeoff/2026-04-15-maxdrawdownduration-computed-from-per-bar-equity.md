@@ -3,7 +3,7 @@
 | Field    | Value            |
 |----------|------------------|
 | Date     | 2026-04-15       |
-| Status   | experimental     |
+| Status   | superseded       |
 | Category | tradeoff         |
 | Tags     | drawdown, duration, equity-curve, analytics, MaxDrawdownDuration, TASK-0017 |
 
@@ -62,8 +62,9 @@ This is a known limitation, documented inline in `computeMaxDrawdownDuration`. A
 - [MaxDrawdown computed from equity curve, not per-trade losses](../algorithm/2026-04-07-max-drawdown-from-equity-curve.md) — established that MaxDrawdown depth uses trade accumulation; this decision is directly downstream of that one
 - [Equity curve records every bar, including warmup](../convention/2026-04-10-equity-curve-covers-all-bars.md) — the EquityPoint curve has consistent bar-level coverage, which is why it's usable here
 
-## Revisit trigger
+## Superseded
 
-If `MaxDrawdown` (depth) is ever changed to use the per-bar `EquityPoint` curve instead of
-closed-trade accumulation, revisit this decision to unify the peak reference and ensure both
-fields describe the same drawdown event.
+The revisit trigger fired: `MaxDrawdown` depth was moved to `computeMaxDrawdownDepth(curve []model.EquityPoint)`
+(2026-04-16). Both `MaxDrawdown` and `MaxDrawdownDuration` now walk the same per-bar equity curve,
+so they always describe the same drawdown event. The inconsistency this decision documented no longer exists.
+The inline decision mark in `computeMaxDrawdownDuration` was removed at the same time.

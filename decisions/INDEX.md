@@ -11,11 +11,11 @@ decisions:
   - id: 2026-04-15-maxdrawdownduration-computed-from-per-bar-equity
     title: "MaxDrawdownDuration computed from per-bar equity curve, not trade P&L accumulation"
     date: 2026-04-15
-    status: experimental
+    status: superseded
     category: tradeoff
     tags: [drawdown, duration, equity-curve, analytics, MaxDrawdownDuration, TASK-0017]
     path: tradeoff/2026-04-15-maxdrawdownduration-computed-from-per-bar-equity.md
-    summary: "MaxDrawdownDuration uses the per-bar EquityPoint curve (timestamps available) while MaxDrawdown depth still uses closed-trade P&L accumulation. On low-turnover strategies the two may reference different drawdown events. Unifying on the equity curve is a deferred follow-up."
+    summary: "Superseded 2026-04-16: MaxDrawdown depth also moved to computeMaxDrawdownDepth(curve) — both metrics now walk the same per-bar EquityPoint curve. The inconsistency this decision documented no longer exists."
 
   - id: 2026-04-15-instrument-declared-before-first-run
     title: "Target instrument must be declared in writing before the first backtest run"
@@ -366,7 +366,7 @@ decisions:
     category: algorithm
     tags: [analytics, drawdown, equity-curve, metrics, algorithm]
     path: algorithm/2026-04-07-max-drawdown-from-equity-curve.md
-    summary: "MaxDrawdown uses the standard peak-to-trough definition on the running equity curve. Per-trade drawdown was rejected as it understates risk from consecutive losers. A peak>0 guard means all-loss sequences report 0% drawdown."
+    summary: "MaxDrawdown uses peak-to-trough on the per-bar EquityPoint curve via computeMaxDrawdownDepth(). Original 2026-04-07 impl used closed-trade P&L accumulation starting at 0 — buggy (could exceed 100%). Fixed 2026-04-16 to use initialCash-anchored curve."
 
   - id: 2026-04-07-breakeven-counts-as-loss
     title: "Break-even trades classified as losses in analytics"

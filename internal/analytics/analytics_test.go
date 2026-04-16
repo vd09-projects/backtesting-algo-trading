@@ -103,10 +103,12 @@ func TestCompute_AllLosers(t *testing.T) {
 }
 
 func TestCompute_Mixed(t *testing.T) {
-	// Equity curve: +200 → 200, -100 → 100, +50 → 150
-	// Peak = 200, trough = 100 → MaxDrawdown = (200-100)/200 * 100 = 50%
+	// Trade-level stats are independent of the equity curve; MaxDrawdown comes
+	// from the per-bar curve. Curve [100, 120, 60, 90]:
+	//   peak=120@t1, trough=60@t2 → MaxDrawdown = (120-60)/120 * 100 = 50%
 	trades := []model.Trade{trade(200), trade(-100), trade(50)}
-	r := analytics.Compute(trades, nil, "")
+	curve := makeEquityCurve(100, 120, 60, 90)
+	r := analytics.Compute(trades, curve, "")
 
 	assertEqual(t, "TradeCount", 3, r.TradeCount)
 	assertFloatEqual(t, "TotalPnL", 150, r.TotalPnL)
@@ -254,6 +256,31 @@ func TestCompute_ProfitFactor_Mixed(t *testing.T) {
 	assertFloatEqual(t, "AvgLoss", 25, r.AvgLoss)
 }
 
+// TestCompute_MaxDrawdown_NeverExceeds100 is a regression test for the bug where
+// losses that exceeded all prior gains caused MaxDrawdown > 100%. The old
+// implementation accumulated equity from zero; when cumulative P&L went negative
+// the formula (peak - negative_equity) / peak produced values > 100%. The fix
+// uses the per-bar equity curve, which starts at initial cash, so the denominator
+// is always a real account value.
+//
+// Scenario: account at 100 000, gains 10 000 (peak=110 000), then loses 12 000
+// (trough=98 000). Real MaxDrawdown = (110 000−98 000)/110 000 = 10.91%.
+// Old implementation: equity 0→+10 000→−2 000, DD = (10 000−(−2 000))/10 000 = 120%.
+func TestCompute_MaxDrawdown_NeverExceeds100(t *testing.T) {
+	curve := makeEquityCurve(100_000, 110_000, 98_000)
+	r := analytics.Compute(
+		[]model.Trade{trade(10_000), trade(-12_000)},
+		curve,
+		model.TimeframeDaily,
+	)
+
+	if r.MaxDrawdown >= 100 {
+		t.Errorf("MaxDrawdown must never exceed 100%% — got %.2f%%", r.MaxDrawdown)
+	}
+	// (110 000 − 98 000) / 110 000 × 100 = 10.909…%
+	assertFloatEqual(t, "MaxDrawdown", 10.9091, r.MaxDrawdown)
+}
+
 // --- SortinoRatio ---
 
 func TestCompute_SortinoRatio(t *testing.T) {
@@ -277,19 +304,22 @@ func TestCompute_SortinoRatio_ZeroDownside(t *testing.T) {
 // --- CalmarRatio ---
 
 func TestCompute_CalmarRatio(t *testing.T) {
-	// Trades: +200 then -100 → equity 0→200→100 → MaxDrawdown = 50%.
 	// Curve [100, 110, 99, 108.9] daily; returns [+0.1, -0.1, +0.1].
-	// annReturn = (0.1/3) · 252 = 8.4; Calmar = 8.4 / (50/100) = 16.8
+	// annReturn = (0.1/3) · 252 = 8.4
+	// MaxDrawdown from curve: peak=110@t1, trough=99@t2 → (110-99)/110 * 100 = 10%
+	// Calmar = 8.4 / (10/100) = 84.0
 	trades := []model.Trade{trade(200), trade(-100)}
 	curve := makeEquityCurve(100, 110, 99, 108.9)
 	r := analytics.Compute(trades, curve, model.TimeframeDaily)
-	assertFloatEqual(t, "CalmarRatio", 16.8, r.CalmarRatio)
+	assertFloatEqual(t, "CalmarRatio", 84.0, r.CalmarRatio)
 }
 
 func TestCompute_CalmarRatio_ZeroDrawdown(t *testing.T) {
-	// All winners → MaxDrawdown = 0 → Calmar = 0 (guard against division by zero).
+	// Monotonically increasing curve → MaxDrawdown = 0 → Calmar = 0.
+	// (The previous test used curve [100,110,99,108.9] which has a 10% drawdown —
+	// that was wrong; this test now uses a curve with no drawdown.)
 	trades := []model.Trade{trade(100), trade(200)}
-	curve := makeEquityCurve(100, 110, 99, 108.9)
+	curve := makeEquityCurve(100, 110, 120, 130)
 	r := analytics.Compute(trades, curve, model.TimeframeDaily)
 	assertFloatEqual(t, "CalmarRatio", 0, r.CalmarRatio)
 }

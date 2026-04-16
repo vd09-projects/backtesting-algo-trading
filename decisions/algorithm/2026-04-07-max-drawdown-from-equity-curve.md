@@ -28,19 +28,18 @@ Both are valid metrics, but they measure different things. The choice here deter
 
 ## Decision
 
-`MaxDrawdown` is computed from the equity curve: `(peak - trough) / peak * 100`. The equity curve is built inline during the single pass over `[]Trade` by accumulating `RealizedPnL`. Peak is updated whenever equity exceeds the prior peak; drawdown is computed at every point where equity falls below peak.
+`MaxDrawdown` is computed from the equity curve: `(peak - trough) / peak * 100`. The implementation
+uses `computeMaxDrawdownDepth(curve []model.EquityPoint)` — the per-bar equity curve passed into
+`Compute()`, which starts at `initialCash` and records mark-to-market equity at every bar.
 
-Implementation:
-```go
-equity += t.RealizedPnL
-if equity > peak { peak = equity }
-if peak > 0 {
-    dd := (peak - equity) / peak * 100
-    if dd > maxDD { maxDD = dd }
-}
-```
+The original implementation (2026-04-07) built an inline equity series by accumulating `RealizedPnL`
+over closed trades, starting from zero. This was a bug: when cumulative P&L went negative (losses
+exceeded all prior gains), the numerator exceeded the denominator and `MaxDrawdown` exceeded 100%.
+The fix (2026-04-16) moved to the per-bar `EquityPoint` curve, which starts at `initialCash`, so
+the denominator (peak) is always at least the initial capital and the result is bounded to [0, 100].
 
-The `peak > 0` guard means drawdown is only computed once the strategy has ever been profitable. If the equity curve never goes positive (all losses from the start), `MaxDrawdown` is 0 — there is no measurable percentage drawdown from a non-existent peak.
+The `peak > 0` guard means drawdown is only computed once the curve has a positive peak. If equity
+never exceeds zero (degenerate scenario), `MaxDrawdown` is 0.
 
 ## Consequences
 
