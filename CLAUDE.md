@@ -4,6 +4,14 @@ A Go-based backtesting engine for evaluating trading strategies against historic
 
 ---
 
+## Skill coordination
+
+This project uses 5 skills (`task-manager`, `algo-trading-veteran`, `algo-trading-lead-dev`, `go-quality-review`, `decision-journal`) coordinated via workflow files — see `workflows/INDEX.md`.
+After any skill reaches a terminal state, read `workflows/INDEX.md` to determine the next step.
+At session end, both harvests must fire — `/task-manager` for implicit tasks, `/decision-journal` for inline decision marks.
+
+---
+
 ## Quality standards
 
 This project uses the go-quality-review skill for code review. The following standards apply to all code in this repository.
