@@ -25,7 +25,68 @@
       "Bash(xargs ls *)",
       "Bash(go run *)",
       "Bash(gofumpt -l internal/analytics/dsr.go internal/sweep2d/sweep2d.go internal/sweep2d/sweep2d_test.go)",
-      "Bash(gofumpt -d internal/analytics/dsr.go internal/sweep2d/sweep2d.go internal/sweep2d/sweep2d_test.go)"
+      "Bash(gofumpt -d internal/analytics/dsr.go internal/sweep2d/sweep2d.go internal/sweep2d/sweep2d_test.go)",
+      "Edit(/.claude/skills/go-quality-review/**)",
+      "Bash(chmod +x /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/*.sh)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-start.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/stop.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-tool-use-edit.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/user-prompt-submit.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-end.sh",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
