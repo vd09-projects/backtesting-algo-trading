@@ -106,3 +106,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-16 | TASK-0035 | created | priority: low, source: session | multi-instrument sweep CLI cmd/universe-sweep; depends on TASK-0030 |
 | 2026-04-16 | TASK-0036 | created | priority: low, source: session | Python notebooks layer + file contract |
 | 2026-04-16 | TASK-0024 | criteria update | added Trade.ReturnOnNotional() requirement + explicit Seed int64 in BootstrapConfig for determinism | session review surfaced these gaps |
+| 2026-04-19 | TASK-0030 | status → done | MinTradesForMetrics=30, MinCurvePointsForMetrics=252 constants + flags in Report; gate zeroes metrics; warnings in printSummary; all tests pass | math tests split into analytics_internal_test.go; sweep golden test updated to 300 candles |

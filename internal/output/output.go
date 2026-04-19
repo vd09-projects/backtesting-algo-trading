@@ -61,6 +61,18 @@ func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport)
 	if err != nil {
 		return fmt.Errorf("output: write summary: %w", err)
 	}
+	if r.TradeMetricsInsufficient {
+		if _, err := fmt.Fprintf(w, "WARNING: trade count (%d) below minimum (%d) -- WinRate, ProfitFactor, AvgWin, AvgLoss not reported\n",
+			r.TradeCount, analytics.MinTradesForMetrics); err != nil {
+			return fmt.Errorf("output: write trade warning: %w", err)
+		}
+	}
+	if r.CurveMetricsInsufficient {
+		if _, err := fmt.Fprintf(w, "WARNING: equity curve below minimum (%d bars) -- Sharpe, Sortino, Calmar, TailRatio not reported\n",
+			analytics.MinCurvePointsForMetrics); err != nil {
+			return fmt.Errorf("output: write curve warning: %w", err)
+		}
+	}
 	if b != nil {
 		_, err = fmt.Fprintf(w,
 			"\n--- Buy-and-Hold Benchmark ---\nTotal Return:      %.2f%%\nAnnualized Return: %.2f%%\nMax Drawdown:      %.2f%%\nSharpe Ratio:      %.4f\n",

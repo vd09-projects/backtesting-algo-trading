@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-16 | **Open tasks:** 12 | **Next up:** TASK-0030
+**Last updated:** 2026-04-19 | **Open tasks:** 11 | **Next up:** TASK-0031
 
 ---
 
@@ -46,30 +46,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0030] Analytics — signal frequency gate (N < 30 minimum trades)
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-16
-- **Source:** session
-- **Context:** The RSI result (7 trades, 100% win rate, Sharpe 0.469) was reported as a gate
-  failure when it was actually an untestable result. `analytics.Compute` should refuse to report
-  risk-adjusted metrics when trade count is below the statistical floor, so the output itself
-  makes the problem visible rather than producing misleading numbers.
-- **Acceptance criteria:**
-  - [ ] `analytics.Report` gains `TradeMetricsInsufficient bool` — set when `TradeCount < 30`
-  - [ ] `analytics.Report` gains `CurveMetricsInsufficient bool` — set when `len(curve) < 252`
-  - [ ] When `TradeMetricsInsufficient`: `WinRate`, `ProfitFactor`, `AvgWin`, `AvgLoss` zeroed
-  - [ ] When `CurveMetricsInsufficient`: `SharpeRatio`, `SortinoRatio`, `CalmarRatio`, `TailRatio` zeroed
-  - [ ] `output.printSummary` prints a warning line when either flag is set
-  - [ ] `30` and `252` are named constants in `analytics` with comments citing the statistical basis
-  - [ ] Tests: N < 30 trades → zeroed trade metrics; < 252 curve points → zeroed curve metrics
-- **Notes:** Both flags are independent. RSI 7-trade result sets both. SMA 22-trade result sets
-  `TradeMetricsInsufficient` only (has 1800+ daily curve points). Marcus's decision:
-  algorithm-signal-frequency-gate (2026-04-16).
-
----
 
 ### [TASK-0031] Research — RSI signal frequency diagnostic on NSE:RELIANCE
 

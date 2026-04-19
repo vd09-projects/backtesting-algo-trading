@@ -269,7 +269,7 @@ func TestComputePlateau(t *testing.T) {
 
 // TestRun_IntegrationGolden verifies the sweep end-to-end against a deterministic synthetic setup.
 //
-// Setup: 100 alternating candles (high=120, low=80). The thresholdStrategy emits Buy when
+// Setup: 300 alternating candles (high=120, low=80). The thresholdStrategy emits Buy when
 // close > threshold and Sell otherwise. Because the engine fills signals at the NEXT bar's
 // open price:
 //
@@ -282,10 +282,13 @@ func TestComputePlateau(t *testing.T) {
 // Sharpe ≈ 0 (oscillating equity, no completed profitable trades).
 // For threshold ≥ 120: close=120 is NOT > threshold — never enters. 0 trades. Sharpe = 0.
 //
+// 300 candles used so the equity curve exceeds MinCurvePointsForMetrics (252), allowing
+// Sharpe to be reported rather than suppressed by the signal-frequency gate.
+//
 // Sweep: 60..130 step 10 → 8 values: 60, 70, 80, 90, 100, 110, 120, 130.
 // Expected plateau: {80, 90, 100, 110} all produce identical profitable trade sequences.
 func TestRun_IntegrationGolden(t *testing.T) { //nolint:cyclop // golden integration test; all assertions must remain co-located to be reviewable
-	candles := makeAlternatingCandles(100, 120, 80)
+	candles := makeAlternatingCandles(300, 120, 80)
 	p := &staticProvider{candles: candles}
 
 	factory := func(v float64) (strategy.Strategy, error) {

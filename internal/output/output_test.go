@@ -260,6 +260,45 @@ func TestWrite_StdoutNoBenchmarkSection(t *testing.T) {
 	}
 }
 
+// --- Insufficient-sample warnings ---
+
+func TestWrite_StdoutWarning_TradeMetrics(t *testing.T) {
+	report := analytics.Report{TradeMetricsInsufficient: true, TradeCount: 7}
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{PrintToStdout: true, Stdout: &buf}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "WARNING") {
+		t.Errorf("expected WARNING in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "7") {
+		t.Errorf("expected trade count 7 in warning, got:\n%s", out)
+	}
+}
+
+func TestWrite_StdoutWarning_CurveMetrics(t *testing.T) {
+	report := analytics.Report{CurveMetricsInsufficient: true}
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{PrintToStdout: true, Stdout: &buf}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "WARNING") {
+		t.Errorf("expected WARNING in output, got:\n%s", buf.String())
+	}
+}
+
+func TestWrite_StdoutWarning_NoFlagsNoWarning(t *testing.T) {
+	report := analytics.Report{TradeCount: 100}
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{PrintToStdout: true, Stdout: &buf}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if strings.Contains(buf.String(), "WARNING") {
+		t.Errorf("expected no WARNING when flags are false, got:\n%s", buf.String())
+	}
+}
+
 // --- WriteCurveCSV tests ---
 
 func TestWrite_CurvePath_RoundTrip(t *testing.T) {

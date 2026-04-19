@@ -1,7 +1,6 @@
 package analytics_test
 
 import (
-	"math"
 	"testing"
 	"time"
 
@@ -60,10 +59,13 @@ func TestCompute_SingleWinner(t *testing.T) {
 
 	assertEqual(t, "TradeCount", 1, r.TradeCount)
 	assertFloatEqual(t, "TotalPnL", 100, r.TotalPnL)
-	assertFloatEqual(t, "WinRate", 100, r.WinRate)
+	assertFloatEqual(t, "WinRate", 0, r.WinRate) // gated: 1 < MinTradesForMetrics
 	assertFloatEqual(t, "MaxDrawdown", 0, r.MaxDrawdown)
 	assertEqual(t, "WinCount", 1, r.WinCount)
 	assertEqual(t, "LossCount", 0, r.LossCount)
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
 }
 
 func TestCompute_SingleLoser(t *testing.T) {
@@ -84,10 +86,13 @@ func TestCompute_AllWinners(t *testing.T) {
 
 	assertEqual(t, "TradeCount", 2, r.TradeCount)
 	assertFloatEqual(t, "TotalPnL", 300, r.TotalPnL)
-	assertFloatEqual(t, "WinRate", 100, r.WinRate)
+	assertFloatEqual(t, "WinRate", 0, r.WinRate) // gated: 2 < MinTradesForMetrics
 	assertFloatEqual(t, "MaxDrawdown", 0, r.MaxDrawdown)
 	assertEqual(t, "WinCount", 2, r.WinCount)
 	assertEqual(t, "LossCount", 0, r.LossCount)
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
 }
 
 func TestCompute_AllLosers(t *testing.T) {
@@ -112,10 +117,13 @@ func TestCompute_Mixed(t *testing.T) {
 
 	assertEqual(t, "TradeCount", 3, r.TradeCount)
 	assertFloatEqual(t, "TotalPnL", 150, r.TotalPnL)
-	assertFloatEqual(t, "WinRate", 66.6667, r.WinRate)
+	assertFloatEqual(t, "WinRate", 0, r.WinRate) // gated: 3 < MinTradesForMetrics
 	assertFloatEqual(t, "MaxDrawdown", 50, r.MaxDrawdown)
 	assertEqual(t, "WinCount", 2, r.WinCount)
 	assertEqual(t, "LossCount", 1, r.LossCount)
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
 }
 
 func TestCompute_BreakevenCountsAsLoss(t *testing.T) {
@@ -124,107 +132,37 @@ func TestCompute_BreakevenCountsAsLoss(t *testing.T) {
 
 	assertEqual(t, "WinCount", 1, r.WinCount)
 	assertEqual(t, "LossCount", 1, r.LossCount)
-	assertFloatEqual(t, "WinRate", 50, r.WinRate)
+	assertFloatEqual(t, "WinRate", 0, r.WinRate) // gated: 2 < MinTradesForMetrics
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
 }
 
-// TestComputeSharpe verifies annualized Sharpe ratio computation from equity curve.
-//
-// Reference sequence: equity [100, 110, 99, 108.9] → per-bar returns [+0.1, -0.1, +0.1]
-//
-//	mean   = 0.1/3
-//	stddev = 2·0.1/√3   (sample, n-1 denominator)
-//	Sharpe = (mean/stddev)·√N = (√3/6)·√N
-//	       = √(3N)/6
-//
-// Daily (N=252):    √756/6  = √(36·21)/6 = 6√21/6 = √21   ≈ 4.5826
-// 15min (N=6300):   √18900/6 = √(900·21)/6 = 30√21/6 = 5√21 ≈ 22.9129
-func TestComputeSharpe(t *testing.T) {
-	sqrtOf21 := math.Sqrt(21)
-
+// TestComputeSharpe_SmallCurveGate verifies that any curve shorter than
+// MinCurvePointsForMetrics produces SharpeRatio = 0 and CurveMetricsInsufficient = true.
+// Mathematical correctness of the Sharpe formula is tested in TestComputeSharpeInternal
+// (analytics_internal_test.go).
+func TestComputeSharpe_SmallCurveGate(t *testing.T) {
 	cases := []struct {
-		name       string
-		curve      []model.EquityPoint
-		tf         model.Timeframe
-		wantSharpe float64
+		name  string
+		curve []model.EquityPoint
+		tf    model.Timeframe
 	}{
-		{
-			name:       "empty curve",
-			curve:      nil,
-			tf:         model.TimeframeDaily,
-			wantSharpe: 0,
-		},
-		{
-			name:       "single point",
-			curve:      makeEquityCurve(100),
-			tf:         model.TimeframeDaily,
-			wantSharpe: 0,
-		},
-		{
-			name:       "two points — only one return, sample stddev undefined",
-			curve:      makeEquityCurve(100, 110),
-			tf:         model.TimeframeDaily,
-			wantSharpe: 0,
-		},
-		{
-			name:       "constant equity — zero variance",
-			curve:      makeEquityCurve(100, 100, 100, 100),
-			tf:         model.TimeframeDaily,
-			wantSharpe: 0,
-		},
-		{
-			// Returns [+0.1, -0.1, +0.1]; daily annualization N=252; Sharpe = √21
-			name:       "known sequence daily",
-			curve:      makeEquityCurve(100, 110, 99, 108.9),
-			tf:         model.TimeframeDaily,
-			wantSharpe: sqrtOf21,
-		},
-		{
-			// Same returns, 15min annualization N=6300; Sharpe = 5·√21
-			name:       "known sequence 15min",
-			curve:      makeEquityCurve(100, 110, 99, 108.9),
-			tf:         model.Timeframe15Min,
-			wantSharpe: 5 * sqrtOf21,
-		},
-		{
-			// Returns [-0.1, -0.1, +0.1]; mean is negative; Sharpe = -√21
-			name:       "negative mean — daily",
-			curve:      makeEquityCurve(100, 90, 81, 89.1),
-			tf:         model.TimeframeDaily,
-			wantSharpe: -sqrtOf21,
-		},
-		{
-			// Returns [+0.1, -0.1, +0.1]; weekly annualization N=52; Sharpe = √(3·52)/6 = √156/6
-			name:       "known sequence weekly",
-			curve:      makeEquityCurve(100, 110, 99, 108.9),
-			tf:         model.TimeframeWeekly,
-			wantSharpe: math.Sqrt(156) / 6,
-		},
-		{
-			// Returns [+0.1, -0.1, +0.1]; 5min annualization N=18900; Sharpe = √(3·18900)/6 = √56700/6
-			name:       "known sequence 5min",
-			curve:      makeEquityCurve(100, 110, 99, 108.9),
-			tf:         model.Timeframe5Min,
-			wantSharpe: math.Sqrt(56700) / 6,
-		},
-		{
-			// Returns [+0.1, -0.1, +0.1]; 1min annualization N=94500; Sharpe = √(3·94500)/6 = √283500/6
-			name:       "known sequence 1min",
-			curve:      makeEquityCurve(100, 110, 99, 108.9),
-			tf:         model.Timeframe1Min,
-			wantSharpe: math.Sqrt(283500) / 6,
-		},
-		{
-			name:       "unknown timeframe — annualization factor 0",
-			curve:      makeEquityCurve(100, 110, 99, 108.9),
-			tf:         model.Timeframe("unknown"),
-			wantSharpe: 0,
-		},
+		{"empty curve", nil, model.TimeframeDaily},
+		{"single point", makeEquityCurve(100), model.TimeframeDaily},
+		{"two points", makeEquityCurve(100, 110), model.TimeframeDaily},
+		{"constant equity", makeEquityCurve(100, 100, 100, 100), model.TimeframeDaily},
+		{"non-trivial 4-point curve", makeEquityCurve(100, 110, 99, 108.9), model.TimeframeDaily},
+		{"unknown timeframe", makeEquityCurve(100, 110, 99, 108.9), model.Timeframe("unknown")},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := analytics.Compute(nil, tc.curve, tc.tf)
-			assertFloatEqual(t, "SharpeRatio", tc.wantSharpe, r.SharpeRatio)
+			assertFloatEqual(t, "SharpeRatio", 0, r.SharpeRatio)
+			if !r.CurveMetricsInsufficient {
+				t.Errorf("CurveMetricsInsufficient: got false for %d-point curve", len(tc.curve))
+			}
 		})
 	}
 }
@@ -233,27 +171,38 @@ func TestComputeSharpe(t *testing.T) {
 
 func TestCompute_ProfitFactor_AllWinners(t *testing.T) {
 	// No losing trades → ProfitFactor = 0 (guard against division by zero).
+	// Trade metrics are gated (2 < MinTradesForMetrics), so all three are 0.
 	r := analytics.Compute([]model.Trade{trade(100), trade(50)}, nil, "")
 	assertFloatEqual(t, "ProfitFactor", 0, r.ProfitFactor)
-	assertFloatEqual(t, "AvgWin", 75, r.AvgWin)
+	assertFloatEqual(t, "AvgWin", 0, r.AvgWin)
 	assertFloatEqual(t, "AvgLoss", 0, r.AvgLoss)
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
 }
 
 func TestCompute_ProfitFactor_AllLosers(t *testing.T) {
-	// No winning trades → ProfitFactor = 0, AvgWin = 0; AvgLoss = (30+20)/2 = 25.
+	// No winning trades → ProfitFactor = 0, AvgWin = 0.
+	// Trade metrics are gated (2 < MinTradesForMetrics), so AvgLoss is also 0.
 	r := analytics.Compute([]model.Trade{trade(-30), trade(-20)}, nil, "")
 	assertFloatEqual(t, "ProfitFactor", 0, r.ProfitFactor)
 	assertFloatEqual(t, "AvgWin", 0, r.AvgWin)
-	assertFloatEqual(t, "AvgLoss", 25, r.AvgLoss)
+	assertFloatEqual(t, "AvgLoss", 0, r.AvgLoss)
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
 }
 
 func TestCompute_ProfitFactor_Mixed(t *testing.T) {
-	// grossProfit = 100+50 = 150; grossLoss = 30+20 = 50
-	// PF = 150/50 = 3.0; AvgWin = 150/2 = 75; AvgLoss = 50/2 = 25
+	// grossProfit = 100+50 = 150; grossLoss = 30+20 = 50 → PF = 3.0, AvgWin = 75, AvgLoss = 25.
+	// Trade metrics are gated (4 < MinTradesForMetrics), so all three are 0.
 	r := analytics.Compute([]model.Trade{trade(100), trade(50), trade(-30), trade(-20)}, nil, "")
-	assertFloatEqual(t, "ProfitFactor", 3.0, r.ProfitFactor)
-	assertFloatEqual(t, "AvgWin", 75, r.AvgWin)
-	assertFloatEqual(t, "AvgLoss", 25, r.AvgLoss)
+	assertFloatEqual(t, "ProfitFactor", 0, r.ProfitFactor)
+	assertFloatEqual(t, "AvgWin", 0, r.AvgWin)
+	assertFloatEqual(t, "AvgLoss", 0, r.AvgLoss)
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
 }
 
 // TestCompute_MaxDrawdown_NeverExceeds100 is a regression test for the bug where
@@ -283,45 +232,28 @@ func TestCompute_MaxDrawdown_NeverExceeds100(t *testing.T) {
 
 // --- SortinoRatio ---
 
-func TestCompute_SortinoRatio(t *testing.T) {
-	// Curve [100, 110, 99, 108.9]; returns [+0.1, -0.1, +0.1]; daily (N=252).
-	//
-	// σ_d = √(sum(min(r,0)²) / n) = √(0.01/3) = 0.1/√3
-	// mean = 0.1/3
-	// Sortino = (mean / σ_d) · √N = (0.1/3)/(0.1/√3) · √252 = (√3/3)·√252 = √756/3 = 2√21
+func TestCompute_SortinoRatio_SmallCurveGate(t *testing.T) {
+	// 4-point curve fires CurveMetricsInsufficient → SortinoRatio = 0.
+	// Internal math tested in TestComputeSortinoInternal.
 	curve := makeEquityCurve(100, 110, 99, 108.9)
 	r := analytics.Compute(nil, curve, model.TimeframeDaily)
-	assertFloatEqual(t, "SortinoRatio", 2*math.Sqrt(21), r.SortinoRatio)
-}
-
-func TestCompute_SortinoRatio_ZeroDownside(t *testing.T) {
-	// All returns non-negative → downside deviation = 0 → Sortino = 0.
-	curve := makeEquityCurve(100, 110, 121, 133.1)
-	r := analytics.Compute(nil, curve, model.TimeframeDaily)
 	assertFloatEqual(t, "SortinoRatio", 0, r.SortinoRatio)
+	if !r.CurveMetricsInsufficient {
+		t.Error("CurveMetricsInsufficient: got false, want true")
+	}
 }
 
 // --- CalmarRatio ---
 
-func TestCompute_CalmarRatio(t *testing.T) {
-	// Curve [100, 110, 99, 108.9] daily; returns [+0.1, -0.1, +0.1].
-	// annReturn = (0.1/3) · 252 = 8.4
-	// MaxDrawdown from curve: peak=110@t1, trough=99@t2 → (110-99)/110 * 100 = 10%
-	// Calmar = 8.4 / (10/100) = 84.0
-	trades := []model.Trade{trade(200), trade(-100)}
+func TestCompute_CalmarRatio_SmallCurveGate(t *testing.T) {
+	// 4-point curve fires CurveMetricsInsufficient → CalmarRatio = 0.
+	// Internal math tested in TestComputeCalmarInternal.
 	curve := makeEquityCurve(100, 110, 99, 108.9)
-	r := analytics.Compute(trades, curve, model.TimeframeDaily)
-	assertFloatEqual(t, "CalmarRatio", 84.0, r.CalmarRatio)
-}
-
-func TestCompute_CalmarRatio_ZeroDrawdown(t *testing.T) {
-	// Monotonically increasing curve → MaxDrawdown = 0 → Calmar = 0.
-	// (The previous test used curve [100,110,99,108.9] which has a 10% drawdown —
-	// that was wrong; this test now uses a curve with no drawdown.)
-	trades := []model.Trade{trade(100), trade(200)}
-	curve := makeEquityCurve(100, 110, 120, 130)
-	r := analytics.Compute(trades, curve, model.TimeframeDaily)
+	r := analytics.Compute(nil, curve, model.TimeframeDaily)
 	assertFloatEqual(t, "CalmarRatio", 0, r.CalmarRatio)
+	if !r.CurveMetricsInsufficient {
+		t.Error("CurveMetricsInsufficient: got false, want true")
+	}
 }
 
 // --- MaxDrawdownDuration ---
@@ -383,20 +315,112 @@ func TestComputeMaxDrawdownDuration(t *testing.T) {
 
 // --- TailRatio ---
 
-func TestCompute_TailRatio_Symmetric(t *testing.T) {
-	// Curve [100, 110, 99, 108.9]; returns sorted ascending: [-0.1, +0.1, +0.1].
-	// n=3; p5=sorted[⌊0.05·3⌋]=sorted[0]=-0.1; p95=sorted[⌊0.95·3⌋]=sorted[2]=+0.1.
-	// TailRatio = 0.1 / |-0.1| = 1.0
+func TestCompute_TailRatio_SmallCurveGate(t *testing.T) {
+	// 4-point curve fires CurveMetricsInsufficient → TailRatio = 0.
+	// Internal math tested in TestComputeTailRatioInternal.
 	curve := makeEquityCurve(100, 110, 99, 108.9)
 	r := analytics.Compute(nil, curve, model.TimeframeDaily)
-	assertFloatEqual(t, "TailRatio", 1.0, r.TailRatio)
+	assertFloatEqual(t, "TailRatio", 0, r.TailRatio)
+	if !r.CurveMetricsInsufficient {
+		t.Error("CurveMetricsInsufficient: got false, want true")
+	}
 }
 
-func TestCompute_TailRatio_AllPositive(t *testing.T) {
-	// All returns non-negative → p5 >= 0 → TailRatio = 0.
-	curve := makeEquityCurve(100, 110, 121, 133.1)
-	r := analytics.Compute(nil, curve, model.TimeframeDaily)
+// --- Signal frequency gate ---
+
+// makeNTrades builds n identical trades with the given pnl.
+func makeNTrades(n int, pnl float64) []model.Trade {
+	trades := make([]model.Trade, n)
+	for i := range trades {
+		trades[i] = trade(pnl)
+	}
+	return trades
+}
+
+// makeAltCurve builds n equity points alternating +1%/-0.5% returns, producing
+// non-zero variance (so curve metrics are non-trivially computable when the gate passes).
+func makeAltCurve(n int) []model.EquityPoint {
+	pts := make([]model.EquityPoint, n)
+	eq := 100_000.0
+	for i := range pts {
+		pts[i] = model.EquityPoint{
+			Timestamp: baseTime.Add(time.Duration(i) * 24 * time.Hour),
+			Value:     eq,
+		}
+		if i%2 == 0 {
+			eq *= 1.01
+		} else {
+			eq *= 0.995
+		}
+	}
+	return pts
+}
+
+func TestCompute_TradeMetricsInsufficient(t *testing.T) {
+	// 7 trades (< 30) with a sufficient curve (252 pts):
+	// trade metrics zeroed, curve metrics computable.
+	r := analytics.Compute(makeNTrades(7, 100), makeAltCurve(252), model.TimeframeDaily)
+
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
+	if r.CurveMetricsInsufficient {
+		t.Error("CurveMetricsInsufficient: got true, want false")
+	}
+	assertFloatEqual(t, "WinRate", 0, r.WinRate)
+	assertFloatEqual(t, "ProfitFactor", 0, r.ProfitFactor)
+	assertFloatEqual(t, "AvgWin", 0, r.AvgWin)
+	assertFloatEqual(t, "AvgLoss", 0, r.AvgLoss)
+	// Non-trade fields are unaffected.
+	assertEqual(t, "TradeCount", 7, r.TradeCount)
+}
+
+func TestCompute_CurveMetricsInsufficient(t *testing.T) {
+	// 30 trades (>= 30) with a short curve (10 pts):
+	// curve metrics zeroed, trade metrics computable.
+	r := analytics.Compute(makeNTrades(30, 100), makeEquityCurve(100, 110, 99, 108.9, 120, 115, 130, 125, 140, 135), model.TimeframeDaily)
+
+	if r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got true, want false")
+	}
+	if !r.CurveMetricsInsufficient {
+		t.Error("CurveMetricsInsufficient: got false, want true")
+	}
+	assertFloatEqual(t, "SharpeRatio", 0, r.SharpeRatio)
+	assertFloatEqual(t, "SortinoRatio", 0, r.SortinoRatio)
+	assertFloatEqual(t, "CalmarRatio", 0, r.CalmarRatio)
 	assertFloatEqual(t, "TailRatio", 0, r.TailRatio)
+	// Trade metrics are reported normally with 30 trades.
+	assertFloatEqual(t, "WinRate", 100, r.WinRate)
+}
+
+func TestCompute_BothMetricsInsufficient(t *testing.T) {
+	// 7 trades + 4-point curve: both gates fire.
+	r := analytics.Compute(makeNTrades(7, 100), makeEquityCurve(100, 110, 99, 108.9), model.TimeframeDaily)
+
+	if !r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got false, want true")
+	}
+	if !r.CurveMetricsInsufficient {
+		t.Error("CurveMetricsInsufficient: got false, want true")
+	}
+}
+
+func TestCompute_SufficientData_NoFlags(t *testing.T) {
+	// 30 trades + 252-point curve: neither gate fires.
+	r := analytics.Compute(makeNTrades(30, 100), makeAltCurve(252), model.TimeframeDaily)
+
+	if r.TradeMetricsInsufficient {
+		t.Error("TradeMetricsInsufficient: got true, want false")
+	}
+	if r.CurveMetricsInsufficient {
+		t.Error("CurveMetricsInsufficient: got true, want false")
+	}
+	// Both groups are populated.
+	assertFloatEqual(t, "WinRate", 100, r.WinRate)
+	if r.SharpeRatio == 0 {
+		t.Error("SharpeRatio: got 0, want non-zero for sufficient alternating curve")
+	}
 }
 
 // --- helpers ---

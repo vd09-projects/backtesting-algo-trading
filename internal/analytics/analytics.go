@@ -9,32 +9,40 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
+// MinTradesForMetrics is the minimum number of closed trades required before
+// per-trade risk metrics are reported. Below ~30 observations, the Central Limit
+// Theorem has not kicked in and distributional estimates are unreliable.
+const MinTradesForMetrics = 30
+
+// MinCurvePointsForMetrics is the minimum equity-curve length required before
+// annualized risk-adjusted metrics are reported. 252 = one full NSE trading year —
+// the minimum horizon for annualized metrics to be interpretable.
+const MinCurvePointsForMetrics = 252
+
 // Report holds performance metrics computed from a completed trade log and equity curve.
 type Report struct {
-	TotalPnL            float64
-	WinRate             float64 // percentage 0–100
-	MaxDrawdown         float64 // peak-to-trough on equity curve, percentage 0–100
-	TradeCount          int
-	WinCount            int
-	LossCount           int           // includes break-even trades (RealizedPnL <= 0)
-	SharpeRatio         float64       // annualized Sharpe ratio from per-bar equity curve returns
-	ProfitFactor        float64       // grossProfit / grossLoss; 0 if no losing trades
-	AvgWin              float64       // average P&L of winning trades; 0 if no winning trades
-	AvgLoss             float64       // average absolute P&L of losing trades; 0 if no losing trades
-	SortinoRatio        float64       // annualized Sortino ratio (downside deviation only)
-	CalmarRatio         float64       // annualized return / max drawdown (decimal); 0 if max drawdown is zero
-	TailRatio           float64       // p95 return / |p5 return|; 0 if p5 return >= 0
-	MaxDrawdownDuration time.Duration // wall time from the max-drawdown peak to first recovery (or last bar if never recovered)
+	TotalPnL                 float64
+	WinRate                  float64 // percentage 0–100
+	MaxDrawdown              float64 // peak-to-trough on equity curve, percentage 0–100
+	TradeCount               int
+	WinCount                 int
+	LossCount                int           // includes break-even trades (RealizedPnL <= 0)
+	SharpeRatio              float64       // annualized Sharpe ratio from per-bar equity curve returns
+	ProfitFactor             float64       // grossProfit / grossLoss; 0 if no losing trades
+	AvgWin                   float64       // average P&L of winning trades; 0 if no winning trades
+	AvgLoss                  float64       // average absolute P&L of losing trades; 0 if no losing trades
+	SortinoRatio             float64       // annualized Sortino ratio (downside deviation only)
+	CalmarRatio              float64       // annualized return / max drawdown (decimal); 0 if max drawdown is zero
+	TailRatio                float64       // p95 return / |p5 return|; 0 if p5 return >= 0
+	MaxDrawdownDuration      time.Duration // wall time from the max-drawdown peak to first recovery (or last bar if never recovered)
+	TradeMetricsInsufficient bool          // true when TradeCount < MinTradesForMetrics; WinRate, ProfitFactor, AvgWin, AvgLoss are zeroed
+	CurveMetricsInsufficient bool          // true when equity-curve length < MinCurvePointsForMetrics; SharpeRatio, SortinoRatio, CalmarRatio, TailRatio are zeroed
 }
 
 // Compute derives performance metrics from a slice of closed trades and the equity curve.
 // tf is the bar timeframe, used to annualize return-based metrics.
 // It is a pure function — it does not modify the input slices.
 func Compute(trades []model.Trade, curve []model.EquityPoint, tf model.Timeframe) Report {
-	if len(trades) == 0 && len(curve) == 0 {
-		return Report{}
-	}
-
 	var r Report
 	r.TradeCount = len(trades)
 
@@ -70,6 +78,21 @@ func Compute(trades []model.Trade, curve []model.EquityPoint, tf model.Timeframe
 	r.CalmarRatio = computeCalmar(returns, tf, r.MaxDrawdown)
 	r.TailRatio = computeTailRatio(returns)
 	r.MaxDrawdownDuration = computeMaxDrawdownDuration(curve)
+
+	if r.TradeCount < MinTradesForMetrics {
+		r.TradeMetricsInsufficient = true
+		r.WinRate = 0
+		r.ProfitFactor = 0
+		r.AvgWin = 0
+		r.AvgLoss = 0
+	}
+	if len(curve) < MinCurvePointsForMetrics {
+		r.CurveMetricsInsufficient = true
+		r.SharpeRatio = 0
+		r.SortinoRatio = 0
+		r.CalmarRatio = 0
+		r.TailRatio = 0
+	}
 
 	return r
 }
