@@ -544,3 +544,66 @@ func TestWrite_GateWriteError(t *testing.T) {
 		t.Error("expected error when gate write fails, got nil")
 	}
 }
+
+// --- Regime split table tests ---
+
+func TestWrite_RegimeSplits_TablePrinted(t *testing.T) {
+	regimes := []analytics.RegimeReport{
+		{
+			Name:        "Pre-COVID (2018–2019)",
+			From:        time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC),
+			To:          time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			SharpeRatio: 0.312,
+			MaxDrawdown: 9.5,
+		},
+		{
+			Name:        "COVID Crash + Recovery (2020–2021)",
+			From:        time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			To:          time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+			SharpeRatio: -0.140,
+			MaxDrawdown: 16.3,
+		},
+	}
+
+	var buf bytes.Buffer
+	cfg := output.Config{
+		PrintToStdout: true,
+		Stdout:        &buf,
+		RegimeSplits:  regimes,
+	}
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{
+		"Regime Split",
+		"Pre-COVID",
+		"COVID",
+		"0.3120",
+		"-0.1400",
+		"9.50",
+		"16.30",
+		"2018-01",
+		"2020-01",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("regime table missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWrite_RegimeSplits_OmittedWhenEmpty(t *testing.T) {
+	var buf bytes.Buffer
+	cfg := output.Config{
+		PrintToStdout: true,
+		Stdout:        &buf,
+		RegimeSplits:  nil,
+	}
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if strings.Contains(buf.String(), "Regime Split") {
+		t.Errorf("expected no regime section when RegimeSplits is nil:\n%s", buf.String())
+	}
+}

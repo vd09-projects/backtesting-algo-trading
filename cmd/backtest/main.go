@@ -144,12 +144,9 @@ func main() {
 		cmdutil.Fatalf("provider: %v", err)
 	}
 
-	sm, err := parseSizingModel(*sizingModel)
+	sm, err := parseSizingConfig(*sizingModel, *volTarget)
 	if err != nil {
-		cmdutil.Fatalf("--sizing-model: %v", err)
-	}
-	if sm == model.SizingVolatilityTarget && *volTarget <= 0 {
-		cmdutil.Fatalf("--vol-target must be positive when --sizing-model=vol-target (got %.4f)", *volTarget)
+		cmdutil.Fatalf("%v", err)
 	}
 
 	eng := engine.New(engine.Config{
@@ -179,6 +176,11 @@ func main() {
 	report := analytics.Compute(port.ClosedTrades(), curve, tf)
 	benchmark := analytics.ComputeBenchmark(eng.Candles(), *cash)
 
+	var regimeSplits []analytics.RegimeReport
+	if *curvePath != "" {
+		regimeSplits = analytics.ComputeRegimeSplits(curve, analytics.NSERegimes2018_2024, tf)
+	}
+
 	if err := output.Write(report, output.Config{
 		PrintToStdout: true,
 		FilePath:      *outPath,
@@ -186,6 +188,7 @@ func main() {
 		CurvePath:     *curvePath,
 		Curve:         curve,
 		GateThreshold: *gateThreshold,
+		RegimeSplits:  regimeSplits,
 	}); err != nil {
 		cmdutil.Fatalf("output: %v", err)
 	}
@@ -221,6 +224,17 @@ func parseSizingModel(s string) (model.SizingModel, error) {
 	default:
 		return 0, fmt.Errorf("%q is not valid; choose one of: fixed, vol-target", s)
 	}
+}
+
+func parseSizingConfig(sizingModel string, volTarget float64) (model.SizingModel, error) {
+	sm, err := parseSizingModel(sizingModel)
+	if err != nil {
+		return 0, fmt.Errorf("--sizing-model: %w", err)
+	}
+	if sm == model.SizingVolatilityTarget && volTarget <= 0 {
+		return 0, fmt.Errorf("--vol-target must be positive when --sizing-model=vol-target (got %.4f)", volTarget)
+	}
+	return sm, nil
 }
 
 func buildProvider(ctx context.Context) (*cache.CachedProvider, error) {

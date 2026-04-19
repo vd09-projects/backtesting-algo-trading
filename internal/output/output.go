@@ -23,6 +23,7 @@ type Config struct {
 	CurvePath     string                     // destination for equity curve CSV export; ignored if empty
 	Curve         []model.EquityPoint        // per-bar equity snapshots; written to CurvePath when that field is non-empty
 	GateThreshold float64                    // Sharpe threshold for proliferation gate; 0 disables the check
+	RegimeSplits  []analytics.RegimeReport   // optional; when non-empty, printed as a per-regime table
 }
 
 // Write formats report as a human-readable summary and/or a JSON file.
@@ -33,7 +34,7 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 		if w == nil {
 			w = os.Stdout
 		}
-		if err := printSummary(w, report, cfg.Benchmark, cfg.GateThreshold); err != nil {
+		if err := printSummary(w, report, cfg.Benchmark, cfg.GateThreshold, cfg.RegimeSplits); err != nil {
 			return err
 		}
 	}
@@ -53,7 +54,7 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 	return nil
 }
 
-func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport, gateThreshold float64) error { //nolint:gocritic // value semantics intentional; r is read-only
+func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport, gateThreshold float64, regimes []analytics.RegimeReport) error { //nolint:gocritic // value semantics intentional; r is read-only
 	_, err := fmt.Fprintf(w,
 		"=== Backtest Results ===\nTrades:         %d\nWin Rate:       %.2f%%\nTotal P&L:      %.2f\nAvg Win:        %.2f\nAvg Loss:       %.2f\nProfit Factor:  %.4f\nMax Drawdown:   %.2f%%\nMax DD Duration:%v\nSharpe Ratio:   %.4f\nSortino Ratio:  %.4f\nCalmar Ratio:   %.4f\nTail Ratio:     %.4f\n",
 		r.TradeCount, r.WinRate, r.TotalPnL, r.AvgWin, r.AvgLoss, r.ProfitFactor,
@@ -91,6 +92,26 @@ func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport,
 		)
 		if err != nil {
 			return fmt.Errorf("output: write benchmark summary: %w", err)
+		}
+	}
+	if len(regimes) > 0 {
+		if err := printRegimeTable(w, regimes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func printRegimeTable(w io.Writer, regimes []analytics.RegimeReport) error {
+	if _, err := fmt.Fprintf(w, "\n--- Regime Split ---\n%-38s  %-10s  %-10s  %s\n",
+		"Regime", "Sharpe", "MaxDD%", "Period"); err != nil {
+		return fmt.Errorf("output: write regime header: %w", err)
+	}
+	for _, reg := range regimes {
+		period := reg.From.Format("2006-01") + " – " + reg.To.Format("2006-01")
+		if _, err := fmt.Fprintf(w, "%-38s  %-10.4f  %-10.2f  %s\n",
+			reg.Name, reg.SharpeRatio, reg.MaxDrawdown, period); err != nil {
+			return fmt.Errorf("output: write regime row %q: %w", reg.Name, err)
 		}
 	}
 	return nil

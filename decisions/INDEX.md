@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-20-tf-model-timeframe-added-to-computeregimesplits
+    title: "`tf model.Timeframe` added to `ComputeRegimeSplits` signature for correct Sharpe annualization"
+    date: 2026-04-20
+    status: accepted
+    category: tradeoff
+    tags: [analytics, regime-split, timeframe, annualization, Sharpe, ComputeRegimeSplits, internal/analytics, TASK-0034]
+    path: tradeoff/2026-04-20-tf-model-timeframe-added-to-computeregimesplits.md
+    summary: "AC specified no-timeframe signature; hardcoding daily rejected (silently wrong for 15min/1min callers); non-annualized Sharpe rejected (incomparable to main report). Added `tf model.Timeframe` as third parameter — deviates from AC by one arg, correct for all callers."
+
   - id: 2026-04-16-curve-data-wired-through-config-fields-rather
     title: "Equity curve wired into output.Config fields, not a second Write parameter"
     date: 2026-04-16

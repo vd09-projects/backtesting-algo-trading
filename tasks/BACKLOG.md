@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-19 | **Open tasks:** 8 | **Next up:** TASK-0034
+**Last updated:** 2026-04-20 | **Open tasks:** 6 | **Next up:** TASK-0024
 
 ---
 
@@ -8,62 +8,11 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
-### [TASK-0028] Backtest — run SMA crossover and RSI mean-rev baselines, check proliferation gate
-
-- **Status:** in-progress
-- **Priority:** high
-- **Created:** 2026-04-15
-- **Source:** user
-- **Context:** Two strategies are implemented and the full pipeline is wired. This is the first
-  live run against real NSE data and answers whether either strategy has a detectable edge over
-  the 2018–2024 window. Period pre-committed (Marcus) to include the 2020 crash and 2022 choppy
-  regime.
-- **Acceptance criteria:**
-  - [x] Instrument declared here before any run: **INSTRUMENT: NSE:RELIANCE** (Reliance Industries,
-        Nifty 50 constituent, continuous trading since before 2018)
-  - [x] SMA crossover run: `--strategy sma-crossover`, `NSE:RELIANCE`,
-        `--from 2018-01-01 --to 2025-01-01 --timeframe daily`, `--sizing-model vol-target --vol-target 0.10`,
-        Zerodha commission defaults, result saved to `runs/sma-crossover-2018-2024.json`
-  - [x] RSI mean-rev run: same instrument, same period, same sizing and cost model,
-        saved to `runs/rsi-mean-rev-2018-2024.json`
-  - [x] Both outputs include benchmark comparison (TASK-0018 — already in output)
-  - [x] Proliferation gate checked:
-        SMA crossover Sharpe = 0.447 — **FAILS gate (< 0.5) → TASK-0019 cancelled**
-        RSI mean-rev Sharpe = 0.469, 7 trades — **FAILS gate (< 0.5, sample too small) → TASK-0020 cancelled**
-  - [x] Gate decisions recorded in `decisions/algorithm/` (one entry per strategy —
-        `2026-04-16-sma-crossover-proliferation-gate-failed.md` and
-        `2026-04-16-rsi-mean-reversion-proliferation-gate-failed.md`)
-  - [ ] Equity curve reviewed across three regime windows: 2018–2019 (pre-crash), 2020–2021
-        (crash + recovery), 2022–2024 (grind) — confirm neither strategy shows edge in only
-        one window
-- **Notes:** MaxDrawdown bug fixed 2026-04-16 (was accumulating P&L from 0; now uses per-bar
-  equity curve via `computeMaxDrawdownDepth`). Re-run results: SMA MaxDrawdown 16.38%, RSI
-  MaxDrawdown 17.36%. CalmarRatio corrected accordingly. All downstream rigor tasks (TASK-0024,
-  TASK-0022, TASK-0026) depend on the trade return series this run produces.
-
 ---
 
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0034] Analytics — regime-split report in backtest output
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-16
-- **Source:** session
-- **Context:** Per-regime Sharpe should be automatic in every backtest output so regime
-  concentration is visible without manual analysis. NSE went through distinct regimes:
-  2018–2019 (pre-COVID steady), 2020–2021 (crash + recovery), 2022–2024 (grind).
-- **Acceptance criteria:**
-  - [ ] `ComputeRegimeSplits(curve []model.EquityPoint, regimes []Regime) []RegimeReport` in `internal/analytics`
-  - [ ] `Regime`: name string, from/to `time.Time`; `RegimeReport`: name, period, Sharpe, max drawdown
-  - [ ] Pre-defined `NSERegimes2018_2024` constant slice with the three windows above
-  - [ ] `cmd/backtest` prints regime table when `--output-curve` path is set (curve required for splits)
-  - [ ] Tests: known equity curve split across regime boundaries → expected per-regime Sharpe values
-- **Notes:** Depends on TASK-0029 (equity curve output) — regime splits require the timestamped
-  equity curve. Directly unblocks TASK-0028's final acceptance criterion once both are built.
 
 ---
 
