@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-19 | **Open tasks:** 11 | **Next up:** TASK-0031
+**Last updated:** 2026-04-19 | **Open tasks:** 10 | **Next up:** TASK-0032
 
 ---
 
@@ -46,29 +46,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0031] Research — RSI signal frequency diagnostic on NSE:RELIANCE
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-16
-- **Source:** session
-- **Context:** Pre-condition for re-evaluating the mean-reversion thesis. 7 trades in 7 years
-  likely means RSI(14) at fixed 30/70 thresholds rarely breaches those levels on RELIANCE daily
-  — not that mean-reversion has no edge. Confirming the calibration failure is the diagnostic
-  step before any re-test. Marcus pre-committed this as the required check.
-- **Acceptance criteria:**
-  - [ ] Count how many times RSI(14) actually breached 30 and 70 on RELIANCE daily 2018–2025
-  - [ ] If fewer than 30 signals: record decision that fixed 30/70 is miscalibrated for RELIANCE;
-        propose adaptive threshold re-test (pre-commit parameters before running)
-  - [ ] If > 30 signals: investigate whether a signal generation bug suppressed entries
-        (vol-targeting zeroing out entries during high-vol events is the likely cause)
-  - [ ] Outcome documented in `decisions/algorithm/`
-- **Notes:** This is a research step, not infrastructure. May need a diagnostic output mode or a
-  small script to count signal triggers without requiring closed trades. Pre-commit the exact
-  diagnostic spec before running. See Marcus's decision: rsi-signal-frequency-diagnostic (2026-04-16).
-
----
 
 ### [TASK-0032] Tooling — 2D parameter sweep with DSR calculation
 
