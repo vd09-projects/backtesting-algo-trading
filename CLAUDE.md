@@ -4,13 +4,34 @@ A Go-based backtesting engine for evaluating trading strategies against historic
 
 ---
 
+## Mandatory process gates
+
+Skipping any of these requires explicit user instruction.
+
+### Before marking any task done
+
+1. **TDD** — tests were written before the implementation they test (not after)
+2. **Quality gate** — `/go-quality-review` at standard level was run if `internal/` or `pkg/` was touched; the `.quality-gate/last-pass` sentinel must be current
+3. **Acceptance criteria** — every criterion in the task block is checked off
+
+### During every turn
+
+- **Skill terminal state** → read `workflows/INDEX.md` immediately to determine the next step; do not proceed without checking it
+- **Design choice made** → mark inline in the response: `**Decision (topic) — category: status**` so the session-end harvest captures it
+- **Editing production code in `internal/` or `pkg/`** → write the failing test first, before the implementation
+
+### Session end
+
+Both must fire before closing — the session-end hook will remind you:
+
+- `/task-manager` — harvest implicit tasks from this session
+- `/decision-journal` — harvest all inline decision marks from this session
+
+---
+
 ## Skill coordination
 
-This project uses 5 skills (`task-manager`, `algo-trading-veteran`, `algo-trading-lead-dev`, `go-quality-review`, `decision-journal`) coordinated via workflow files — see `workflows/INDEX.md`.
-After any skill reaches a terminal state, read `workflows/INDEX.md` to determine the next step.
-At session end, both harvests must fire — `/task-manager` for implicit tasks, `/decision-journal` for inline decision marks.
-
-**Quality gate rule:** After every build that touches a new package, an interface change, or any code under `internal/`, invoke `/go-quality-review` at standard level before marking the task done. This is not optional — skipping it requires explicit user instruction.
+This project uses 5 skills (`task-manager`, `algo-trading-veteran`, `algo-trading-lead-dev`, `go-quality-review`, `decision-journal`) coordinated via workflow files — see `workflows/INDEX.md`. After any skill reaches a terminal state, check `workflows/INDEX.md` for the matching trigger and follow it.
 
 ---
 
@@ -30,7 +51,7 @@ This project uses the go-quality-review skill for code review. The following sta
 - All strategies must implement the `Strategy` interface defined in `pkg/strategy/`. Never reference a concrete strategy type across package boundaries.
 - All data access must go through the `DataProvider` interface. No package outside `pkg/provider/` should know about Zerodha.
 - Use `github.com/markcheno/go-talib` for technical indicators. Do not hand-roll SMA/EMA/RSI/MACD or other indicator math.
-- TDD is mandatory. Write the test before the implementation. Every public function must have a test.
+- Every public function must have a test.
 - No global state. No `init()` functions with side effects. All dependencies are injected explicitly.
 - Errors are returned, not panicked. Use typed errors where the caller needs to distinguish error kinds.
 - Every `Candle`, `Trade`, and `Position` must carry an instrument identifier — even though we're single-instrument now.
