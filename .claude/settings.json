@@ -27,7 +27,9 @@
       "Bash(gofumpt -l internal/analytics/dsr.go internal/sweep2d/sweep2d.go internal/sweep2d/sweep2d_test.go)",
       "Bash(gofumpt -d internal/analytics/dsr.go internal/sweep2d/sweep2d.go internal/sweep2d/sweep2d_test.go)",
       "Edit(/.claude/skills/go-quality-review/**)",
-      "Bash(chmod +x /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/*.sh)"
+      "Bash(chmod +x /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/*.sh)",
+      "Bash(bash -n /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/session-start.sh)",
+      "Bash(bash -n /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/post-tool-use-skill.sh)"
     ]
   },
   "hooks": {
@@ -72,6 +74,18 @@
           {
             "type": "command",
             "command": ".claude/hooks/user-prompt-submit.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-tool-use-skill.sh",
             "timeout": 10
           }
         ]
