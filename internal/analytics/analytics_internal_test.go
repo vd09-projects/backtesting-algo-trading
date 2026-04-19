@@ -13,6 +13,38 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
+// TestNormInvCDF covers all branches including edge cases and the lower tail.
+func TestNormInvCDF(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		p    float64
+		want float64
+	}{
+		{0.5, 0.0},                    // median of standard normal
+		{0.975, 1.959964},             // central region, upper end (standard ±1.96)
+		{0.025, -1.959964},            // central region, lower end
+		{0.01, -2.326348},             // lower tail (p < 0.02425)
+		{0.99, 2.326348},              // upper tail (p > 0.97575)
+		{0.0, math.Inf(-1)},           // boundary: p ≤ 0 → -Inf
+		{1.0, math.Inf(1)},            // boundary: p ≥ 1 → +Inf
+		{-0.1, math.Inf(-1)},          // p < 0 → -Inf
+		{1.1, math.Inf(1)},            // p > 1 → +Inf
+	}
+	const tol = 1e-5
+	for _, tt := range tests {
+		got := normInvCDF(tt.p)
+		if math.IsInf(tt.want, 0) {
+			if got != tt.want {
+				t.Errorf("normInvCDF(%g) = %v, want %v", tt.p, got, tt.want)
+			}
+			continue
+		}
+		if math.Abs(got-tt.want) > tol {
+			t.Errorf("normInvCDF(%g) = %.6f, want %.6f (tol %.1e)", tt.p, got, tt.want, tol)
+		}
+	}
+}
+
 var internalBase = time.Date(2024, 1, 1, 9, 0, 0, 0, time.UTC)
 
 func makePts(values ...float64) []model.EquityPoint {

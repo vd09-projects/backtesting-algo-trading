@@ -60,6 +60,8 @@ type Report struct {
 	ParameterName string
 	Results       []Result      // sorted descending by SharpeRatio
 	Plateau       *PlateauRange // nil if no parameter value produced a positive Sharpe
+	VariantCount  int           // number of parameter values tested
+	NObservations int           // equity curve length; same for all runs (fixed date range)
 }
 
 // Run executes a parameter sweep over cfg.StrategyFactory for parameter values
@@ -72,6 +74,7 @@ func Run(ctx context.Context, cfg Config, p provider.DataProvider) (Report, erro
 
 	steps := paramSteps(cfg.Min, cfg.Max, cfg.Step)
 	results := make([]Result, 0, len(steps))
+	var nObs int
 
 	for _, v := range steps {
 		s, err := cfg.StrategyFactory(v)
@@ -86,6 +89,7 @@ func Run(ctx context.Context, cfg Config, p provider.DataProvider) (Report, erro
 
 		closed := eng.Portfolio().ClosedTrades()
 		curve := eng.Portfolio().EquityCurve()
+		nObs = len(curve)
 		rep := analytics.Compute(closed, curve, cfg.Timeframe)
 
 		results = append(results, Result{
@@ -105,6 +109,8 @@ func Run(ctx context.Context, cfg Config, p provider.DataProvider) (Report, erro
 		ParameterName: cfg.ParameterName,
 		Results:       results,
 		Plateau:       computePlateau(results),
+		VariantCount:  len(steps),
+		NObservations: nObs,
 	}, nil
 }
 

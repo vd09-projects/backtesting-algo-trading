@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-19 | **Open tasks:** 10 | **Next up:** TASK-0032
+**Last updated:** 2026-04-19 | **Open tasks:** 9 | **Next up:** TASK-0033
 
 ---
 
@@ -46,30 +46,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0032] Tooling — 2D parameter sweep with DSR calculation
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-16
-- **Source:** session
-- **Context:** The 1D sweep shows the best parameter value but not whether there's a plateau of
-  working values (robustness) or just a narrow peak (overfit). A 2D grid sweep produces the
-  robustness surface. DSR (Deflated Sharpe Ratio) correction for multiple testing is computed
-  from the variant count — tells you how much the "best" Sharpe is inflated by the search.
-- **Acceptance criteria:**
-  - [ ] `internal/sweep2d` package with `Run(cfg Config2D, provider, factory) Report2D`
-  - [ ] `Config2D`: two parameter ranges (name, min, max, step each) + engine config
-  - [ ] `Report2D`: `[i][j]` grid of results (Sharpe, trade count, max drawdown), variant count, DSR-corrected peak Sharpe
-  - [ ] Runs use `errgroup` with `GOMAXPROCS` concurrency; results stored at fixed indices (deterministic output order)
-  - [ ] `DSR(observedSharpe, nTrials, nObservations float64) float64` function in `internal/analytics`
-  - [ ] `sweep.Report` gains `VariantCount int`; `WriteSweep` output shows DSR-corrected Sharpe alongside raw
-  - [ ] Output: CSV matrix written to `runs/` for Python heatmap consumption
-  - [ ] Tests: 2×2 grid → 4 results; DSR returns lower Sharpe for higher trial counts
-- **Notes:** DSR formula from Bailey & López de Prado. CSV is the handoff boundary to Python
-  notebooks. Priya's decision: sweep2d-package-structure (2026-04-16).
-
----
 
 ### [TASK-0033] Tooling — automated proliferation gate PASS/FAIL in CLI output
 

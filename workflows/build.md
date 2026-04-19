@@ -61,20 +61,16 @@ confirms Priya's approach or overrides it with a different recommendation.
 **If Marcus overrides:** return to Priya with Marcus's decision. She iterates on the override
 (usually a small change), then reaches `Ready for review.` again. Proceed to Step 4 or 5.
 
-### Step 4 — Quality gate (optional)
+### Step 4 — Quality gate (required)
 
-Not every build needs a formal review. Use the quality gate when:
-- The build touches structural code (new packages, interface changes, engine internals)
-- The build modifies invariant-sensitive code (accounting, fills, metrics, event loop)
-- The user explicitly asks for a review
-- The task's acceptance criteria include "passes pre-merge review"
+Run `/go-quality-review` after every build that touches a new package, interface change, or
+any code under `internal/`. This covers nearly all tasks in this project. The only exceptions
+are documentation-only changes, test-only additions, or when the user explicitly says to skip.
 
-Skip it when:
-- Small config changes, documentation, test-only additions
-- The user says "skip the reviewer"
-
-Invoke `/go-quality-review` — at the appropriate level (standard for most, deep or pre-merge
-for structural/invariant changes).
+Review level:
+- **standard** — default for most tasks
+- **deep** — engine internals, accounting, fill logic, metrics
+- **pre-merge** — before merging a multi-session feature branch
 
 **If blockers found:** return to `/algo-trading-lead-dev` in iterate mode. Share the specific
 findings. Priya fixes them. She may push back on a finding with reasoning — if she does

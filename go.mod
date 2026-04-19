@@ -8,5 +8,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/markcheno/go-talib v0.0.0-20250114000313-ec55a20c902f // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

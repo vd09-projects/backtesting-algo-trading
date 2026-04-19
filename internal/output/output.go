@@ -86,7 +86,8 @@ func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport)
 }
 
 // WriteSweep prints a ranked table of sweep results and, if present, the plateau
-// to w. Results are expected to arrive pre-sorted descending by Sharpe ratio.
+// and DSR-corrected peak Sharpe to w. Results are expected to arrive pre-sorted
+// descending by Sharpe ratio.
 func WriteSweep(w io.Writer, report sweep.Report) error {
 	if _, err := fmt.Fprintf(w,
 		"=== Parameter Sweep: %s ===\n%-4s  %-10s  %-8s  %-12s  %-6s  %-8s\n",
@@ -112,6 +113,17 @@ func WriteSweep(w io.Writer, report sweep.Report) error {
 			report.ParameterName, p.MinParam, p.MaxParam, p.Count, p.MinSharpe,
 		); err != nil {
 			return fmt.Errorf("output: write sweep plateau: %w", err)
+		}
+	}
+
+	if len(report.Results) > 0 && report.VariantCount > 1 && report.NObservations > 1 {
+		peakSharpe := report.Results[0].SharpeRatio
+		dsr := analytics.DSR(peakSharpe, float64(report.VariantCount), float64(report.NObservations))
+		if _, err := fmt.Fprintf(w,
+			"Peak Sharpe: %.4f  DSR-corrected: %.4f  (variants: %d, obs: %d)\n",
+			peakSharpe, dsr, report.VariantCount, report.NObservations,
+		); err != nil {
+			return fmt.Errorf("output: write sweep DSR: %w", err)
 		}
 	}
 

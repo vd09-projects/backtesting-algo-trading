@@ -10,6 +10,8 @@ This project uses 5 skills (`task-manager`, `algo-trading-veteran`, `algo-tradin
 After any skill reaches a terminal state, read `workflows/INDEX.md` to determine the next step.
 At session end, both harvests must fire — `/task-manager` for implicit tasks, `/decision-journal` for inline decision marks.
 
+**Quality gate rule:** After every build that touches a new package, an interface change, or any code under `internal/`, invoke `/go-quality-review` at standard level before marking the task done. This is not optional — skipping it requires explicit user instruction.
+
 ---
 
 ## Quality standards

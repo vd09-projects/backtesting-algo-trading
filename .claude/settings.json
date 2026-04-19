@@ -23,7 +23,9 @@
       "Read(//tmp/**)",
       "Bash(GOROOT=$\\(go1.25.0 env GOROOT\\) golangci-lint run:*)",
       "Bash(xargs ls *)",
-      "Bash(go run *)"
+      "Bash(go run *)",
+      "Bash(gofumpt -l internal/analytics/dsr.go internal/sweep2d/sweep2d.go internal/sweep2d/sweep2d_test.go)",
+      "Bash(gofumpt -d internal/analytics/dsr.go internal/sweep2d/sweep2d.go internal/sweep2d/sweep2d_test.go)"
     ]
   }
 }
