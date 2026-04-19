@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-19 | **Open tasks:** 9 | **Next up:** TASK-0033
+**Last updated:** 2026-04-19 | **Open tasks:** 8 | **Next up:** TASK-0034
 
 ---
 
@@ -46,25 +46,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0033] Tooling — automated proliferation gate PASS/FAIL in CLI output
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-16
-- **Source:** session
-- **Context:** The proliferation gate check is currently manual — read the Sharpe from JSON and
-  compare to 0.5. The CLI should print PASS or FAIL automatically so the gate is never
-  accidentally skipped and the result is unambiguous in the output.
-- **Acceptance criteria:**
-  - [ ] `--proliferation-gate-threshold` flag on `cmd/backtest` (default 0.0 = disabled; set to 0.5 for NSE daily)
-  - [ ] When threshold > 0, `output.printSummary` prints `Proliferation gate (≥0.50): PASS` or `FAIL` with actual Sharpe
-  - [ ] Gate check skipped (not printed) when threshold is 0, or when `TradeMetricsInsufficient`/`CurveMetricsInsufficient` is set
-  - [ ] Tests: PASS/FAIL printed correctly; no output when threshold is 0 or sample insufficient
-- **Notes:** Insufficient sample and gate failure are different outcomes and must print differently.
-  Depends on TASK-0030 (signal frequency gate) for the insufficient-sample suppression.
-
----
 
 ### [TASK-0034] Analytics — regime-split report in backtest output
 

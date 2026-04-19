@@ -93,6 +93,7 @@ func main() {
 	curvePath := flag.String("output-curve", "", "Path for equity curve CSV export (omit to skip)")
 	sizingModel := flag.String("sizing-model", "fixed", "Position sizing model: fixed | vol-target")
 	volTarget := flag.Float64("vol-target", 0.10, "Annualized volatility target when --sizing-model=vol-target (e.g. 0.10 = 10%)")
+	gateThreshold := flag.Float64("proliferation-gate-threshold", 0.0, "Sharpe threshold for proliferation gate PASS/FAIL (0 = disabled; 0.5 recommended for NSE daily)")
 	flag.Parse()
 
 	// Validate required flags.
@@ -184,6 +185,7 @@ func main() {
 		Benchmark:     &benchmark,
 		CurvePath:     *curvePath,
 		Curve:         curve,
+		GateThreshold: *gateThreshold,
 	}); err != nil {
 		cmdutil.Fatalf("output: %v", err)
 	}

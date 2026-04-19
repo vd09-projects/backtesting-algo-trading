@@ -22,6 +22,7 @@ type Config struct {
 	Benchmark     *analytics.BenchmarkReport // optional; when non-nil, printed alongside strategy results
 	CurvePath     string                     // destination for equity curve CSV export; ignored if empty
 	Curve         []model.EquityPoint        // per-bar equity snapshots; written to CurvePath when that field is non-empty
+	GateThreshold float64                    // Sharpe threshold for proliferation gate; 0 disables the check
 }
 
 // Write formats report as a human-readable summary and/or a JSON file.
@@ -32,7 +33,7 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 		if w == nil {
 			w = os.Stdout
 		}
-		if err := printSummary(w, report, cfg.Benchmark); err != nil {
+		if err := printSummary(w, report, cfg.Benchmark, cfg.GateThreshold); err != nil {
 			return err
 		}
 	}
@@ -52,7 +53,7 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 	return nil
 }
 
-func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport) error { //nolint:gocritic // value semantics intentional; r is read-only
+func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport, gateThreshold float64) error { //nolint:gocritic // value semantics intentional; r is read-only
 	_, err := fmt.Fprintf(w,
 		"=== Backtest Results ===\nTrades:         %d\nWin Rate:       %.2f%%\nTotal P&L:      %.2f\nAvg Win:        %.2f\nAvg Loss:       %.2f\nProfit Factor:  %.4f\nMax Drawdown:   %.2f%%\nMax DD Duration:%v\nSharpe Ratio:   %.4f\nSortino Ratio:  %.4f\nCalmar Ratio:   %.4f\nTail Ratio:     %.4f\n",
 		r.TradeCount, r.WinRate, r.TotalPnL, r.AvgWin, r.AvgLoss, r.ProfitFactor,
@@ -71,6 +72,16 @@ func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport)
 		if _, err := fmt.Fprintf(w, "WARNING: equity curve below minimum (%d bars) -- Sharpe, Sortino, Calmar, TailRatio not reported\n",
 			analytics.MinCurvePointsForMetrics); err != nil {
 			return fmt.Errorf("output: write curve warning: %w", err)
+		}
+	}
+	if gateThreshold > 0 && !r.TradeMetricsInsufficient && !r.CurveMetricsInsufficient {
+		status := "PASS"
+		if r.SharpeRatio < gateThreshold {
+			status = "FAIL"
+		}
+		if _, err := fmt.Fprintf(w, "Proliferation gate (≥%.2f): %s (Sharpe %.4f)\n",
+			gateThreshold, status, r.SharpeRatio); err != nil {
+			return fmt.Errorf("output: write gate result: %w", err)
 		}
 	}
 	if b != nil {

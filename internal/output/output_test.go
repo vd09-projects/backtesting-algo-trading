@@ -457,3 +457,90 @@ type failWriter struct{}
 func (f *failWriter) Write([]byte) (int, error) {
 	return 0, errors.New("write failed")
 }
+
+// --- Proliferation gate tests ---
+
+func TestWrite_GatePASS(t *testing.T) {
+	report := analytics.Report{SharpeRatio: 0.65}
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{
+		PrintToStdout: true, Stdout: &buf, GateThreshold: 0.5,
+	}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "PASS") {
+		t.Errorf("expected PASS in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "0.65") {
+		t.Errorf("expected actual Sharpe in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "≥0.50") {
+		t.Errorf("expected threshold label in output, got:\n%s", out)
+	}
+}
+
+func TestWrite_GateFAIL(t *testing.T) {
+	report := analytics.Report{SharpeRatio: 0.447}
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{
+		PrintToStdout: true, Stdout: &buf, GateThreshold: 0.5,
+	}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "FAIL") {
+		t.Errorf("expected FAIL in output, got:\n%s", out)
+	}
+}
+
+func TestWrite_GateDisabled_ZeroThreshold(t *testing.T) {
+	report := analytics.Report{SharpeRatio: 0.3}
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{
+		PrintToStdout: true, Stdout: &buf, GateThreshold: 0,
+	}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if strings.Contains(buf.String(), "gate") {
+		t.Errorf("expected no gate output when threshold is 0, got:\n%s", buf.String())
+	}
+}
+
+func TestWrite_GateSkipped_TradeMetricsInsufficient(t *testing.T) {
+	report := analytics.Report{SharpeRatio: 0.3, TradeMetricsInsufficient: true, TradeCount: 5}
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{
+		PrintToStdout: true, Stdout: &buf, GateThreshold: 0.5,
+	}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if strings.Contains(buf.String(), "gate") {
+		t.Errorf("expected no gate output when TradeMetricsInsufficient, got:\n%s", buf.String())
+	}
+}
+
+func TestWrite_GateSkipped_CurveMetricsInsufficient(t *testing.T) {
+	report := analytics.Report{SharpeRatio: 0.3, CurveMetricsInsufficient: true}
+	var buf bytes.Buffer
+	if err := output.Write(report, output.Config{
+		PrintToStdout: true, Stdout: &buf, GateThreshold: 0.5,
+	}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if strings.Contains(buf.String(), "gate") {
+		t.Errorf("expected no gate output when CurveMetricsInsufficient, got:\n%s", buf.String())
+	}
+}
+
+func TestWrite_GateWriteError(t *testing.T) {
+	// failAfterFirstWriter: write 1 (main summary) succeeds, write 2 (gate line) fails.
+	cfg := output.Config{
+		PrintToStdout: true,
+		Stdout:        &failAfterFirstWriter{},
+		GateThreshold: 0.5,
+	}
+	if err := output.Write(analytics.Report{SharpeRatio: 0.65}, cfg); err == nil {
+		t.Error("expected error when gate write fails, got nil")
+	}
+}
