@@ -1,54 +1,100 @@
 # Code Review Session
 
-User wants existing code reviewed without a specific task driving it. Could be a periodic
-quality pass, a pre-merge gate on a branch, or "I feel like this package is getting messy."
-(~5% of sessions.)
+User wants existing code reviewed. Runs the gate, fixes blockers autonomously, tracks warnings
+as tasks. Ends with a Session Summary. (~5% of sessions.)
 
 ## Trigger
 
 User says "review this code," "run a quality check on X," "pre-merge review," "what's wrong
-with this package," or names a specific package or file to review.
+with this package," or names a package or file to audit.
 
-## Flow
+---
 
-### Step 1 — Run the review
+## Execution
 
-Invoke `/go-quality-review` — at the level the user requested or implied.
+### Step 1 — Determine scope and level
 
-- "quick check" / "just lint" → quick
-- "review this" / "PR review" → standard
-- "deep review" / "this package is critical" → deep
-- "pre-merge" / "ready to ship" → pre-merge
-- Ambiguous → default to standard, mention deeper levels are available
+Infer the review level from the user's intent:
+- "quick check" / "just lint" → **quick**
+- "review this" / "PR review" / no qualifier → **standard**
+- "deep review" / "this package is critical" / "engine internals" → **deep**
+- "pre-merge" / "ready to ship" → **pre-merge**
 
-The reviewer produces a findings report: blockers, warnings, suggestions.
+If the user named a specific package, check what it does — engine/accounting/metrics packages
+always get at least **standard** regardless of what the user said.
 
-### Step 2 — Handle findings
+Log:
+```
+[AUTO] Step 1 — Scope: <package or files>. Level: <quick|standard|deep|pre-merge>.
+```
 
-Three paths based on what the user wants:
+### Step 2 — Run the review
 
-**Fix now:** Invoke `/algo-trading-lead-dev` in iterate mode — share the specific findings.
+Auto-invoke `/go-quality-review` at the determined level. It produces a findings report:
+blockers, warnings, suggestions.
+
+Log:
+```
+[AUTO] Step 2 — Quality gate: <PASS|FAIL>. Blockers: N, Warnings: M, Suggestions: K.
+```
+
+### Step 3 — Handle findings
+
+**Blockers (must fix before merge):**
+
+Auto-invoke `/algo-trading-lead-dev` in iterate mode. Pass the specific blocker findings.
 Priya addresses them. She may:
-- Fix everything the reviewer flagged.
-- Push back on specific findings with reasoning. If she does, she marks a `tradeoff` decision
-  explaining why the override is intentional (e.g., "this function is long because splitting
-  it harms readability").
-- Discover deeper issues while fixing surface findings. If structural, she may need to re-plan.
+- Fix them straightforwardly
+- Push back with reasoning — if she does, she marks a `tradeoff` decision explaining the
+  intentional override (e.g., "function is long because splitting it harms readability in
+  the hot loop"). Log the decision; the override is accepted.
 
-After Priya finishes iterating, re-run `/go-quality-review` at the same level to verify the
-fixes. If new issues surface from the fixes (happens occasionally — fixing one thing reveals
-another), iterate again. Usually converges in 1-2 rounds.
+After Priya finishes, auto-re-run `/go-quality-review` at the same level. If new blockers
+surface from the fixes, iterate again. Max 2 rounds. If blockers persist after round 2: Hard STOP.
 
-**Track for later:** Invoke `/task-manager` — create tasks for the findings the user wants to
-address but not right now. Each finding becomes a task with the reviewer's severity as priority
-guidance (blocker → high, warning → medium, suggestion → low).
+If no blockers remain after iteration: continue to warnings.
 
-**Accept as-is:** User acknowledges the findings and chooses not to act. No further steps.
-If the user explicitly overrides a finding, suggest Priya mark a `tradeoff` decision so the
-reasoning is preserved (otherwise the same finding will fire again on the next review with
-no record of why it was previously accepted).
+**Warnings (should fix, creates future problems):**
 
-### Step 3 — Session end
+Do not fix warnings in this session unless the user explicitly requests it. Instead, auto-create
+a task for each distinct warning category:
 
-Go to `session-end.md` — but only if decisions were marked during iteration. If the review
-was clean or the user just tracked tasks, the harvest will come back empty. That's fine.
+| Warning | Task priority |
+|---|---|
+| Missing test coverage on public functions | medium |
+| High cyclomatic complexity | medium |
+| Tight coupling between packages | medium |
+| Missing godoc on exported types | low |
+| Naming or formatting issues | low |
+
+Log each created task:
+```
+[WARN] <finding>. TASK-XXXX created (priority).
+```
+
+**Suggestions (nice to have):**
+
+Log them in the Summary under "Suggestions (not tracked)." Do not create tasks for suggestions
+automatically. The user can choose to act on them.
+
+### Step 4 — Write quality-gate sentinel
+
+If the review ends with no blocker-level findings, the quality gate passes. Write the sentinel:
+
+```bash
+mkdir -p .quality-gate && date -u +"%Y-%m-%dT%H:%M:%SZ" > .quality-gate/last-pass
+```
+
+Log:
+```
+[AUTO] Step 4 — Quality gate sentinel written: .quality-gate/last-pass
+```
+
+If the review still has blockers (Hard STOP case), do not write the sentinel.
+
+### Step 5 — Session end
+
+Go to `session-end.md`.
+
+The decision harvest may produce results if Priya marked any tradeoff decisions while
+iterating on findings. If the review was clean, the harvest comes back empty — that is fine.

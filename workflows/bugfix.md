@@ -1,67 +1,98 @@
 # Bug Fix Session
 
-User picks a bug from the backlog and fixes it. Usually shorter and more focused than a build
-session — fewer decisions, faster iteration. (~10% of sessions.)
+User picks a bug and it is fixed autonomously. Shorter than a build session — fewer decisions,
+faster iteration. (~10% of sessions.)
 
 ## Trigger
 
-Task type is a bug. Or user describes a specific issue: "this is broken," "the output is wrong,"
+Task type is a bug, or user describes a specific issue: "this is broken," "the output is wrong,"
 "there's a race condition in X."
 
-## Flow
+---
+
+## Execution
 
 ### Step 1 — Pick the bug
 
-Invoke `/task-manager` — pick the bug task. The task-manager shows: task ID, what's broken,
-acceptance criteria (usually "the bug no longer reproduces" + a specific verification).
+Read `tasks/BACKLOG.md`. Take the named bug task, or if none specified, the top bug in the
+backlog. Extract: task ID, what's broken, acceptance criteria, reproduction steps if available.
 
-**Carry forward:** task ID, what's broken, reproduction steps if available.
+Log:
+```
+[AUTO] Step 1 — Bug: TASK-NNNN "<title>" picked.
+```
 
-### Step 2 — Investigate and fix
+### Step 2 — Prior decision check
 
-Invoke `/algo-trading-lead-dev` — share the bug details. Priya investigates: reads the relevant
-code, reproduces the issue, diagnoses the root cause, writes the fix, adds a regression test.
+Same as build.md Step 2. Scan the decision journal for prior calls relevant to the broken area.
+A bug near accounting / fills / metrics often has prior decisions about correct behavior — those
+are the ground truth for what "fixed" means.
 
-This is usually 1-3 turns. Priya is in build mode (bugs don't need a separate plan step unless
-the fix is architecturally significant).
+Log:
+```
+[AUTO] Step 2 — Prior decisions: N relevant entries. Applying: <titles>.
+```
 
-**The methodology pivot:** Sometimes what looks like a code bug is actually a methodology issue.
-Examples:
-- "The backtest results look wrong" → the fill model is producing incorrect results (not a code
-  bug — the code does what it says; the model is wrong)
-- "The Sharpe number doesn't match my Python notebook" → different computation methodology
-  between Go and Python (not a bug — a methodology question about which computation is correct)
-- "The equity curve has a weird jump" → the strategy is behaving as coded, but the behavior
-  is wrong from a trading perspective
+### Step 3 — Investigate and fix
 
-If Priya identifies this: she'll say something like "this isn't a code bug — the [fill model /
-computation / behavior] is working as implemented, but the implementation may be wrong from a
-methodology standpoint. Flagging for Marcus."
+Auto-invoke `/algo-trading-lead-dev` in build mode (bugs don't need a separate plan step unless
+the fix is architecturally significant). Pass: task ID, what's broken, prior decisions.
 
-When this happens, invoke `/algo-trading-veteran` — share what Priya found. Marcus evaluates
-whether the current methodology is correct or needs changing. If he recommends a change, that's
-an `algorithm` decision. Return to Priya with Marcus's recommendation and she implements the
-corrected version.
+Priya investigates: reads relevant code, diagnoses root cause, writes a regression test first,
+then the fix.
 
-### Step 3 — Quick quality check
+**The methodology pivot:** If Priya finds this isn't a code bug but a methodology issue
+(fill model producing wrong results, metric computation differs from spec, behavior is correct
+code but wrong trading logic), she will flag it. When this happens:
 
-Invoke `/go-quality-review` — at the `quick` level (lint + race detection). Bug fixes don't
-usually need a deep review unless the fix is structurally significant.
+Auto-invoke `/algo-trading-veteran` with what Priya found. Marcus evaluates whether the current
+methodology is correct or needs changing. If he recommends a change, it is an `algorithm`
+decision — log it. Return to Priya with Marcus's ruling.
 
-**If the fix touched invariant-sensitive code** (accounting, fills, metrics, event loop), bump
-to `standard` or `deep` level.
+Priya ends with `Ready for review.` or `Blocked — need input.`
 
-**If issues found:** return to Priya, iterate, re-check.
-**If clean:** proceed.
+- If `Blocked — need input.` and it is a requirements gap → Hard STOP
+- Otherwise route the blocker (methodology → Marcus, data → Hard STOP) and resume
 
-### Step 4 — Verify and close
+Log:
+```
+[AUTO] Step 3 — Fix: root cause diagnosed, regression test written, fix applied.
+[DECISION] Marcus [algorithm]: <if methodology pivot occurred>
+```
 
-Invoke `/task-manager` — verify the bug no longer reproduces and acceptance criteria are met.
-Mark done.
+### Step 4 — Quality check
 
-### Step 5 — Session end
+Auto-run `/go-quality-review`:
+- Default level: **quick** (lint + race detection)
+- Bump to **standard** if the fix touched: accounting, fills, metrics computation, event loop,
+  position sizing, or any file in `internal/engine/` or `internal/analytics/`
+
+If lint/format failures: auto-fix (`golangci-lint --fix`), re-run.
+If blocker findings: return to Priya in iterate mode (max 2 rounds). Hard STOP if unresolved.
+If clean: proceed.
+
+Log:
+```
+[AUTO] Step 4 — Quality gate (<level>): PASS.
+[WARN] <any warnings with follow-up task IDs>
+```
+
+### Step 5 — Verify and close
+
+Check acceptance criteria. The primary criterion for a bug is "the bug no longer reproduces"
+plus any specific verification the task states.
+
+If all criteria met: auto-close, auto-archive.
+If any unmet: log `[FLAGGED]`, create follow-up task, close this task for what it achieved.
+
+Log:
+```
+[CLOSED] TASK-NNNN done. Bug verified fixed. Archived.
+```
+
+### Step 6 — Session end
 
 Go to `session-end.md`.
 
-Bug fixes rarely produce decision marks unless the fix involved a tradeoff or the methodology
-pivot happened. The journal harvest may come back empty — that's fine.
+Bug fixes rarely produce decision marks unless a methodology pivot occurred. The decision
+harvest may come back empty — that is fine.

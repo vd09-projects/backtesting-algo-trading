@@ -1,92 +1,140 @@
 # Build Session
 
-The most common session type (~40% of all sessions). User picks a task and implements it.
+The most common session type (~40% of all sessions). A task is picked and implemented
+autonomously from planning through close. No confirmation steps between stages.
 
 ## Trigger
 
-User says "what's next," picks a task from the backlog, or names a specific task to work on.
-Task type is a feature, refactor, or implementation — not a bug (see `bugfix.md`), not a review.
+User says "what's next," "start next task," picks a task by ID, or names work to implement.
+Task type is a feature, refactor, or implementation — not a bug (see `bugfix.md`).
 
-## Flow
+---
+
+## Execution
 
 ### Step 1 — Pick the task
 
-Invoke `/task-manager` — ask for the next task or the specific task the user named.
-The task-manager shows: task ID, title, acceptance criteria, context, any blockers.
+Read `tasks/BACKLOG.md`. Take the top item from **In Progress** (resume if one exists), or
+the top item from **Up Next**. Log:
 
-**Carry forward:** task ID, acceptance criteria, any notes or related decision references.
+```
+[AUTO] Step 1 — Task: TASK-NNNN "<title>" picked from <section>.
+```
 
-### Step 2 — Plan
+If the top task is blocked, take the next unblocked item and log the skip reason.
+Extract: task ID, title, acceptance criteria, context, notes, any related decision references.
 
-Invoke `/algo-trading-lead-dev` — share the task ID, acceptance criteria, and any relevant
-context. Priya plans the approach.
+### Step 2 — Prior decision check
 
-Priya will read the codebase, check `decisions/` for prior calls, and produce a plan.
-She ends with `Plan ready.` or `Blocked — need input.`
+Before planning, scan the decision journal for relevant prior calls:
 
-**If `Blocked — need input`:** Read what Priya needs. Usually one of:
-- A methodology question → suggest invoking `/algo-trading-veteran` (Marcus) to answer it.
-  After Marcus answers, return to Priya with his answer and resume planning.
-- A requirements question → ask the user directly. After they answer, resume planning.
-- A data question → the user needs to provide data details. After they do, resume planning.
+- Read `decisions/INDEX.md`. Filter entries whose tags overlap with the task's domain
+  (e.g., a task touching analytics → look for `analytics`, `sharpe`, `drawdown` tags).
+- Read the 1–3 most relevant decision files in full.
+- Note which decisions apply and will be used as standing orders during the build.
 
-**If `Plan ready`:** Ask the user: "Approve the plan and start building?"
+Log:
+```
+[AUTO] Step 2 — Prior decisions: found N relevant entries. Applying: <titles>.
+```
 
-### Step 3 — Build
+If zero relevant decisions exist, log that and proceed. It means the build has more
+latitude — Priya and Marcus will establish new conventions as needed.
 
-Continue with `/algo-trading-lead-dev` — Priya switches to build mode. She writes code,
-tests, and marks any decisions inline.
+### Step 3 — Marcus pre-check (conditional)
 
-This is usually the longest step. Priya may need multiple turns. She may:
-- Discover something mid-build that changes the plan. She'll surface it and ask to re-plan.
-- Hit a methodology question she can't answer. She'll say she's blocked. Route to Marcus
-  (same as Step 2's blocked handling), then return to Priya.
-- Find that the task is bigger than expected and should be split. Suggest invoking
-  `/task-manager` to decompose the task, then continue building the first subtask.
+**Only run this step if the task touches:** fill model, position sizing, performance metrics,
+kill-switch logic, test plan methodology, or any backtest evaluation claim.
 
-She ends with one of:
-- `Ready for review.` → go to Step 4 or Step 5.
-- `Ready for review — flagging for Marcus.` → go to Step 4a before Step 4/5.
-- `Blocked — need input.` → handle the block (same pattern as Step 2).
+Check whether the methodology question is already answered by a prior `algorithm`-category
+decision (Step 2 should have surfaced this). If yes, skip this step entirely.
 
-### Step 4a — Marcus review (only if flagged)
+If genuinely new: auto-invoke `/algo-trading-veteran`. Share the task context and the specific
+methodology question. Marcus reads prior decisions and either:
+- Applies an existing call → confirms, Step 3 ends
+- Makes a new call → marks it inline as `[algorithm/experimental]`, Step 3 ends
+- Hard STOP → "genuinely new methodology call" condition (see INDEX.md)
 
-Priya flagged something for Marcus — usually a methodology-adjacent implementation choice
-where his sign-off matters (fill model, embargo size, sizing logic, test plan fidelity).
+Log:
+```
+[AUTO] Step 3 — Marcus pre-check: <skipped (prior decision applies) | new call made>.
+[DECISION] Marcus [algorithm]: <one-line summary if a new call was made>
+```
 
-Invoke `/algo-trading-veteran` — share what Priya flagged and why. Marcus reviews and either
-confirms Priya's approach or overrides it with a different recommendation.
+### Step 4 — Plan
 
-**If Marcus confirms:** proceed to Step 4 or 5.
-**If Marcus overrides:** return to Priya with Marcus's decision. She iterates on the override
-(usually a small change), then reaches `Ready for review.` again. Proceed to Step 4 or 5.
+Auto-invoke `/algo-trading-lead-dev`. Pass: task ID, acceptance criteria, context, relevant
+prior decisions from Step 2, Marcus's call from Step 3 (if any).
 
-### Step 4 — Quality gate (required)
+Priya reads the codebase, checks `decisions/` for prior structural calls, and produces a plan.
 
-Run `/go-quality-review` after every build that touches a new package, interface change, or
-any code under `internal/`. This covers nearly all tasks in this project. The only exceptions
-are documentation-only changes, test-only additions, or when the user explicitly says to skip.
+**If `Plan ready.`** → log and proceed to Step 5.
 
-Review level:
-- **standard** — default for most tasks
-- **deep** — engine internals, accounting, fill logic, metrics
-- **pre-merge** — before merging a multi-session feature branch
+**If `Blocked — need input.`** → check what is needed:
+- Methodology question → run Step 3 (Marcus) now, return to Priya with answer, resume plan
+- Requirements question → Hard STOP: state the gap and the two most likely interpretations
+- Data question → Hard STOP: state what data detail is missing
 
-**If blockers found:** return to `/algo-trading-lead-dev` in iterate mode. Share the specific
-findings. Priya fixes them. She may push back on a finding with reasoning — if she does
-and marks a tradeoff decision, that's fine. After iteration, re-run the reviewer to verify.
+Log:
+```
+[AUTO] Step 4 — Plan: complete. Approach: <one-sentence summary of Priya's approach>.
+```
 
-**If clean:** proceed to Step 5.
+### Step 5 — Build loop
 
-### Step 5 — Verify and close
+Auto-invoke `/algo-trading-lead-dev` in build mode. Pass: the approved plan, all context.
+Priya writes tests first, then implementation, then marks any decisions inline.
 
-Invoke `/task-manager` — ask it to verify the acceptance criteria against what was built.
-The task-manager checks each criterion, marks done or surfaces gaps.
+This loop runs until quality gate is clean or a Hard STOP fires:
 
-**If all criteria met:** task-manager marks the task done and archives it.
-**If gaps remain:** user decides — continue building (return to Step 3), or create a follow-up
-task for the gap and close this task as done for what it achieved.
+```
+while true:
+    Priya builds (may be multiple turns)
 
-### Step 6 — Session end
+    if Priya says "Ready for review — flagging for Marcus.":
+        invoke Marcus with the flagged item
+        if Marcus overrides: return to Priya with override, she iterates
+        continue loop
+
+    if Priya says "Blocked — need input.":
+        evaluate: requirements gap? → Hard STOP
+        otherwise route as in Step 4 and resume
+
+    run quality gate (standard for internal/ changes, quick otherwise)
+
+    if gate has lint/format failures only:
+        auto-fix (golangci-lint --fix), re-run gate, continue
+
+    if gate has blocker findings:
+        return to Priya in iterate mode with specific findings (round N of 2)
+        if round 2 still has blockers: Hard STOP — unresolvable blocker
+
+    if gate clean:
+        break
+```
+
+Log for each iteration:
+```
+[AUTO] Step 5 — Build: complete. Tests written first (TDD). Quality gate: PASS.
+[DECISION] Priya [<category>]: <any inline decision marks Priya made>
+[WARN] <any quality gate warnings, with follow-up task IDs>
+```
+
+### Step 6 — Verify and close
+
+Check every acceptance criterion in the task block against what was built. For each criterion:
+- If met: mark `[x]`
+- If not met: log `[FLAGGED]` and create a follow-up task for the gap
+
+If all criteria met: invoke `/task-manager` — mark task done, archive it.
+Log:
+```
+[CLOSED] TASK-NNNN done. All criteria met. Archived.
+```
+
+If any criteria unmet: close the task for what it achieved, log the gaps as `[FLAGGED]`,
+create follow-up tasks. Do not leave the task lingering in "In Progress."
+
+### Step 7 — Session end
 
 Go to `session-end.md`.
