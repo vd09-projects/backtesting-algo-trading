@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/montecarlo"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
@@ -590,6 +591,74 @@ func TestWrite_RegimeSplits_TablePrinted(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("regime table missing %q:\n%s", want, out)
 		}
+	}
+}
+
+// --- Bootstrap section tests ---
+
+func TestWrite_Bootstrap_Printed(t *testing.T) {
+	result := &montecarlo.BootstrapResult{
+		MeanSharpe:         0.4600,
+		SharpeP5:           -0.1234,
+		SharpeP50:          0.4567,
+		SharpeP95:          1.2345,
+		WorstDrawdownP5:    3.21,
+		WorstDrawdownP50:   12.43,
+		WorstDrawdownP95:   28.91,
+		ProbPositiveSharpe: 0.734,
+	}
+	var buf bytes.Buffer
+	cfg := output.Config{
+		PrintToStdout:  true,
+		Stdout:         &buf,
+		Bootstrap:      result,
+		BootstrapSeed:  42,
+		BootstrapNSims: 10_000,
+	}
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"Bootstrap",
+		"seed=42",
+		"-0.1234", // SharpeP5
+		"0.4567",  // SharpeP50
+		"1.2345",  // SharpeP95
+		"73.4",    // ProbPositiveSharpe as %
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("bootstrap output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWrite_Bootstrap_OmittedWhenNil(t *testing.T) {
+	var buf bytes.Buffer
+	if err := output.Write(analytics.Report{}, output.Config{PrintToStdout: true, Stdout: &buf}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if strings.Contains(buf.String(), "Bootstrap") {
+		t.Errorf("expected no bootstrap section when Bootstrap is nil:\n%s", buf.String())
+	}
+}
+
+func TestWrite_Bootstrap_DefaultNSims(t *testing.T) {
+	// BootstrapNSims=0 should display 10000 in the header.
+	result := &montecarlo.BootstrapResult{ProbPositiveSharpe: 0.5}
+	var buf bytes.Buffer
+	cfg := output.Config{
+		PrintToStdout:  true,
+		Stdout:         &buf,
+		Bootstrap:      result,
+		BootstrapSeed:  1,
+		BootstrapNSims: 0,
+	}
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "10000") {
+		t.Errorf("expected default 10000 in bootstrap header:\n%s", buf.String())
 	}
 }
 

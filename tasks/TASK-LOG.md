@@ -113,3 +113,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-20 | TASK-0034 | status → in-progress | starting implementation | directly unblocks TASK-0028 final criterion |
 | 2026-04-20 | TASK-0034 | status → done | all 5 criteria met; regime.go + regime_test.go + output.Config.RegimeSplits + printRegimeTable; quality gate passed | archived to 2026-04.md |
 | 2026-04-20 | TASK-0028 | status → done | all 7 criteria met; regime review complete (SMA 0.35/0.73/0.37, RSI 1.10/0.21/0.44); gate failure confirmed | archived to 2026-04.md |
+| 2026-04-20 | TASK-0024 | status → done | all 6 criteria met; internal/montecarlo + Trade.ReturnOnNotional; per-trade non-annualized Sharpe (Marcus sign-off); quality gate passed 93.3%/100% | archived to 2026-04.md |
+| 2026-04-20 | TASK-0026 | status → todo (unblocked) | TASK-0024 complete; moved from Blocked to Up Next | kill-switch now implementable |

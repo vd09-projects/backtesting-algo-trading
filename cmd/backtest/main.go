@@ -67,6 +67,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/engine"
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/montecarlo"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
@@ -93,7 +94,10 @@ func main() {
 	curvePath := flag.String("output-curve", "", "Path for equity curve CSV export (omit to skip)")
 	sizingModel := flag.String("sizing-model", "fixed", "Position sizing model: fixed | vol-target")
 	volTarget := flag.Float64("vol-target", 0.10, "Annualized volatility target when --sizing-model=vol-target (e.g. 0.10 = 10%)")
-	gateThreshold := flag.Float64("proliferation-gate-threshold", 0.0, "Sharpe threshold for proliferation gate PASS/FAIL (0 = disabled; 0.5 recommended for NSE daily)")
+	gateThreshold  := flag.Float64("proliferation-gate-threshold", 0.0, "Sharpe threshold for proliferation gate PASS/FAIL (0 = disabled; 0.5 recommended for NSE daily)")
+	doBootstrap    := flag.Bool("bootstrap", false, "Run Monte Carlo bootstrap for Sharpe confidence intervals")
+	bootstrapSeed  := flag.Int64("bootstrap-seed", 42, "RNG seed for bootstrap (logged with results for reproducibility)")
+	bootstrapN     := flag.Int("bootstrap-n", 0, "Bootstrap simulation count (0 = default 10,000)")
 	flag.Parse()
 
 	// Validate required flags.
@@ -173,7 +177,8 @@ func main() {
 
 	port := eng.Portfolio()
 	curve := port.EquityCurve()
-	report := analytics.Compute(port.ClosedTrades(), curve, tf)
+	trades := port.ClosedTrades()
+	report := analytics.Compute(trades, curve, tf)
 	benchmark := analytics.ComputeBenchmark(eng.Candles(), *cash)
 
 	var regimeSplits []analytics.RegimeReport
@@ -181,14 +186,30 @@ func main() {
 		regimeSplits = analytics.ComputeRegimeSplits(curve, analytics.NSERegimes2018_2024, tf)
 	}
 
+	var bootstrapResult *montecarlo.BootstrapResult
+	if *doBootstrap {
+		if len(trades) < 2 {
+			fmt.Println("NOTE: --bootstrap skipped — fewer than 2 closed trades")
+		} else {
+			r := montecarlo.Bootstrap(trades, montecarlo.BootstrapConfig{
+				NSimulations: *bootstrapN,
+				Seed:         *bootstrapSeed,
+			})
+			bootstrapResult = &r
+		}
+	}
+
 	if err := output.Write(report, output.Config{
-		PrintToStdout: true,
-		FilePath:      *outPath,
-		Benchmark:     &benchmark,
-		CurvePath:     *curvePath,
-		Curve:         curve,
-		GateThreshold: *gateThreshold,
-		RegimeSplits:  regimeSplits,
+		PrintToStdout:  true,
+		FilePath:       *outPath,
+		Benchmark:      &benchmark,
+		CurvePath:      *curvePath,
+		Curve:          curve,
+		GateThreshold:  *gateThreshold,
+		RegimeSplits:   regimeSplits,
+		Bootstrap:      bootstrapResult,
+		BootstrapSeed:  *bootstrapSeed,
+		BootstrapNSims: *bootstrapN,
 	}); err != nil {
 		cmdutil.Fatalf("output: %v", err)
 	}

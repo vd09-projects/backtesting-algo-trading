@@ -183,6 +183,54 @@ func TestTradeRealizedPnL(t *testing.T) {
 	}
 }
 
+// ── Trade.ReturnOnNotional ────────────────────────────────────────────────────
+
+func TestReturnOnNotional(t *testing.T) {
+	cases := []struct {
+		name       string
+		pnl        float64
+		entryPrice float64
+		qty        float64
+		want       float64
+	}{
+		{
+			name: "long profit",
+			// pnl=50, entryPrice=100, qty=5 → 50/(100*5) = 0.10
+			pnl: 50, entryPrice: 100, qty: 5, want: 0.10,
+		},
+		{
+			name: "long loss",
+			// pnl=-30, entryPrice=150, qty=2 → -30/(150*2) = -0.10
+			pnl: -30, entryPrice: 150, qty: 2, want: -0.10,
+		},
+		{
+			name: "small fractional return",
+			// pnl=1, entryPrice=1000, qty=1 → 1/1000 = 0.001
+			pnl: 1, entryPrice: 1000, qty: 1, want: 0.001,
+		},
+		{
+			name: "zero entry price guard",
+			pnl:  50, entryPrice: 0, qty: 5, want: 0,
+		},
+		{
+			name: "zero quantity guard",
+			pnl:  50, entryPrice: 100, qty: 0, want: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tr := model.Trade{
+				Instrument:  "TEST",
+				EntryPrice:  tc.entryPrice,
+				Quantity:    tc.qty,
+				RealizedPnL: tc.pnl,
+			}
+			assert.InDelta(t, tc.want, tr.ReturnOnNotional(), 1e-12)
+		})
+	}
+}
+
 // ── Signal ────────────────────────────────────────────────────────────────────
 
 func TestSignalString(t *testing.T) {

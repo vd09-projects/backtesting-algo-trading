@@ -10,20 +10,24 @@ import (
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/montecarlo"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
 // Config controls where backtest results are written.
 type Config struct {
-	FilePath      string                     // destination for JSON export; ignored if empty
-	PrintToStdout bool                       // print human-readable summary to stdout
-	Stdout        io.Writer                  // overrides os.Stdout when PrintToStdout is true; nil means os.Stdout
-	Benchmark     *analytics.BenchmarkReport // optional; when non-nil, printed alongside strategy results
-	CurvePath     string                     // destination for equity curve CSV export; ignored if empty
-	Curve         []model.EquityPoint        // per-bar equity snapshots; written to CurvePath when that field is non-empty
-	GateThreshold float64                    // Sharpe threshold for proliferation gate; 0 disables the check
-	RegimeSplits  []analytics.RegimeReport   // optional; when non-empty, printed as a per-regime table
+	FilePath       string                      // destination for JSON export; ignored if empty
+	PrintToStdout  bool                        // print human-readable summary to stdout
+	Stdout         io.Writer                   // overrides os.Stdout when PrintToStdout is true; nil means os.Stdout
+	Benchmark      *analytics.BenchmarkReport  // optional; when non-nil, printed alongside strategy results
+	CurvePath      string                      // destination for equity curve CSV export; ignored if empty
+	Curve          []model.EquityPoint         // per-bar equity snapshots; written to CurvePath when that field is non-empty
+	GateThreshold  float64                     // Sharpe threshold for proliferation gate; 0 disables the check
+	RegimeSplits   []analytics.RegimeReport    // optional; when non-empty, printed as a per-regime table
+	Bootstrap      *montecarlo.BootstrapResult // optional; when non-nil, bootstrap section printed
+	BootstrapSeed  int64                       // seed used in the bootstrap run; printed in header
+	BootstrapNSims int                         // simulation count; 0 displayed as 10000 (the montecarlo default)
 }
 
 // Write formats report as a human-readable summary and/or a JSON file.
@@ -36,6 +40,11 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 		}
 		if err := printSummary(w, report, cfg.Benchmark, cfg.GateThreshold, cfg.RegimeSplits); err != nil {
 			return err
+		}
+		if cfg.Bootstrap != nil {
+			if err := printBootstrapSection(w, cfg.Bootstrap, cfg.BootstrapSeed, cfg.BootstrapNSims); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -98,6 +107,40 @@ func printSummary(w io.Writer, r analytics.Report, b *analytics.BenchmarkReport,
 		if err := printRegimeTable(w, regimes); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func printBootstrapSection(w io.Writer, result *montecarlo.BootstrapResult, seed int64, nSims int) error {
+	if nSims <= 0 {
+		nSims = 10_000
+	}
+	if _, err := fmt.Fprintf(w, "\n--- Bootstrap (%d sims, seed=%d) ---\n", nSims, seed); err != nil {
+		return fmt.Errorf("output: write bootstrap header: %w", err)
+	}
+	if _, err := fmt.Fprintf(w,
+		"Per-trade Sharpe  p5=%8.4f  p50=%8.4f  p95=%8.4f  mean=%8.4f\n",
+		result.SharpeP5, result.SharpeP50, result.SharpeP95, result.MeanSharpe,
+	); err != nil {
+		return fmt.Errorf("output: write bootstrap sharpe: %w", err)
+	}
+	if _, err := fmt.Fprintf(w,
+		"Worst DD%%         p5=%8.2f  p50=%8.2f  p95=%8.2f\n",
+		result.WorstDrawdownP5, result.WorstDrawdownP50, result.WorstDrawdownP95,
+	); err != nil {
+		return fmt.Errorf("output: write bootstrap drawdown: %w", err)
+	}
+	if _, err := fmt.Fprintf(w,
+		"Prob(Sharpe > 0): %.1f%%\n",
+		result.ProbPositiveSharpe*100,
+	); err != nil {
+		return fmt.Errorf("output: write bootstrap prob: %w", err)
+	}
+	if _, err := fmt.Fprintf(w,
+		"Kill-switch threshold (p5 Sharpe): %.4f\n",
+		result.SharpeP5,
+	); err != nil {
+		return fmt.Errorf("output: write bootstrap kill-switch: %w", err)
 	}
 	return nil
 }

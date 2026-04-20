@@ -8,6 +8,51 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-20-nearest-rank-percentile
+    title: "Nearest-rank (floor index) percentile for bootstrap CIs"
+    date: 2026-04-20
+    status: experimental
+    category: tradeoff
+    tags: [montecarlo, bootstrap, percentile, nearest-rank, linear-interpolation, p5, p50, p95, TASK-0024]
+    path: tradeoff/2026-04-20-nearest-rank-percentile.md
+    summary: "Floor-index nearest-rank chosen over linear interpolation. Returns an observed simulation value. At N=10,000 the difference is undetectable; floor is deterministic; coarseness on small N is a known limitation, not a bug."
+
+  - id: 2026-04-20-geometric-compounding-bootstrap-drawdown
+    title: "Geometric compounding for per-simulation drawdown in bootstrap"
+    date: 2026-04-20
+    status: experimental
+    category: convention
+    tags: [montecarlo, bootstrap, drawdown, geometric-compounding, additive, TASK-0024]
+    path: convention/2026-04-20-geometric-compounding-bootstrap-drawdown.md
+    summary: "equity *= (1+r), floored at 0. Additive rejected: physically wrong unless position size is fixed in dollar terms. Geometric is more conservative on high-variance sequences — correct direction for a kill-switch estimate."
+
+  - id: 2026-04-20-rand-newpcg-math-rand-v2
+    title: "`math/rand/v2` with `rand.NewPCG` for bootstrap PRNG"
+    date: 2026-04-20
+    status: experimental
+    category: tradeoff
+    tags: [montecarlo, bootstrap, prng, pcg64, math-rand-v2, determinism, reproducibility, seed, TASK-0024]
+    path: tradeoff/2026-04-20-rand-newpcg-math-rand-v2.md
+    summary: "PCG64 (math/rand/v2) chosen over v1 (weak LCG, shared state) and crypto/rand (non-deterministic). Same seed → bit-identical results. Seed logged in output header. Required for comparing bootstrap CIs across sweep variants."
+
+  - id: 2026-04-20-internal-montecarlo-package-boundary
+    title: "`internal/montecarlo` as a standalone package, isolated from analytics"
+    date: 2026-04-20
+    status: experimental
+    category: architecture
+    tags: [montecarlo, bootstrap, package-boundary, internal/montecarlo, internal/analytics, dependency-direction, TASK-0024]
+    path: architecture/2026-04-20-internal-montecarlo-package-boundary.md
+    summary: "Bootstrap lives in internal/montecarlo, importing only pkg/model. Rejected: internal/analytics (muddies deterministic metrics with simulation logic) and pkg/montecarlo (speculative public API). Diamond dep graph, no cycles."
+
+  - id: 2026-04-20-bootstrap-sharpe-non-annualized-per-trade
+    title: "Bootstrap Sharpe: non-annualized per-trade computation"
+    date: 2026-04-20
+    status: experimental
+    category: algorithm
+    tags: [bootstrap, montecarlo, sharpe, annualization, per-trade, kill-switch, TASK-0024, TASK-0026]
+    path: algorithm/2026-04-20-bootstrap-sharpe-non-annualized-per-trade.md
+    summary: "mean(r)/std(r) on ReturnOnNotional, no annualization. Annualizing a trade-resampled statistic requires block bootstrap on bar-level returns — out of scope. TASK-0026 must use identical computation or the kill-switch threshold is meaningless."
+
   - id: 2026-04-20-tf-model-timeframe-added-to-computeregimesplits
     title: "`tf model.Timeframe` added to `ComputeRegimeSplits` signature for correct Sharpe annualization"
     date: 2026-04-20

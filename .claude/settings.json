@@ -29,7 +29,10 @@
       "Edit(/.claude/skills/go-quality-review/**)",
       "Bash(chmod +x /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/*.sh)",
       "Bash(bash -n /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/session-start.sh)",
-      "Bash(bash -n /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/post-tool-use-skill.sh)"
+      "Bash(bash -n /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/post-tool-use-skill.sh)",
+      "Bash(git stash *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   },
   "hooks": {

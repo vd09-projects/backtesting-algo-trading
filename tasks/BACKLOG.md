@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-20 | **Open tasks:** 6 | **Next up:** TASK-0024
+**Last updated:** 2026-04-20 | **Open tasks:** 5 | **Next up:** TASK-0026
 
 ---
 
@@ -14,25 +14,24 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
----
-
-## Blocked
-
-<!-- Waiting on something. Each task must state what it's blocked by. -->
-
 ### [TASK-0026] Rigor — kill-switch definition per strategy
 
-- **Status:** blocked
+- **Status:** todo
 - **Priority:** high
 - **Created:** 2026-04-13
 - **Source:** session
-- **Blocked by:** TASK-0024 (Monte Carlo bootstrap — kill-switch thresholds derived from bootstrapped distribution)
 - **Context:** Before any strategy runs with real capital, a pre-committed halt condition must exist. Without it, a normal drawdown turns into parameter tweaking and re-running, which is how you overfit live. The kill-switch is what separates a system from a hobby.
 - **Acceptance criteria:**
   - [ ] For each strategy, after Monte Carlo bootstrap, define and document: rolling 6-month Sharpe threshold (5th percentile of bootstrapped distribution), max drawdown threshold (1.5× worst in-sample drawdown), max drawdown recovery time threshold (2× worst in-sample recovery)
   - [ ] Kill-switch parameters written to `decisions/` alongside each strategy's backtest results
   - [ ] `internal/analytics` or `internal/output` can compare rolling live metrics against these thresholds and flag when a kill-switch is approached
-- **Notes:** The rule when the line is hit: halt and re-evaluate from scratch — never retune parameters mid-drawdown. "Tweak parameters and restart while still in the drawdown" is how a single bad regime turns into a permanent overfit. This task has no implementation until TASK-0024 is done.
+- **Notes:** The rule when the line is hit: halt and re-evaluate from scratch — never retune parameters mid-drawdown. "Tweak parameters and restart while still in the drawdown" is how a single bad regime turns into a permanent overfit. Live monitoring compares rolling per-trade Sharpe (ReturnOnNotional) against the p5 threshold from `internal/montecarlo.Bootstrap` — both must use the same non-annualized per-trade computation (Marcus's algorithm decision from TASK-0024 session).
+
+---
+
+## Blocked
+
+<!-- Waiting on something. Each task must state what it's blocked by. -->
 
 ---
 
@@ -54,24 +53,6 @@
   - [ ] Report flags if avg out-of-sample Sharpe < 50% of avg in-sample Sharpe (likely overfit)
   - [ ] Tests: synthetic candle data with known signal → expected window results
 - **Notes:** Strategy interface is stateless (takes `[]Candle`, returns signal), so walk-forward doesn't require strategy re-fitting. This is validation-only for rule-based strategies.
-
----
-
-### [TASK-0024] Rigor — Monte Carlo bootstrap for Sharpe confidence intervals
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** A single Sharpe number from a backtest is a point estimate with unknown uncertainty. Monte Carlo bootstrap resamples the trade return sequence thousands of times to produce a confidence interval. The p5 Sharpe from this output is the kill-switch threshold — halt when live rolling Sharpe drops below it.
-- **Acceptance criteria:**
-  - [ ] `Trade.ReturnOnNotional() float64` method on `pkg/model/trade.go` — returns `RealizedPnL / (EntryPrice * Quantity)`; this is the per-trade return the bootstrap resamples from
-  - [ ] `internal/montecarlo/` package with `Bootstrap(trades []model.Trade, cfg BootstrapConfig) BootstrapResult`
-  - [ ] `BootstrapConfig`: `NSimulations int` (default 10,000), `Seed int64` (explicit; logged in output for reproducibility)
-  - [ ] `BootstrapResult`: mean Sharpe, Sharpe p5/p50/p95, worst drawdown p5/p50/p95, probability of positive Sharpe
-  - [ ] Resampling: draw with replacement from the trade return series via `ReturnOnNotional()`, recompute Sharpe each iteration; RNG seeded from `cfg.Seed` using `math/rand/v2`
-  - [ ] Tests: known return distribution → expected confidence interval shape (statistically sound, not exact values)
-- **Notes:** The p5 Sharpe from this output is the kill-switch threshold — document this explicitly in code comments. Reprioritized from low: must run before walk-forward (TASK-0022), because the bootstrapped distribution is the input to the kill-switch definition (TASK-0026). Implement once at least one strategy has results worth evaluating. Updated 2026-04-16: added `Trade.ReturnOnNotional()` requirement and explicit seed for determinism.
 
 ---
 
