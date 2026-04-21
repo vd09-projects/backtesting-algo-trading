@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-21 | **Open tasks:** 5 | **Next up:** TASK-0027
+**Last updated:** 2026-04-21 | **Open tasks:** 4 | **Next up:** TASK-0022
 
 ---
 
@@ -38,22 +38,6 @@
   - [ ] Report flags if avg out-of-sample Sharpe < 50% of avg in-sample Sharpe (likely overfit)
   - [ ] Tests: synthetic candle data with known signal → expected window results
 - **Notes:** Strategy interface is stateless (takes `[]Candle`, returns signal), so walk-forward doesn't require strategy re-fitting. This is validation-only for rule-based strategies.
-
----
-
-### [TASK-0027] Rigor — strategy correlation analysis before portfolio assembly
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-13
-- **Source:** session
-- **Context:** Running multiple strategies together only provides diversification if they are genuinely uncorrelated. RSI mean-rev and Bollinger Band mean-rev on the same instrument will likely be 0.7+ correlated on daily returns — running both at full vol-target sizing is doubling the bet, not diversifying. Before any multi-strategy portfolio is assembled, pairwise correlations must be measured and sizing adjusted accordingly.
-- **Acceptance criteria:**
-  - [ ] After at least two strategy results are available, compute pairwise Pearson correlation of per-bar equity curve returns for each strategy pair
-  - [ ] Test correlation in stress sub-periods (2020 crash, 2022 bear) separately from the full-period average — strategies that appear uncorrelated on average often correlate strongly in drawdowns
-  - [ ] `internal/analytics` or `internal/output` produces a correlation matrix table alongside multi-strategy results
-  - [ ] Tests: known equity curve pairs with known correlation → expected matrix values
-- **Notes:** Do not start until at least two strategy results exist. Momentum strategies (SMA crossover, MACD) will likely correlate with each other; mean-reversion strategies (RSI, Bollinger) will correlate with each other; the interesting question is momentum vs mean-reversion cross-correlation, which should be low or negative. If two strategies are >0.7 correlated, halve the combined vol-target allocation rather than running both at full size.
 
 ---
 

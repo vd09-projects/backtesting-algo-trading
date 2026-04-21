@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-21-cmd-correlate-new-binary
+    title: "`cmd/correlate` as a new binary rather than extending `cmd/backtest`"
+    date: 2026-04-21
+    status: experimental
+    category: architecture
+    tags: [CLI, correlation, cmd/correlate, cmd/backtest, TASK-0027]
+    path: architecture/2026-04-21-cmd-correlate-new-binary.md
+    summary: "New binary at cmd/correlate. Correlation requires multiple pre-computed strategy results — adding multi-strategy input to cmd/backtest would complicate its single-strategy model. --curve name:path flag (repeatable). Thin: parse → load → ComputeMatrix → WriteCorrelationMatrix."
+
+  - id: 2026-04-21-load-curve-csv-in-output-package
+    title: "`LoadCurveCSV` co-located with `writeCurveCSV` in `internal/output`"
+    date: 2026-04-21
+    status: experimental
+    category: architecture
+    tags: [LoadCurveCSV, csv-reader, package-boundary, internal/output, TASK-0027]
+    path: architecture/2026-04-21-load-curve-csv-in-output-package.md
+    summary: "LoadCurveCSV lives in internal/output/load.go alongside writeCurveCSV. Schema changes (column names, timestamp format) touch one file. Rejected: separate curveio package — overkill for one function at this stage."
+
+  - id: 2026-04-21-correlation-nan-sentinel-undefined
+    title: "`math.NaN()` as sentinel for undefined correlation"
+    date: 2026-04-21
+    status: experimental
+    category: convention
+    tags: [NaN, sentinel, pearson, correlation, TASK-0027]
+    path: convention/2026-04-21-correlation-nan-sentinel-undefined.md
+    summary: "pearson() and stressPearson() return math.NaN() for constant series, <2 points, or empty stress window. Zero is a valid correlation — using it as sentinel conflates 'uncorrelated' with 'undefined'. TooCorrelated never triggered by NaN. Output prints 'n/a'."
+
+  - id: 2026-04-21-correlation-warmup-first-change-heuristic
+    title: "Warmup detection by first-change heuristic in `alignAndTrim`"
+    date: 2026-04-21
+    status: experimental
+    category: architecture
+    tags: [warmup-detection, correlation, alignAndTrim, TASK-0027]
+    path: architecture/2026-04-21-correlation-warmup-first-change-heuristic.md
+    summary: "firstActiveIndex scans for curve[i].Value != curve[0].Value. alignAndTrim takes max across both curves. Keeps ComputeCorrelation decoupled from strategy config. Rejected: explicit warmup int — would require threading strategy config into every CSV-based caller."
+
   - id: 2026-04-21-compute-per-trade-sharpe-formula-duplication
     title: "`computePerTradeSharpe` intentionally duplicates `montecarlo.sampleSharpe`"
     date: 2026-04-21

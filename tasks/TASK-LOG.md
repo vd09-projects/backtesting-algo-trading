@@ -117,3 +117,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-20 | TASK-0026 | status → todo (unblocked) | TASK-0024 complete; moved from Blocked to Up Next | kill-switch now implementable |
 | 2026-04-21 | TASK-0026 | status → done | KillSwitchThresholds + CheckKillSwitch in internal/analytics/killswitch.go; 3 decision files in decisions/algorithm/; 61 tests pass; bootstrap p5 Sharpe pending token refresh (TASK-0037) | archived to 2026-04.md |
 | 2026-04-21 | TASK-0037 | created | priority: low, source: session | Bootstrap re-run to fill kill-switch p5 Sharpe thresholds for SMA + RSI strategies |
+| 2026-04-21 | TASK-0027 | status → done | all acceptance criteria met; correlation.go + load.go + cmd/correlate + WriteCorrelationMatrix; 13 tests pass, lint clean | archived to 2026-04.md |

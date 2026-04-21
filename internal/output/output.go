@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"time"
 
@@ -225,6 +226,39 @@ func writeCurveCSV(path string, curve []model.EquityPoint) error {
 		return fmt.Errorf("output: write curve file %q: %w", path, err)
 	}
 	return nil
+}
+
+// WriteCorrelationMatrix prints a pairwise correlation matrix table to w.
+// NaN values are printed as "  n/a  " to signal an empty or constant-series window.
+func WriteCorrelationMatrix(w io.Writer, m analytics.CorrelationMatrix) error {
+	if _, err := fmt.Fprintf(w, "\n--- Strategy Correlation Matrix ---\n%-24s  %-24s  %-12s  %-12s  %-12s  %s\n",
+		"Strategy A", "Strategy B", "Full-Period", "2020-Crash", "2022-Corr", "Note",
+	); err != nil {
+		return fmt.Errorf("output: write correlation header: %w", err)
+	}
+	for _, p := range m.Pairs {
+		note := ""
+		if p.TooCorrelated {
+			note = "WARN: too correlated — halve combined allocation"
+		}
+		if _, err := fmt.Fprintf(w, "%-24s  %-24s  %-12s  %-12s  %-12s  %s\n",
+			p.NameA, p.NameB,
+			formatCorr(p.FullPeriod),
+			formatCorr(p.Crash2020),
+			formatCorr(p.Correction2022),
+			note,
+		); err != nil {
+			return fmt.Errorf("output: write correlation row %q/%q: %w", p.NameA, p.NameB, err)
+		}
+	}
+	return nil
+}
+
+func formatCorr(v float64) string {
+	if math.IsNaN(v) {
+		return "  n/a  "
+	}
+	return fmt.Sprintf("%.4f", v)
 }
 
 func writeJSON(path string, r analytics.Report) error { //nolint:gocritic // value semantics intentional; r is read-only
