@@ -1,5 +1,58 @@
 # Workflow Index
 
+## Orchestration model
+
+Every non-trivial workflow step runs inside a sub-agent with a fresh context window.
+The orchestrator's (main session's) context stays lean — it sees only structured JSON summaries,
+never the raw output of skills, file reads, or build loops.
+
+### Why this matters
+
+After 5–6 turns, every API call ships the entire conversation history. Without sub-agents,
+a full build session accumulates 40,000–60,000 tokens in the main context. With sub-agents,
+the main context stays under 4,000 tokens regardless of how many steps run.
+
+### How it works
+
+1. Orchestrator reads the matching workflow file (build.md, evaluate.md, etc.)
+2. Each step spawns a sub-agent via the Agent() tool using a template from `workflows/agents/`
+3. The orchestrator reads the template, fills in `{{slots}}` from SESSION STATE, calls Agent()
+4. Sub-agent does the heavy work: reads files, invokes skills, iterates
+5. Sub-agent returns ONLY a structured JSON block — see `workflows/handoffs/schema.md`
+6. Orchestrator updates SESSION STATE with the verdict
+7. Orchestrator writes SESSION STATE to `workflows/.session-state.json` (checkpoint)
+
+### SESSION STATE
+
+Maintained inline in the orchestrator's response. Written to `workflows/.session-state.json`
+after every step. Schema defined in `workflows/handoffs/schema.md`.
+
+### Resume protocol
+
+At session start, before routing to a workflow:
+
+1. Check if `workflows/.session-state.json` exists
+2. If it exists and `hard_stop_active` is null: resume from `step_completed + 1`
+   Log: `[AUTO] Resuming from checkpoint: TASK-NNNN, step N completed. Continuing from step N+1.`
+3. If `hard_stop_active` is set: present the stop condition to the user, wait for resolution
+4. If the file does not exist: normal session start
+
+Clear `workflows/.session-state.json` at the end of session-end (after the Session Summary
+is produced). The file is ephemeral — it only matters during an active session.
+
+### Sub-agent discipline
+
+Every Agent() call must be self-contained. Never write "based on the conversation above" —
+the sub-agent has no conversation history. Every piece of context must be written out explicitly.
+
+### Flag evaluation
+
+Sub-agents return a `flag` field (null or string). The orchestrator evaluates flags
+autonomously using the same Hard STOP taxonomy below. Only the three Hard STOP conditions
+cause a pause. All other flags are resolved by applying prior decisions or making the call.
+
+---
+
 ## Execution model
 
 Workflows execute autonomously from trigger to Session Summary. Do not stop to ask permission

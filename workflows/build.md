@@ -1,7 +1,7 @@
 # Build Session
 
 The most common session type (~40% of all sessions). A task is picked and implemented
-autonomously from planning through close. No confirmation steps between stages.
+autonomously from planning through close. Every heavy step runs in a sub-agent.
 
 ## Trigger
 
@@ -10,131 +10,144 @@ Task type is a feature, refactor, or implementation — not a bug (see `bugfix.m
 
 ---
 
+## SESSION STATE initialization
+
+Initialize SESSION STATE at the start:
+
+```json
+{
+  "session_date": "YYYY-MM-DD",
+  "workflow": "build",
+  "task_id": null,
+  "task_title": null,
+  "step_completed": 0,
+  "verdicts": {
+    "decision_lookup": null,
+    "marcus": null,
+    "priya_plan": null,
+    "build": null,
+    "session_end": null
+  },
+  "execution_log": [],
+  "decision_marks_pending": [],
+  "hard_stop_active": null
+}
+```
+
+Check `workflows/.session-state.json` first — if it exists, load it and resume from
+`step_completed + 1` per the resume protocol in `INDEX.md`.
+
+---
+
 ## Execution
 
-### Step 1 — Pick the task
+### Step 1 — Pick the task (orchestrator reads directly)
 
 Read `tasks/BACKLOG.md`. Take the top item from **In Progress** (resume if one exists), or
-the top item from **Up Next**. Log:
+the top item from **Up Next**. Extract: task ID, title, acceptance criteria, context.
 
+Update SESSION STATE: `task_id`, `task_title`. Write `.session-state.json`.
+
+If the top task is blocked, take the next unblocked item and log the skip reason.
+
+Log:
 ```
 [AUTO] Step 1 — Task: TASK-NNNN "<title>" picked from <section>.
 ```
 
-If the top task is blocked, take the next unblocked item and log the skip reason.
-Extract: task ID, title, acceptance criteria, context, notes, any related decision references.
+### Step 2 — Decision lookup (sub-agent)
 
-### Step 2 — Prior decision check
+Read `workflows/agents/decision-lookup.md`. Fill slots:
+- `{{task_id}}` — from SESSION STATE
+- `{{task_title}}` — from SESSION STATE
+- `{{task_context}}` — task context paragraph from BACKLOG.md
 
-Before planning, scan the decision journal for relevant prior calls:
-
-- Read `decisions/INDEX.md`. Filter entries whose tags overlap with the task's domain
-  (e.g., a task touching analytics → look for `analytics`, `sharpe`, `drawdown` tags).
-- Read the 1–3 most relevant decision files in full.
-- Note which decisions apply and will be used as standing orders during the build.
+Spawn sub-agent via Agent() tool. Parse returned JSON. Update SESSION STATE:
+`verdicts.decision_lookup` = the verdict payload. Append to `decision_marks_pending`
+if any marks returned. Write `.session-state.json`. Update `step_completed` = 2.
 
 Log:
 ```
-[AUTO] Step 2 — Prior decisions: found N relevant entries. Applying: <titles>.
+[AUTO] Step 2 — Decision lookup: N standing orders, M context files.
 ```
 
-If zero relevant decisions exist, log that and proceed. It means the build has more
-latitude — Priya and Marcus will establish new conventions as needed.
-
-### Step 3 — Marcus pre-check (conditional)
+### Step 3 — Marcus pre-check (sub-agent, conditional)
 
 **Only run this step if the task touches:** fill model, position sizing, performance metrics,
-kill-switch logic, test plan methodology, or any backtest evaluation claim.
+kill-switch logic, test plan methodology, walk-forward, or any backtest evaluation claim.
 
-Check whether the methodology question is already answered by a prior `algorithm`-category
-decision (Step 2 should have surfaced this). If yes, skip this step entirely.
+If the methodology question is already answered by a standing order from Step 2, skip this
+step and log `[AUTO] Step 3 — Marcus: skipped (prior decision applies: <title>)`.
 
-If genuinely new: auto-invoke `/algo-trading-veteran`. Share the task context and the specific
-methodology question. Marcus reads prior decisions and either:
-- Applies an existing call → confirms, Step 3 ends
-- Makes a new call → marks it inline as `[algorithm/experimental]`, Step 3 ends
-- Hard STOP → "genuinely new methodology call" condition (see INDEX.md)
+If genuinely new: read `workflows/agents/marcus-precheck.md`. Fill slots:
+- `{{task_id}}`, `{{task_title}}`, `{{task_context}}`, `{{acceptance_criteria}}`
+- `{{standing_order_files}}` — from `verdicts.decision_lookup.standing_order_files`
+- `{{context_files}}` — from `verdicts.decision_lookup.context_files`
+- `{{methodology_question}}` — the specific question inferred from the task
+
+Spawn sub-agent. Parse JSON. If `flag` is non-null: evaluate it. If it meets Hard STOP
+condition 2 (genuinely new methodology with no basis to decide) → Hard STOP. Otherwise
+resolve autonomously and continue.
+
+Update SESSION STATE: `verdicts.marcus`, append any `decision_marks` to `decision_marks_pending`.
+Write `.session-state.json`. Update `step_completed` = 3.
 
 Log:
 ```
-[AUTO] Step 3 — Marcus pre-check: <skipped (prior decision applies) | new call made>.
+[AUTO] Step 3 — Marcus: <skipped (prior decision applies) | new call made>.
 [DECISION] Marcus [algorithm]: <one-line summary if a new call was made>
 ```
 
-### Step 4 — Plan
+### Step 4 — Plan (sub-agent)
 
-Auto-invoke `/algo-trading-lead-dev`. Pass: task ID, acceptance criteria, context, relevant
-prior decisions from Step 2, Marcus's call from Step 3 (if any).
+Read `workflows/agents/priya-plan.md`. Fill slots:
+- `{{task_id}}`, `{{task_title}}`, `{{task_context}}`, `{{acceptance_criteria}}`
+- `{{standing_order_files}}` — from `verdicts.decision_lookup.standing_order_files`
+- `{{context_files}}` — from `verdicts.decision_lookup.context_files`
+- `{{marcus_verdict}}` — from `verdicts.marcus.summary`, or "not applicable — step skipped"
 
-Priya reads the codebase, checks `decisions/` for prior structural calls, and produces a plan.
-
-**If `Plan ready.`** → log and proceed to Step 5.
-
-**If `Blocked — need input.`** → check what is needed:
-- Methodology question → run Step 3 (Marcus) now, return to Priya with answer, resume plan
-- Requirements question → Hard STOP: state the gap and the two most likely interpretations
+Spawn sub-agent. Parse JSON. If `flag` is non-null: evaluate it.
+- Methodology question → spawn Marcus sub-agent (Step 3 pattern), return to Priya sub-agent
+  with his answer by re-running Step 4 with the Marcus answer filled in
+- Requirements gap → Hard STOP: state the gap and two most likely interpretations
 - Data question → Hard STOP: state what data detail is missing
 
+Update SESSION STATE: `verdicts.priya_plan`, append any `decision_marks`.
+Write `.session-state.json`. Update `step_completed` = 4.
+
 Log:
 ```
-[AUTO] Step 4 — Plan: complete. Approach: <one-sentence summary of Priya's approach>.
+[AUTO] Step 4 — Plan: complete. Approach: <one-sentence from verdict.approach>.
 ```
 
-### Step 5 — Build loop
+### Step 5 — Build loop (sub-agent)
 
-Auto-invoke `/algo-trading-lead-dev` in build mode. Pass: the approved plan, all context.
-Priya writes tests first, then implementation, then marks any decisions inline.
+Read `workflows/agents/priya-build.md`. Fill slots:
+- `{{task_id}}`, `{{task_title}}`, `{{acceptance_criteria}}`
+- `{{standing_order_files}}` — from `verdicts.decision_lookup.standing_order_files`
+- `{{marcus_verdict}}` — from `verdicts.marcus.summary`, or "not applicable"
+- `{{plan_summary}}`, `{{files_to_create}}`, `{{files_to_modify}}`, `{{approach}}`
+  — from `verdicts.priya_plan`
 
-This loop runs until quality gate is clean or a Hard STOP fires:
+Spawn sub-agent. This sub-agent runs the entire build+gate loop internally.
+Parse returned JSON. If `flag` is non-null: evaluate it.
+- Unresolvable blocker after 2 rounds → Hard STOP
 
+Update SESSION STATE: `verdicts.build`, append any `decision_marks` to `decision_marks_pending`.
+Write `.session-state.json`. Update `step_completed` = 5.
+
+Log:
 ```
-while true:
-    Priya builds (may be multiple turns)
-
-    if Priya says "Ready for review — flagging for Marcus.":
-        invoke Marcus with the flagged item
-        if Marcus overrides: return to Priya with override, she iterates
-        continue loop
-
-    if Priya says "Blocked — need input.":
-        evaluate: requirements gap? → Hard STOP
-        otherwise route as in Step 4 and resume
-
-    run quality gate (standard for internal/ changes, quick otherwise)
-
-    if gate has lint/format failures only:
-        auto-fix (golangci-lint --fix), re-run gate, continue
-
-    if gate has blocker findings:
-        return to Priya in iterate mode with specific findings (round N of 2)
-        if round 2 still has blockers: Hard STOP — unresolvable blocker
-
-    if gate clean:
-        break
+[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: <list from verdict.files_modified>.
+[DECISION] Priya [<category>]: <any decision marks Priya made>
+[WARN] <any quality findings, with follow-up task IDs>
 ```
 
-Log for each iteration:
-```
-[AUTO] Step 5 — Build: complete. Tests written first (TDD). Quality gate: PASS.
-[DECISION] Priya [<category>]: <any inline decision marks Priya made>
-[WARN] <any quality gate warnings, with follow-up task IDs>
-```
+### Step 6 — Verify and close (orchestrator)
 
-### Step 6 — Verify and close
-
-Check every acceptance criterion in the task block against what was built. For each criterion:
+Check every acceptance criterion in the task block against `verdicts.build`.
+For each criterion:
 - If met: mark `[x]`
-- If not met: log `[FLAGGED]` and create a follow-up task for the gap
+- If not met: log `[FLAGGED]` and note it for a follow-up task (session-end will create it)
 
-If all criteria met: invoke `/task-manager` — mark task done, archive it.
-Log:
-```
-[CLOSED] TASK-NNNN done. All criteria met. Archived.
-```
-
-If any criteria unmet: close the task for what it achieved, log the gaps as `[FLAGGED]`,
-create follow-up tasks. Do not leave the task lingering in "In Progress."
-
-### Step 7 — Session end
-
-Go to `session-end.md`.
+Go to session-end.md.

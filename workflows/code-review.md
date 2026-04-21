@@ -28,10 +28,49 @@ Log:
 [AUTO] Step 1 — Scope: <package or files>. Level: <quick|standard|deep|pre-merge>.
 ```
 
-### Step 2 — Run the review
+### Step 2 — Run the review (sub-agent)
 
-Auto-invoke `/go-quality-review` at the determined level. It produces a findings report:
-blockers, warnings, suggestions.
+Build a minimal SESSION STATE for this code-review session:
+- `workflow`: "code-review", `task_id`: null, `step_completed`: 1
+- `verdicts.decision_lookup`: null (no decision lookup needed for code review)
+
+Read `workflows/agents/priya-build.md` as a reference for structure, but for code-review
+sessions spawn a simpler sub-agent:
+
+Agent prompt (fill scope/level before spawning):
+```
+You are a step-agent. Your job: run /go-quality-review at {{level}} level on {{scope}},
+then invoke /algo-trading-lead-dev to fix any blockers (max 2 rounds).
+
+SCOPE: {{scope}}
+LEVEL: {{level}}
+
+STEPS:
+1. Run /go-quality-review at the specified level
+2. If blockers: invoke /algo-trading-lead-dev with the specific findings, ask Priya to fix
+   She may push back with a tradeoff justification — that is accepted; mark it as a
+   **Decision (topic) — tradeoff: accepted** and continue
+3. Re-run /go-quality-review. If new blockers after round 2: set flag.
+4. If gate clean: break.
+
+Return ONLY this JSON:
+{
+  "step": "code_review",
+  "verdict": {
+    "quality_gate": "PASS | FAIL",
+    "blockers_found": N,
+    "warnings_found": M,
+    "suggestions_found": K,
+    "warnings": ["..."],
+    "suggestions": ["..."],
+    "files_modified": [...]
+  },
+  "decision_marks": [],
+  "flag": null
+}
+```
+
+Parse returned JSON. If `flag` is non-null after round 2: Hard STOP.
 
 Log:
 ```
@@ -40,19 +79,7 @@ Log:
 
 ### Step 3 — Handle findings
 
-**Blockers (must fix before merge):**
-
-Auto-invoke `/algo-trading-lead-dev` in iterate mode. Pass the specific blocker findings.
-Priya addresses them. She may:
-- Fix them straightforwardly
-- Push back with reasoning — if she does, she marks a `tradeoff` decision explaining the
-  intentional override (e.g., "function is long because splitting it harms readability in
-  the hot loop"). Log the decision; the override is accepted.
-
-After Priya finishes, auto-re-run `/go-quality-review` at the same level. If new blockers
-surface from the fixes, iterate again. Max 2 rounds. If blockers persist after round 2: Hard STOP.
-
-If no blockers remain after iteration: continue to warnings.
+**Blockers:** already fixed by the sub-agent in Step 2. If the gate still failed: Hard STOP.
 
 **Warnings (should fix, creates future problems):**
 

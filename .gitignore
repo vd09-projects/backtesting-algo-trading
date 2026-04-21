@@ -47,3 +47,6 @@ runs/
 
 # Quality gate sentinel (written by go-quality-review skill; local only)
 .quality-gate/
+
+# Session state checkpoint (transient; written during active sessions only)
+workflows/.session-state.json

@@ -12,41 +12,43 @@ about a new market/instrument.
 
 ## Execution
 
-### Step 1 — Prior decision check
+### Step 1 — Prior decision check (sub-agent)
 
-Before invoking Marcus, check `decisions/algorithm/` for any prior evaluations of the same
-idea, instrument, or edge category. If a prior decision rejected this exact thesis, surface it
-immediately:
+Read `workflows/agents/decision-lookup.md`. Fill slots with the user's strategy idea as
+task context, and tags inferred from the idea (instrument, edge category, thesis type).
 
+Spawn sub-agent. Parse JSON. If `standing_order_files` contains a prior rejection of this
+exact thesis, log it:
 ```
 [AUTO] Step 1 — Prior decisions: found rejection of <similar idea> on <date>.
-       Reason: <one-line from the decision summary>.
        Proceeding with Marcus's re-evaluation in case context has changed.
 ```
 
-Always proceed to Marcus even if a prior rejection exists — context changes (new data, different
-timeframe, refined thesis). The prior decision informs Marcus; it does not replace his evaluation.
+Always proceed to Marcus even if a prior rejection exists.
 
-### Step 2 — Marcus's interrogation
+Log:
+```
+[AUTO] Step 1 — Decision lookup: N relevant decisions found.
+```
 
-Auto-invoke `/algo-trading-veteran`. Pass: the user's idea and any prior decisions surfaced
-in Step 1.
+### Step 2 — Marcus's interrogation (sub-agent)
 
-Marcus runs his 5-minute interrogation: edge thesis in one sentence, instrument/timeframe/
-capital/capacity, stage, data. This is the most important part — do not rush it. Marcus asks
-follow-up questions if the user's initial description is incomplete.
+Read `workflows/agents/marcus-precheck.md`. Fill slots:
+- `{{task_id}}` — "evaluate" (no task ID for evaluate sessions)
+- `{{task_title}}` — the strategy idea in one line
+- `{{task_context}}` — the user's full description of the idea
+- `{{acceptance_criteria}}` — "go/iterate/kill verdict + test plan + sizing + kill-switch"
+- `{{standing_order_files}}` and `{{context_files}}` — from Step 1 verdict
+- `{{methodology_question}}` — "Evaluate this edge thesis: <one-line summary>"
+
+Also ask Marcus for `go_iterate_kill` (set this field in the verdict, not "n/a").
 
 **If information is missing that the user must supply** (which instrument, what capital, what
-data source): this is a Hard STOP — ask those specific questions. This is the one point in
-`evaluate.md` where the workflow pauses. Without these answers Marcus cannot give an honest
-assessment.
+data source): the sub-agent will return a `flag`. If that flag describes a requirements gap
+only the user can fill — this is the one Hard STOP in evaluate.md. Ask those specific questions
+and wait. Without these answers Marcus cannot give an honest assessment.
 
-Marcus delivers:
-- Edge thesis verdict: go / iterate / kill
-- Test plan (which data, methodology, stress periods)
-- Sizing recommendation (if the idea has legs)
-- Kill-switch line (pre-committed halt condition)
-- Inline `algorithm` decision marks for all specific calls
+Spawn sub-agent. Parse JSON. Set `verdict.marcus.go_iterate_kill`.
 
 Log:
 ```

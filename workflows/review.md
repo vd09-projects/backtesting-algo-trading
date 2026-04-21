@@ -13,37 +13,39 @@ Usually: "I ran both strategies, here are the results," "what do you make of thi
 
 ## Execution
 
-### Step 1 — Context check
+### Step 1 — Context check (sub-agent)
 
-Read `tasks/BACKLOG.md` — check what is in progress and what is pending. Identify any tasks
-the results might resolve, unblock, or inform. Note them.
+Read `tasks/BACKLOG.md` directly (orchestrator reads this — it's a single small file).
+Identify tasks the results might resolve, unblock, or inform.
 
-Read `decisions/algorithm/` index — surface any prior methodology decisions relevant to the
-strategies or metrics being reviewed (e.g., proliferation gate threshold, annualization factors,
-kill-switch line). These are the ground truth Marcus will compare against.
+Then spawn a decision-lookup sub-agent for the algorithm domain:
+Read `workflows/agents/decision-lookup.md`. Fill slots:
+- `{{task_id}}` — "review" (no task ID)
+- `{{task_title}}` — "strategy results review"
+- `{{task_context}}` — what the user shared (strategy names, timeframe, key metrics seen)
+
+Spawn sub-agent. These file paths are the ground truth Marcus will compare results against.
+Update SESSION STATE: `verdicts.decision_lookup`. Write `.session-state.json`.
 
 Log:
 ```
-[AUTO] Step 1 — Context: N in-progress tasks, M relevant prior decisions loaded.
+[AUTO] Step 1 — Context: N in-progress tasks, M relevant prior decisions found.
 ```
 
-### Step 2 — Methodology review
+### Step 2 — Methodology review (sub-agent)
 
-Auto-invoke `/algo-trading-veteran`. Pass: the results, any run files or output the user
-shared, in-progress task context, relevant prior decisions.
+Read `workflows/agents/marcus-precheck.md`. Fill slots:
+- `{{task_id}}` — "review", `{{task_title}}` — "strategy results review"
+- `{{task_context}}` — the results the user shared (numbers, equity curves, output)
+- `{{acceptance_criteria}}` — "go/iterate/kill verdict per strategy reviewed"
+- `{{standing_order_files}}` and `{{context_files}}` — from Step 1 verdict
+- `{{methodology_question}}` — "Review these results. Are the numbers honest? Does the
+  edge thesis hold? Apply the proliferation gate and any other standing order decisions."
 
-Marcus reviews from the methodology side: are the numbers honest, does the edge thesis hold,
-are the metrics computed correctly, what does the data say about strategy viability. He reads
-the results against prior decisions — if a prior proliferation gate decision exists, he applies
-it rather than re-evaluating the threshold.
+Also set `go_iterate_kill` per strategy in the verdict.
 
-Marcus delivers a verdict for each strategy reviewed:
-- **go** → edge thesis holds, size it and proceed
-- **iterate** → something needs changing before a verdict is possible
-- **kill** → edge not present; record the rejection
-
-He marks new `algorithm` decisions inline for any specific calls (sizing adjustments,
-updated kill-switch line, feature verdict on a new indicator).
+Spawn sub-agent. Parse JSON. Update SESSION STATE: `verdicts.marcus`.
+Append any `decision_marks` to `decision_marks_pending`. Write `.session-state.json`.
 
 Log:
 ```
@@ -51,21 +53,33 @@ Log:
 [DECISION] Marcus [algorithm]: <any new calls>
 ```
 
-### Step 3 — Dev review (conditional)
+### Step 3 — Dev review (sub-agent, conditional)
 
 Only run this step if Marcus's review surfaces implementation questions:
 - "How is this metric computed in the code exactly?"
 - "The equity curve shape suggests a data pipeline issue"
-- "I want to verify the fill model is doing what I think"
 - "These numbers look like there's a lookahead — Priya should check"
 
-Auto-invoke `/algo-trading-lead-dev`. Pass Marcus's review and the specific implementation
-question. Priya reads the relevant code and answers: is the metric correct, is there a code
-issue, what is the engineering cost of Marcus's recommendation.
+Spawn a sub-agent with this prompt (fill in Marcus's specific question):
+```
+You are a step-agent. Invoke /algo-trading-lead-dev with a specific implementation question.
 
-If Priya finds a code issue, it becomes a bug task (Step 4). If she finds a methodology
-tension ("the code does X but Marcus wants Y — there's a constraint"), briefly return to Marcus
-with the clarification, then proceed.
+MARCUS'S QUESTION: {{marcus_implementation_question}}
+
+Ask Priya to read the relevant code and answer: is the metric correct, is there a code issue,
+what is the engineering cost of Marcus's recommendation.
+
+Return ONLY:
+{
+  "step": "priya_dev_review",
+  "verdict": {"findings": "...", "code_bug_found": true|false, "bug_description": "..."},
+  "decision_marks": [],
+  "flag": null
+}
+```
+
+If Priya finds a code bug: note it for task creation in Step 4.
+If methodology tension: include in SESSION STATE execution_log as [FLAGGED].
 
 Log:
 ```

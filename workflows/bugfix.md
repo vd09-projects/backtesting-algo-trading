@@ -22,75 +22,64 @@ Log:
 [AUTO] Step 1 — Bug: TASK-NNNN "<title>" picked.
 ```
 
-### Step 2 — Prior decision check
+### Step 2 — Prior decision check (sub-agent)
 
-Same as build.md Step 2. Scan the decision journal for prior calls relevant to the broken area.
-A bug near accounting / fills / metrics often has prior decisions about correct behavior — those
-are the ground truth for what "fixed" means.
+Same as build.md Step 2. Read `workflows/agents/decision-lookup.md`. Fill slots with the
+task context and the area of the codebase the bug is in. Spawn sub-agent.
+
+A bug near accounting / fills / metrics often has prior decisions about correct behavior —
+those are the ground truth for what "fixed" means.
+
+Parse JSON. Update SESSION STATE: `verdicts.decision_lookup`. Write `.session-state.json`.
 
 Log:
 ```
-[AUTO] Step 2 — Prior decisions: N relevant entries. Applying: <titles>.
+[AUTO] Step 2 — Decision lookup: N standing orders, M context files.
 ```
 
-### Step 3 — Investigate and fix
+### Step 3 — Investigate and fix (sub-agent)
 
-Auto-invoke `/algo-trading-lead-dev` in build mode (bugs don't need a separate plan step unless
-the fix is architecturally significant). Pass: task ID, what's broken, prior decisions.
+Read `workflows/agents/priya-build.md`. Bugs skip the separate plan step — pass the task
+block directly as the "plan." Fill slots:
+- `{{task_id}}`, `{{task_title}}`, `{{acceptance_criteria}}`
+- `{{standing_order_files}}` — from Step 2
+- `{{marcus_verdict}}` — "not applicable — bug fix session"
+- `{{plan_summary}}` — the bug description and what "fixed" means per acceptance criteria
+- `{{files_to_create}}` and `{{files_to_modify}}` — leave blank; Priya identifies these
+- `{{approach}}` — "Diagnose root cause, write regression test first, then fix"
 
-Priya investigates: reads relevant code, diagnoses root cause, writes a regression test first,
-then the fix.
+Also add to the prompt: the methodology pivot instruction — if Priya finds this is a
+methodology issue (not a code bug), she should flag it. The sub-agent will include this
+in `flag`. When `flag` describes a methodology pivot, spawn a marcus-precheck sub-agent
+(Step 3a), then re-spawn priya-build with Marcus's ruling in `{{marcus_verdict}}`.
 
-**The methodology pivot:** If Priya finds this isn't a code bug but a methodology issue
-(fill model producing wrong results, metric computation differs from spec, behavior is correct
-code but wrong trading logic), she will flag it. When this happens:
+The sub-agent handles the quality gate loop internally (quick by default; standard if the
+fix touches `internal/engine/` or `internal/analytics/`).
 
-Auto-invoke `/algo-trading-veteran` with what Priya found. Marcus evaluates whether the current
-methodology is correct or needs changing. If he recommends a change, it is an `algorithm`
-decision — log it. Return to Priya with Marcus's ruling.
-
-Priya ends with `Ready for review.` or `Blocked — need input.`
-
-- If `Blocked — need input.` and it is a requirements gap → Hard STOP
-- Otherwise route the blocker (methodology → Marcus, data → Hard STOP) and resume
+Parse JSON. Update SESSION STATE. Write `.session-state.json`. Update `step_completed` = 3.
 
 Log:
 ```
 [AUTO] Step 3 — Fix: root cause diagnosed, regression test written, fix applied.
-[DECISION] Marcus [algorithm]: <if methodology pivot occurred>
-```
-
-### Step 4 — Quality check
-
-Auto-run `/go-quality-review`:
-- Default level: **quick** (lint + race detection)
-- Bump to **standard** if the fix touched: accounting, fills, metrics computation, event loop,
-  position sizing, or any file in `internal/engine/` or `internal/analytics/`
-
-If lint/format failures: auto-fix (`golangci-lint --fix`), re-run.
-If blocker findings: return to Priya in iterate mode (max 2 rounds). Hard STOP if unresolved.
-If clean: proceed.
-
-Log:
-```
 [AUTO] Step 4 — Quality gate (<level>): PASS.
+[DECISION] Marcus [algorithm]: <if methodology pivot occurred>
 [WARN] <any warnings with follow-up task IDs>
 ```
 
-### Step 5 — Verify and close
+### Step 4 — Verify and close (orchestrator)
 
-Check acceptance criteria. The primary criterion for a bug is "the bug no longer reproduces"
-plus any specific verification the task states.
+Check acceptance criteria against `verdicts.build`. The primary criterion for a bug is
+"the bug no longer reproduces" plus any specific verification the task states.
 
-If all criteria met: auto-close, auto-archive.
-If any unmet: log `[FLAGGED]`, create follow-up task, close this task for what it achieved.
+If all criteria met: log `[CLOSED]`.
+If any unmet: log `[FLAGGED]`, note for a follow-up task (session-end will create it).
 
 Log:
 ```
 [CLOSED] TASK-NNNN done. Bug verified fixed. Archived.
 ```
 
-### Step 6 — Session end
+### Step 5 — Session end
 
 Go to `session-end.md`.
 
