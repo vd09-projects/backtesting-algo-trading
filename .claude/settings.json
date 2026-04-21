@@ -32,7 +32,9 @@
       "Bash(bash -n /Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/hooks/post-tool-use-skill.sh)",
       "Bash(git stash *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Read(//Users/vikrantdhawan/.config/backtest/**)",
+      "Bash(gofumpt -l /Users/vikrantdhawan/repos/backtesting-algo-trading/internal/analytics/analytics_internal_test.go)"
     ]
   },
   "hooks": {

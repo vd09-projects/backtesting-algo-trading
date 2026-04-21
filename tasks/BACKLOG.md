@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-20 | **Open tasks:** 5 | **Next up:** TASK-0026
+**Last updated:** 2026-04-21 | **Open tasks:** 5 | **Next up:** TASK-0027
 
 ---
 
@@ -13,21 +13,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0026] Rigor — kill-switch definition per strategy
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-13
-- **Source:** session
-- **Context:** Before any strategy runs with real capital, a pre-committed halt condition must exist. Without it, a normal drawdown turns into parameter tweaking and re-running, which is how you overfit live. The kill-switch is what separates a system from a hobby.
-- **Acceptance criteria:**
-  - [ ] For each strategy, after Monte Carlo bootstrap, define and document: rolling 6-month Sharpe threshold (5th percentile of bootstrapped distribution), max drawdown threshold (1.5× worst in-sample drawdown), max drawdown recovery time threshold (2× worst in-sample recovery)
-  - [ ] Kill-switch parameters written to `decisions/` alongside each strategy's backtest results
-  - [ ] `internal/analytics` or `internal/output` can compare rolling live metrics against these thresholds and flag when a kill-switch is approached
-- **Notes:** The rule when the line is hit: halt and re-evaluate from scratch — never retune parameters mid-drawdown. "Tweak parameters and restart while still in the drawdown" is how a single bad regime turns into a permanent overfit. Live monitoring compares rolling per-trade Sharpe (ReturnOnNotional) against the p5 threshold from `internal/montecarlo.Bootstrap` — both must use the same non-annualized per-trade computation (Marcus's algorithm decision from TASK-0024 session).
-
----
 
 ## Blocked
 
@@ -90,6 +75,22 @@
   - [ ] Tests: synthetic 2-instrument universe → 2-row output CSV
 - **Notes:** Do not start until TASK-0030 (signal frequency gate) is done — the per-instrument
   output is misleading without the gate applied automatically.
+
+---
+
+### [TASK-0037] Rigor — bootstrap re-run to fill kill-switch p5 Sharpe thresholds
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-04-21
+- **Source:** session
+- **Context:** TASK-0026 documented drawdown and duration kill-switch thresholds for SMA crossover and RSI mean-reversion, but the bootstrap p5 Sharpe threshold is PENDING for both. The CLI commands are ready; the Zerodha token needs to be refreshed to run them.
+- **Acceptance criteria:**
+  - [ ] Run `go run ./cmd/backtest --strategy sma-crossover ... --bootstrap` (full command in `decisions/algorithm/2026-04-21-kill-switch-sma-crossover.md`)
+  - [ ] Run `go run ./cmd/backtest --strategy rsi-mean-reversion ... --bootstrap` (full command in `decisions/algorithm/2026-04-21-kill-switch-rsi-mean-reversion.md`)
+  - [ ] Paste the `Per-trade Sharpe p5` value from each run into the respective decision file, replacing `PENDING`
+  - [ ] Update decision file status from `accepted` (PENDING) to reflect actual values
+- **Notes:** Both strategies failed the proliferation gate — these thresholds are reference values, not live deployment approval. With only 7 and 22 trades respectively, the p5 Sharpe will have wide confidence intervals. Document that caveat alongside the values.
 
 ---
 

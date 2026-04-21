@@ -20,15 +20,15 @@ func TestNormInvCDF(t *testing.T) {
 		p    float64
 		want float64
 	}{
-		{0.5, 0.0},                    // median of standard normal
-		{0.975, 1.959964},             // central region, upper end (standard ±1.96)
-		{0.025, -1.959964},            // central region, lower end
-		{0.01, -2.326348},             // lower tail (p < 0.02425)
-		{0.99, 2.326348},              // upper tail (p > 0.97575)
-		{0.0, math.Inf(-1)},           // boundary: p ≤ 0 → -Inf
-		{1.0, math.Inf(1)},            // boundary: p ≥ 1 → +Inf
-		{-0.1, math.Inf(-1)},          // p < 0 → -Inf
-		{1.1, math.Inf(1)},            // p > 1 → +Inf
+		{0.5, 0.0},           // median of standard normal
+		{0.975, 1.959964},    // central region, upper end (standard ±1.96)
+		{0.025, -1.959964},   // central region, lower end
+		{0.01, -2.326348},    // lower tail (p < 0.02425)
+		{0.99, 2.326348},     // upper tail (p > 0.97575)
+		{0.0, math.Inf(-1)},  // boundary: p ≤ 0 → -Inf
+		{1.0, math.Inf(1)},   // boundary: p ≥ 1 → +Inf
+		{-0.1, math.Inf(-1)}, // p < 0 → -Inf
+		{1.1, math.Inf(1)},   // p > 1 → +Inf
 	}
 	const tol = 1e-5
 	for _, tt := range tests {

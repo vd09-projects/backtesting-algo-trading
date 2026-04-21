@@ -8,6 +8,51 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-21-compute-per-trade-sharpe-formula-duplication
+    title: "`computePerTradeSharpe` intentionally duplicates `montecarlo.sampleSharpe`"
+    date: 2026-04-21
+    status: experimental
+    category: convention
+    tags: [kill-switch, analytics, montecarlo, formula-duplication, dependency-direction, TASK-0026]
+    path: convention/2026-04-21-compute-per-trade-sharpe-formula-duplication.md
+    summary: "Three-line mean(r)/std(r) formula duplicated rather than shared via import. Avoids analytics→montecarlo dependency. Cross-references in both files enforce formula identity. Revisit if a third caller emerges."
+
+  - id: 2026-04-21-kill-switch-analytics-to-montecarlo-boundary
+    title: "Kill-switch API keeps `internal/analytics` free of `internal/montecarlo`"
+    date: 2026-04-21
+    status: experimental
+    category: architecture
+    tags: [kill-switch, analytics, montecarlo, dependency-direction, package-boundary, TASK-0026]
+    path: architecture/2026-04-21-kill-switch-analytics-to-montecarlo-boundary.md
+    summary: "DeriveKillSwitchThresholds accepts sharpeP5 float64, not BootstrapResult. Caller extracts the field. analytics imports nothing from montecarlo — pure computation layer stays dependency-free of simulation layer."
+
+  - id: 2026-04-21-kill-switch-rsi-mean-reversion
+    title: "Kill-switch parameters — RSI Mean-Reversion (NSE:RELIANCE, 2018–2024)"
+    date: 2026-04-21
+    status: accepted
+    category: algorithm
+    tags: [kill-switch, rsi-mean-reversion, NSE:RELIANCE, TASK-0026]
+    path: algorithm/2026-04-21-kill-switch-rsi-mean-reversion.md
+    summary: "MaxDD threshold=26.03% (1.5×17.36%), duration threshold=744 days (2×372). Bootstrap p5 Sharpe pending re-run. Strategy failed gate at 7 trades — kill-switch threshold also unreliable at this sample size."
+
+  - id: 2026-04-21-kill-switch-sma-crossover
+    title: "Kill-switch parameters — SMA Crossover (NSE:RELIANCE, 2018–2024)"
+    date: 2026-04-21
+    status: accepted
+    category: algorithm
+    tags: [kill-switch, sma-crossover, NSE:RELIANCE, TASK-0026]
+    path: algorithm/2026-04-21-kill-switch-sma-crossover.md
+    summary: "MaxDD threshold=24.57% (1.5×16.38%), duration threshold=2274 days (2×1137). Bootstrap p5 Sharpe pending re-run. Strategy failed gate."
+
+  - id: 2026-04-21-kill-switch-derivation-methodology
+    title: "Kill-switch derivation methodology"
+    date: 2026-04-21
+    status: accepted
+    category: algorithm
+    tags: [kill-switch, live-monitoring, sharpe, drawdown, bootstrap, methodology, TASK-0026]
+    path: algorithm/2026-04-21-kill-switch-derivation-methodology.md
+    summary: "Three thresholds: (1) bootstrap p5 per-trade Sharpe, (2) 1.5× in-sample max drawdown, (3) 2× in-sample max recovery duration. Implementation in internal/analytics/killswitch.go. Per-trade Sharpe must use identical formula to montecarlo bootstrap (no annualization)."
+
   - id: 2026-04-20-nearest-rank-percentile
     title: "Nearest-rank (floor index) percentile for bootstrap CIs"
     date: 2026-04-20

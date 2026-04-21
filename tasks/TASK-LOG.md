@@ -115,3 +115,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-20 | TASK-0028 | status → done | all 7 criteria met; regime review complete (SMA 0.35/0.73/0.37, RSI 1.10/0.21/0.44); gate failure confirmed | archived to 2026-04.md |
 | 2026-04-20 | TASK-0024 | status → done | all 6 criteria met; internal/montecarlo + Trade.ReturnOnNotional; per-trade non-annualized Sharpe (Marcus sign-off); quality gate passed 93.3%/100% | archived to 2026-04.md |
 | 2026-04-20 | TASK-0026 | status → todo (unblocked) | TASK-0024 complete; moved from Blocked to Up Next | kill-switch now implementable |
+| 2026-04-21 | TASK-0026 | status → done | KillSwitchThresholds + CheckKillSwitch in internal/analytics/killswitch.go; 3 decision files in decisions/algorithm/; 61 tests pass; bootstrap p5 Sharpe pending token refresh (TASK-0037) | archived to 2026-04.md |
+| 2026-04-21 | TASK-0037 | created | priority: low, source: session | Bootstrap re-run to fill kill-switch p5 Sharpe thresholds for SMA + RSI strategies |
