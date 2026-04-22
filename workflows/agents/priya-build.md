@@ -47,14 +47,23 @@ Priya must:
   2. Then write the implementation to make them pass
   3. Mark any decisions inline as **Decision (topic) — category: status**
 
-After Priya signals build complete, run the quality gate:
+After Priya signals build complete, YOU (the sub-agent) must personally run the quality gate.
+Do not trust the skill's claim that tests pass — run the commands yourself:
 
   QUALITY GATE LOOP (max 2 rounds):
-  - Run /go-quality-review at standard level if internal/ or pkg/ was touched; quick otherwise
-  - If only lint/format failures: auto-fix with golangci-lint --fix, re-run gate, continue
-  - If blocker findings: return to Priya with the specific findings, ask her to iterate
-  - If round 2 still has blockers: set flag to describe the unresolvable blocker
-  - If gate clean: break
+
+  Round check — run both commands:
+    go1.25.0 test -race ./internal/walkforward/... (or the relevant package)
+    golangci-lint run ./internal/walkforward/...   (or the relevant package)
+
+  - If tests fail: return to Priya with the failing test output, ask her to fix, re-run
+  - If only lint/format failures: auto-fix with golangci-lint --fix, re-run lint only
+  - If blocker lint findings remain: return to Priya, ask her to fix, re-run
+  - If round 2 still has failures: set flag to describe the unresolvable blocker
+  - If both commands exit 0: break — gate is clean
+
+DO NOT return the JSON until you have personally observed both commands exit 0 (or hit round 2).
+The orchestrator runs no verification after you return — your JSON is the ground truth.
 
 After the gate passes (or fails at round 2), return ONLY this JSON (no other text):
 {

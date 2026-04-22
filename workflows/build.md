@@ -130,8 +130,10 @@ Read `workflows/agents/priya-build.md`. Fill slots:
 - `{{plan_summary}}`, `{{files_to_create}}`, `{{files_to_modify}}`, `{{approach}}`
   — from `verdicts.priya_plan`
 
-Spawn sub-agent. This sub-agent runs the entire build+gate loop internally.
-Parse returned JSON. If `flag` is non-null: evaluate it.
+Spawn sub-agent exactly once. The sub-agent owns the full build+gate loop — it runs tests
+and lint itself and does not return until both pass. Do NOT run any Bash commands, file
+reads, or verification steps after the sub-agent returns. The returned JSON is ground truth.
+Parse it. If `flag` is non-null: evaluate it.
 - Unresolvable blocker after 2 rounds → Hard STOP
 
 Update SESSION STATE: `verdicts.build`, append any `decision_marks` to `decision_marks_pending`.
