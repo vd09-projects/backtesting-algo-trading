@@ -1,6 +1,7 @@
 // Package cmdutil provides shared utilities for cmd/ entrypoints:
 // .env loading, environment variable validation, token path resolution,
-// and the interactive Kite Connect login flow.
+// the interactive Kite Connect login flow, and the shared BuildProvider
+// constructor used by cmd/backtest, cmd/sweep, and cmd/universe-sweep.
 package cmdutil
 
 import (
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha/cache"
 )
 
 // LoadDotEnv reads key=value pairs from path and sets them as environment
@@ -72,6 +74,52 @@ func TokenFilePath() string {
 		Fatalf("UserHomeDir: %v", err)
 	}
 	return filepath.Join(home, ".config", "backtest", "token.json")
+}
+
+// BuildProvider constructs the Zerodha cached provider used by all cmd/ entrypoints.
+// It loads credentials from the environment, loads or exchanges an access token,
+// and wraps the result in a disk cache. The cache directory is read from
+// BACKTEST_CACHE_DIR (default: .cache/zerodha).
+//
+// **Decision (BuildProvider extracted to cmdutil) — architecture: experimental**
+// scope: internal/cmdutil, cmd/backtest, cmd/sweep, cmd/universe-sweep
+// tags: provider, DRY, cmd, zerodha
+// owner: priya
+//
+// cmd/backtest and cmd/sweep each had an identical private buildProvider function.
+// cmd/universe-sweep would have been a third copy. Extracting to cmdutil.BuildProvider
+// eliminates the duplication. The function is a pure I/O constructor with no
+// business logic, so it belongs in cmdutil alongside MustEnv, TokenFilePath,
+// and LoginFlow — the other shared cmd-layer plumbing.
+func BuildProvider(ctx context.Context) (*cache.CachedProvider, error) {
+	apiKey := MustEnv("KITE_API_KEY")
+	apiSecret := MustEnv("KITE_API_SECRET")
+
+	path := TokenFilePath()
+	accessToken, err := zerodha.LoadToken(path)
+	if err != nil {
+		fmt.Println("No valid saved token — starting Kite Connect login flow.")
+		accessToken, err = LoginFlow(ctx, http.DefaultClient, "https://api.kite.trade", apiKey, apiSecret, path)
+		if err != nil {
+			return nil, fmt.Errorf("login: %w", err)
+		}
+	} else {
+		fmt.Printf("Loaded saved token from %s\n", path)
+	}
+
+	inner, err := zerodha.NewProvider(ctx, zerodha.Config{
+		APIKey:      apiKey,
+		AccessToken: accessToken,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("NewProvider: %w", err)
+	}
+
+	cacheDir := os.Getenv("BACKTEST_CACHE_DIR")
+	if cacheDir == "" {
+		cacheDir = ".cache/zerodha"
+	}
+	return cache.NewCachedProvider(inner, cacheDir), nil
 }
 
 // LoginFlow runs the interactive Kite Connect browser login flow and returns

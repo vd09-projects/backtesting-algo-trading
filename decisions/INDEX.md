@@ -8,6 +8,60 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-22-buildprovider-extracted-to-cmdutil
+    title: "`buildProvider` extracted from cmd binaries into `internal/cmdutil.BuildProvider`"
+    date: 2026-04-22
+    status: experimental
+    category: architecture
+    tags: [provider, DRY, cmd, zerodha, cmdutil, refactor, TASK-0035]
+    path: architecture/2026-04-22-buildprovider-extracted-to-cmdutil.md
+    summary: "buildProvider was duplicated in cmd/backtest and cmd/sweep. Adding cmd/universe-sweep would have made a third copy — the DRY threshold. Extracted to cmdutil.BuildProvider; all three cmd binaries delegate to it."
+
+  - id: 2026-04-22-pre-allocated-fixed-index-writes-for-determinism
+    title: "Pre-allocated fixed-index slice writes for deterministic goroutine output"
+    date: 2026-04-22
+    status: experimental
+    category: convention
+    tags: [determinism, goroutine, slice, concurrency, universesweep, TASK-0035]
+    path: convention/2026-04-22-pre-allocated-fixed-index-writes-for-determinism.md
+    summary: "Goroutine i writes to results[i] on a pre-allocated slice. No mutex needed; same instruments → same pre-sort order → same CSV. Pattern established in internal/walkforward, now applied in internal/universesweep."
+
+  - id: 2026-04-22-errgroup-universe-fan-out-gomaxprocs-ceiling
+    title: "`errgroup` with GOMAXPROCS ceiling for universe instrument fan-out"
+    date: 2026-04-22
+    status: experimental
+    category: tradeoff
+    tags: [concurrency, errgroup, parallelism, GOMAXPROCS, universesweep, TASK-0035]
+    path: tradeoff/2026-04-22-errgroup-universe-fan-out-gomaxprocs-ceiling.md
+    summary: "errgroup with GOMAXPROCS ceiling for parallel instrument runs. Unlike parameter sweep (sequential — no x/sync, ordering deps), instrument runs are fully independent and x/sync is already in go.mod. Ceiling prevents memory blow-up on large universes."
+
+  - id: 2026-04-22-universe-file-yaml-format
+    title: "Universe file uses YAML with top-level `instruments:` key"
+    date: 2026-04-22
+    status: experimental
+    category: convention
+    tags: [YAML, universe-file, file-format, universesweep, TASK-0035]
+    path: convention/2026-04-22-universe-file-yaml-format.md
+    summary: "YAML with top-level instruments: key chosen over plain text (no extensibility) and bare root sequence (fragile to adding top-level fields). gopkg.in/yaml.v3 already in go.mod."
+
+  - id: 2026-04-22-universe-sweep-csv-schema
+    title: "Universe-sweep CSV schema: 6 columns, no rank column"
+    date: 2026-04-22
+    status: experimental
+    category: convention
+    tags: [CSV, output, schema, universesweep, TASK-0035]
+    path: convention/2026-04-22-universe-sweep-csv-schema.md
+    summary: "Six columns: instrument, sharpe, trade_count, total_pnl, max_drawdown, insufficient_data. No rank column — row position is rank. insufficient_data is bool OR of TradeMetricsInsufficient||CurveMetricsInsufficient from analytics.Report."
+
+  - id: 2026-04-22-universe-sweep-runner-placement
+    title: "Universe-sweep runner lives in `internal/universesweep`, not inline in `cmd/`"
+    date: 2026-04-22
+    status: experimental
+    category: architecture
+    tags: [package-boundaries, cmd, internal, universesweep, TASK-0035]
+    path: architecture/2026-04-22-universe-sweep-runner-placement.md
+    summary: "ParseUniverseFile, Run, WriteCSV live in internal/universesweep (testable package), not main.go. Follows the cmd/sweep vs internal/sweep precedent. Acceptance criterion test lives in the package."
+
   - id: 2026-04-22-walkforward-strategy-single-instance
     title: "Walk-forward accepts a single strategy instance, not a factory"
     date: 2026-04-22

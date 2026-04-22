@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
@@ -255,5 +256,35 @@ func TestLoginFlow_success_saveFails(t *testing.T) {
 	}
 	if got != "fresh-access-token" {
 		t.Errorf("LoginFlow() = %q, want %q", got, "fresh-access-token")
+	}
+}
+
+// ── BuildProvider ─────────────────────────────────────────────────────────────
+
+// TestBuildProvider_MissingAPIKey verifies BuildProvider returns an error via Fatalf
+// when KITE_API_KEY is unset. Uses the subprocess pattern (same as TestFatalf_exits)
+// because MustEnv calls Fatalf which calls os.Exit(1).
+func TestBuildProvider_MissingAPIKey(t *testing.T) {
+	if os.Getenv("CMDUTIL_RUN_BUILD_PROVIDER") == "1" {
+		// In subprocess: clear env so MustEnv("KITE_API_KEY") fires Fatalf.
+		os.Unsetenv("KITE_API_KEY")                        //nolint:errcheck // best-effort in subprocess test helper
+		os.Unsetenv("KITE_API_SECRET")                     //nolint:errcheck // best-effort in subprocess test helper
+		_, _ = cmdutil.BuildProvider(context.Background()) //nolint:errcheck // subprocess: expect Fatalf before return
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestBuildProvider_MissingAPIKey$")
+	cmd.Env = append(os.Environ(), "CMDUTIL_RUN_BUILD_PROVIDER=1")
+	// Remove any real credentials from the subprocess environment.
+	filtered := cmd.Env[:0]
+	for _, e := range cmd.Env {
+		if !strings.HasPrefix(e, "KITE_API_KEY=") && !strings.HasPrefix(e, "KITE_API_SECRET=") {
+			filtered = append(filtered, e)
+		}
+	}
+	cmd.Env = filtered
+	err := cmd.Run()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("expected exit code 1 when KITE_API_KEY is unset, got: %v", err)
 	}
 }

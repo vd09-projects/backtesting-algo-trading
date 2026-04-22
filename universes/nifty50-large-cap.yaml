@@ -1,0 +1,18 @@
+# NSE Nifty 50 large-cap liquid constituents (as of 2026)
+# All instruments have continuous daily bar history on Zerodha Kite Connect back to at least 2018.
+instruments:
+  - NSE:RELIANCE
+  - NSE:INFY
+  - NSE:TCS
+  - NSE:HDFCBANK
+  - NSE:ICICIBANK
+  - NSE:KOTAKBANK
+  - NSE:SBIN
+  - NSE:AXISBANK
+  - NSE:LT
+  - NSE:HINDUNILVR
+  - NSE:ITC
+  - NSE:BAJFINANCE
+  - NSE:MARUTI
+  - NSE:TITAN
+  - NSE:WIPRO

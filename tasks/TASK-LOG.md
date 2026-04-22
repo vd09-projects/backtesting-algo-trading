@@ -120,3 +120,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-21 | TASK-0027 | status → done | all acceptance criteria met; correlation.go + load.go + cmd/correlate + WriteCorrelationMatrix; 13 tests pass, lint clean | archived to 2026-04.md |
 | 2026-04-22 | TASK-0022 | status → in-progress | picked from Todo (Backlog); Marcus pre-check: walk-forward = regime-stability test; Priya plan: internal/walkforward/ harness | |
 | 2026-04-22 | TASK-0022 | status → done | all 5 acceptance criteria met; internal/walkforward/walkforward.go + walkforward_test.go; 17 tests pass; lint clean; 9 decisions harvested | archived to 2026-04.md |
+| 2026-04-22 | TASK-0035 | status → done | all 5 acceptance criteria met; internal/universesweep/ + cmd/universe-sweep/ + universes/nifty50-large-cap.yaml; buildProvider extracted to cmdutil; 9 tests pass; lint clean | archived to 2026-04.md |

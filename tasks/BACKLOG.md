@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-22 | **Open tasks:** 3 | **Next up:** TASK-0035
+**Last updated:** 2026-04-22 | **Open tasks:** 2 | **Next up:** TASK-0037
 
 ---
 
@@ -24,26 +24,6 @@
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
 
-### [TASK-0035] Tooling — multi-instrument sweep CLI (`cmd/universe-sweep`)
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-04-16
-- **Source:** session
-- **Context:** Both SMA and RSI results are from a single instrument. Cross-instrument evidence
-  is needed to determine whether the lack of edge is RELIANCE-specific or thesis-wide. Running
-  the same strategy across 10-15 Nifty 50 large caps automatically surfaces whether there's
-  clustering of positive results elsewhere.
-- **Acceptance criteria:**
-  - [ ] `cmd/universe-sweep` CLI: `--universe <file>`, `--strategy`, `--from`, `--to`, `--timeframe`, standard cost flags
-  - [ ] Universe file is plain text or YAML list of instrument strings; `universes/nifty50-large-cap.yaml` created with 10-15 liquid Nifty 50 constituents
-  - [ ] Runs per instrument via `errgroup` concurrency; output is CSV ranked by Sharpe
-  - [ ] Signal frequency gate (TASK-0030) applied per instrument; insufficient-sample results flagged in output
-  - [ ] Tests: synthetic 2-instrument universe → 2-row output CSV
-- **Notes:** Do not start until TASK-0030 (signal frequency gate) is done — the per-instrument
-  output is misleading without the gate applied automatically.
-
----
 
 ### [TASK-0037] Rigor — bootstrap re-run to fill kill-switch p5 Sharpe thresholds
 
