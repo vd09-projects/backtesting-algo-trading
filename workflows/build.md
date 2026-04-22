@@ -85,12 +85,13 @@ If genuinely new: read `workflows/agents/marcus-precheck.md`. Fill slots:
 - `{{context_files}}` — from `verdicts.decision_lookup.context_files`
 - `{{methodology_question}}` — the specific question inferred from the task
 
-Spawn sub-agent. Parse JSON. If `flag` is non-null: evaluate it. If it meets Hard STOP
-condition 2 (genuinely new methodology with no basis to decide) → Hard STOP. Otherwise
-resolve autonomously and continue.
+Spawn sub-agent exactly once. If the returned JSON is structurally valid, accept it — do not
+re-spawn. If `flag` is non-null: evaluate it. If it meets Hard STOP condition 2 (genuinely new
+methodology with no basis to decide) → Hard STOP. Otherwise resolve autonomously and continue.
 
 Update SESSION STATE: `verdicts.marcus`, append any `decision_marks` to `decision_marks_pending`.
 Write `.session-state.json`. Update `step_completed` = 3.
+Immediately proceed to Step 4 — do not output anything to the user.
 
 Log:
 ```

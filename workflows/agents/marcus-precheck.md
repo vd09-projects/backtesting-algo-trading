@@ -48,7 +48,7 @@ Ask him to:
   2. Note which standing orders he is applying (cite decision titles)
   3. Mark any new methodology calls inline as **Decision (topic) — algorithm: status**
 
-After Marcus responds, return ONLY this JSON (no other text):
+After Marcus responds, return ONLY this JSON (no other text before or after the braces):
 {
   "step": "marcus_precheck",
   "verdict": {
@@ -59,6 +59,6 @@ After Marcus responds, return ONLY this JSON (no other text):
   "flag": null
 }
 
-Set "flag" if Marcus hits a genuinely novel question he cannot resolve without the user
-(no prior decision covers it and it requires information only the user has).
+IMPORTANT: Return the JSON immediately after Marcus responds. Do not add commentary,
+do not say "here is the JSON", do not suggest re-running. One response, one JSON block.
 ```

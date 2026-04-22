@@ -45,6 +45,22 @@ is produced). The file is ephemeral — it only matters during an active session
 Every Agent() call must be self-contained. Never write "based on the conversation above" —
 the sub-agent has no conversation history. Every piece of context must be written out explicitly.
 
+### Continuous execution — no mid-workflow output
+
+**Do not produce any text output between steps.** Run all steps to completion, then output
+the Session Summary once. The only exception is a Hard STOP — which pauses and presents
+the blocker to the user. Every other condition (flags, warnings, lint failures) is handled
+silently inside the workflow. If you find yourself about to write a response before all steps
+are done, stop — log the step result to SESSION STATE and immediately spawn the next agent.
+
+### Spawn-once rule
+
+Each sub-agent is spawned exactly once per step. If the returned JSON is structurally valid
+(all required fields present, no parse error), accept it and move on. Do not re-spawn to
+"improve" the result. If the JSON is malformed: re-spawn once with the same prompt plus
+"Your previous response was not valid JSON. Return only the JSON block, no other text."
+If it fails a second time: treat it as a Hard STOP (unresolvable blocker).
+
 ### Flag evaluation
 
 Sub-agents return a `flag` field (null or string). The orchestrator evaluates flags
