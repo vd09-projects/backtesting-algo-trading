@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-21 | **Open tasks:** 4 | **Next up:** TASK-0022
+**Last updated:** 2026-04-22 | **Open tasks:** 3 | **Next up:** TASK-0035
 
 ---
 
@@ -23,23 +23,6 @@
 ## Todo (Backlog)
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
-
-### [TASK-0022] Rigor — walk-forward validation framework
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-04-10
-- **Source:** session
-- **Context:** Running a strategy over the full historical period and reporting the result is in-sample evaluation — it tells you nothing about whether the edge is real. Walk-forward validation splits the data into rolling train/test windows and measures out-of-sample performance independently. This is the minimum viable defense against overfitting.
-- **Acceptance criteria:**
-  - [ ] `internal/walkforward/` package with `Run(cfg WalkForwardConfig, provider, strategy) []WindowResult`
-  - [ ] `WalkForwardConfig`: in-sample window duration, out-of-sample window duration, step size, instrument, from/to
-  - [ ] Each `WindowResult`: in-sample period, out-of-sample period, in-sample Sharpe, out-of-sample Sharpe, trade count
-  - [ ] Report flags if avg out-of-sample Sharpe < 50% of avg in-sample Sharpe (likely overfit)
-  - [ ] Tests: synthetic candle data with known signal → expected window results
-- **Notes:** Strategy interface is stateless (takes `[]Candle`, returns signal), so walk-forward doesn't require strategy re-fitting. This is validation-only for rule-based strategies.
-
----
 
 ### [TASK-0035] Tooling — multi-instrument sweep CLI (`cmd/universe-sweep`)
 

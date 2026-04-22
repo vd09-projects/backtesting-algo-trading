@@ -8,6 +8,87 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-22-walkforward-strategy-single-instance
+    title: "Walk-forward accepts a single strategy instance, not a factory"
+    date: 2026-04-22
+    status: experimental
+    category: tradeoff
+    tags: [walkforward, strategy, concurrency, API, factory, TASK-0022]
+    path: tradeoff/2026-04-22-walkforward-strategy-single-instance.md
+    summary: "Run() takes a single strategy.Strategy; all current strategies are stateless so concurrent fold runs are safe. Factory API deferred until a mutable-state strategy is added."
+
+  - id: 2026-04-22-walkforward-to-exclusive-upper-bound
+    title: "WalkForwardConfig.To is the exclusive upper bound"
+    date: 2026-04-22
+    status: experimental
+    category: convention
+    tags: [walkforward, time, boundary, half-open-interval, API, TASK-0022]
+    path: convention/2026-04-22-walkforward-to-exclusive-upper-bound.md
+    summary: "WalkForwardConfig.To is exclusive (half-open interval), consistent with engine.Config.To and provider.FetchCandles. Callers use 2025-01-01 to mean through end of 2024."
+
+  - id: 2026-04-22-walkforward-all-degenerate-no-flags
+    title: "All-degenerate walk-forward result: both flags false, DeduplicatedFoldCount=0"
+    date: 2026-04-22
+    status: experimental
+    category: tradeoff
+    tags: [walkforward, degenerate, scoring, overfitting-gate, TASK-0022]
+    path: tradeoff/2026-04-22-walkforward-all-degenerate-no-flags.md
+    summary: "When all folds have zero OOS trades, OverfitFlag=false and NegativeFoldFlag=false. 'No trades' is not overfitting. Callers detect a dead strategy via DeduplicatedFoldCount==0."
+
+  - id: 2026-04-22-walkforward-test-fakes-in-package
+    title: "In-package test fakes defined in _test.go only"
+    date: 2026-04-22
+    status: experimental
+    category: convention
+    tags: [walkforward, test-fake, provider, strategy, _test.go, TASK-0022]
+    path: convention/2026-04-22-walkforward-test-fakes-in-package.md
+    summary: "staticProvider, toggleStrategy, neverTradeStrategy are unexported and live in walkforward_test.go. Exporting test infrastructure from pkg/provider or pkg/strategy sends dependencies in the wrong direction."
+
+  - id: 2026-04-22-walkforward-imports-internal-engine
+    title: "internal/walkforward imports internal/engine (orchestration harness, not stats)"
+    date: 2026-04-22
+    status: experimental
+    category: architecture
+    tags: [walkforward, package-boundary, engine-dependency, montecarlo, TASK-0022]
+    path: architecture/2026-04-22-walkforward-imports-internal-engine.md
+    summary: "internal/walkforward imports internal/engine because it is an orchestration harness that runs the engine across fold windows, not a statistics package that resamples a trade list. The internal/montecarlo narrow-imports analogy does not apply."
+
+  - id: 2026-04-22-walkforward-engine-config-template
+    title: "Run() accepts EngineConfigTemplate, not engine.Config directly"
+    date: 2026-04-22
+    status: experimental
+    category: architecture
+    tags: [walkforward, engine-config, dependency-injection, config-template, TASK-0022]
+    path: architecture/2026-04-22-walkforward-engine-config-template.md
+    summary: "Run() takes EngineConfigTemplate (caller-controlled fields) + WalkForwardConfig (fold params). The harness stamps Instrument/From/To per fold. Prevents callers from accidentally setting engine.Config.From thinking it controls the outer window."
+
+  - id: 2026-04-22-walk-forward-oos-is-sharpe-threshold
+    title: "Walk-forward OOS/IS Sharpe threshold and fold-level flagging"
+    date: 2026-04-22
+    status: experimental
+    category: algorithm
+    tags: [walk-forward, IS-OOS, sharpe, threshold, overfitting-gate, TASK-0022]
+    path: algorithm/2026-04-22-walk-forward-oos-is-sharpe-threshold.md
+    summary: "Aggregate: OverfitFlag when avg OOS Sharpe < 50% avg IS Sharpe. Secondary: NegativeFoldFlag when 2+ non-degenerate folds have negative OOS Sharpe. Degenerate folds (zero OOS trades) excluded. Sharpe = per-trade non-annualized, consistent with bootstrap."
+
+  - id: 2026-04-22-walk-forward-window-sizing-default
+    title: "Walk-forward window sizing defaults (2yr IS / 1yr OOS)"
+    date: 2026-04-22
+    status: experimental
+    category: algorithm
+    tags: [walk-forward, window-size, rolling, IS-OOS, regime-coverage, TASK-0022]
+    path: algorithm/2026-04-22-walk-forward-window-sizing-default.md
+    summary: "Fixed rolling 2yr IS / 1yr OOS / 1yr step. 4 folds over 2018–2024. 2024 held out naturally. Expanding windows rejected (no fitting occurs). Per-fold Sharpe indicative only at 10–20 trades/fold."
+
+  - id: 2026-04-22-walk-forward-purpose-stateless-strategies
+    title: "Walk-forward purpose for stateless fixed-parameter strategies"
+    date: 2026-04-22
+    status: experimental
+    category: algorithm
+    tags: [walk-forward, stateless, regime-stability, overfitting-defense, TASK-0022]
+    path: algorithm/2026-04-22-walk-forward-purpose-stateless-strategies.md
+    summary: "Walk-forward on fixed-parameter strategies is a regime-stability test, not a parameter-overfitting test. The IS/OOS comparison reveals whether edge is regime-concentrated, not whether parameters were overfit."
+
   - id: 2026-04-21-cmd-correlate-new-binary
     title: "`cmd/correlate` as a new binary rather than extending `cmd/backtest`"
     date: 2026-04-21

@@ -118,3 +118,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-21 | TASK-0026 | status → done | KillSwitchThresholds + CheckKillSwitch in internal/analytics/killswitch.go; 3 decision files in decisions/algorithm/; 61 tests pass; bootstrap p5 Sharpe pending token refresh (TASK-0037) | archived to 2026-04.md |
 | 2026-04-21 | TASK-0037 | created | priority: low, source: session | Bootstrap re-run to fill kill-switch p5 Sharpe thresholds for SMA + RSI strategies |
 | 2026-04-21 | TASK-0027 | status → done | all acceptance criteria met; correlation.go + load.go + cmd/correlate + WriteCorrelationMatrix; 13 tests pass, lint clean | archived to 2026-04.md |
+| 2026-04-22 | TASK-0022 | status → in-progress | picked from Todo (Backlog); Marcus pre-check: walk-forward = regime-stability test; Priya plan: internal/walkforward/ harness | |
+| 2026-04-22 | TASK-0022 | status → done | all 5 acceptance criteria met; internal/walkforward/walkforward.go + walkforward_test.go; 17 tests pass; lint clean; 9 decisions harvested | archived to 2026-04.md |
