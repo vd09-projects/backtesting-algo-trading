@@ -121,3 +121,26 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-22 | TASK-0022 | status → in-progress | picked from Todo (Backlog); Marcus pre-check: walk-forward = regime-stability test; Priya plan: internal/walkforward/ harness | |
 | 2026-04-22 | TASK-0022 | status → done | all 5 acceptance criteria met; internal/walkforward/walkforward.go + walkforward_test.go; 17 tests pass; lint clean; 9 decisions harvested | archived to 2026-04.md |
 | 2026-04-22 | TASK-0035 | status → done | all 5 acceptance criteria met; internal/universesweep/ + cmd/universe-sweep/ + universes/nifty50-large-cap.yaml; buildProvider extracted to cmdutil; 9 tests pass; lint clean | archived to 2026-04.md |
+| 2026-04-25 | TASK-0038 | created | priority: high, source: session | Full NSE cost model CNC delivery — CommissionZerodhaFull with STT, exchange charges, GST, SEBI, stamp duty |
+| 2026-04-25 | TASK-0039 | created | priority: high, source: session | TimedExit strategy wrapper — N-bar hold exit in pkg/strategy |
+| 2026-04-25 | TASK-0040 | created | priority: high, source: session | Donchian Channel Breakout strategy — strategies/donchian/ |
+| 2026-04-25 | TASK-0041 | created | priority: high, source: session | MACD Crossover strategy — strategies/macd/; supersedes cancelled TASK-0019 under new cross-instrument evaluation methodology |
+| 2026-04-25 | TASK-0042 | created | priority: high, source: session | Bollinger Band Mean Reversion strategy — strategies/bollinger/; supersedes cancelled TASK-0020 under new cross-instrument evaluation methodology |
+| 2026-04-25 | TASK-0043 | created | priority: high, source: session | 12-Month Rate-of-Change Momentum strategy — strategies/momentum/; 231-bar skip-last-month convention (Marcus) |
+| 2026-04-25 | TASK-0044 | created | priority: high, source: session | cmd/sweep2d CLI entrypoint — wires existing internal/sweep2d package |
+| 2026-04-25 | TASK-0045 | created | priority: high, source: session | NIFTY TRI benchmark research spike — 2hr timebox; Zerodha or NSE CSV |
+| 2026-04-25 | TASK-0046 | created | priority: high, source: session | Session-boundary engine support for intraday — BLOCKED on Marcus fill-price + bar-granularity decisions |
+| 2026-04-25 | TASK-0047 | created | priority: high, source: session | MIS commission model (intraday STT 0.025% sell-only) — BLOCKED on TASK-0038 |
+| 2026-04-25 | TASK-0048 | created | priority: high, source: session | Weekly kill-switch monitor cmd/monitor — BLOCKED on trade log file format decision |
+| 2026-04-25 | TASK-0049 | created | priority: high, source: session | Evaluation pre-commit gate definitions — BLOCKED on TASK-0038; owner: Marcus |
+| 2026-04-25 | TASK-0050 | created | priority: high, source: session | Signal frequency audit 6 strategies × 15 instruments — BLOCKED on TASK-0038/0040-0043; owner: Marcus |
+| 2026-04-25 | TASK-0051 | created | priority: high, source: session | In-sample baseline + parameter sensitivity, RELIANCE 2018-2024 — BLOCKED on TASK-0049/0050; owner: Marcus |
+| 2026-04-25 | TASK-0052 | created | priority: high, source: session | Universe sweep cross-instrument primary gate — BLOCKED on TASK-0051/0044; owner: Marcus |
+| 2026-04-25 | TASK-0053 | created | priority: high, source: session | Walk-forward validation on universe survivors — BLOCKED on TASK-0052; owner: Marcus |
+| 2026-04-25 | TASK-0054 | created | priority: high, source: session | Monte Carlo bootstrap on walk-forward survivors — BLOCKED on TASK-0053; owner: Marcus |
+| 2026-04-25 | TASK-0055 | created | priority: high, source: session | Cross-strategy correlation and portfolio construction — BLOCKED on TASK-0054; owner: Marcus |
+| 2026-04-25 | TASK-0056 | created | priority: high, source: session | Pre-live brief kill-switch thresholds and go/no-go sign-off — BLOCKED on TASK-0055/0048; owner: Marcus |
+| 2026-04-25 | TASK-0046 | blocker updated | methodology questions answered by Marcus (Decision 2026-04.3.0 + 2026-04.3.1); now blocked on phase sequencing only |
+| 2026-04-25 | TASK-0051 | title corrected | "2018-2024" → "2018-2023" to match acceptance criteria (to date 2024-01-01 is exclusive) |
+| 2026-04-25 | TASK-0052 | blocker corrected | removed spurious TASK-0044 dependency; cmd/universe-sweep exists from TASK-0035, sweep2d not required for universe gate |
+| 2026-04-25 | TASK-0039 | reprioritized | moved from position 2 to position 6 in Up Next (after TASK-0043); not on critical path for evaluation pipeline — strategies 0040-0043 unblock TASK-0050 and must be picked up first |
