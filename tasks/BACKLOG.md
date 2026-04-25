@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-25 | **Open tasks:** 21 | **Next up:** TASK-0040
+**Last updated:** 2026-04-25 | **Open tasks:** 20 | **Next up:** TASK-0041
 
 ---
 
@@ -15,27 +15,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0040] Strategy — Donchian Channel Breakout
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** New strategy family for the cross-instrument evaluation run. Edge thesis: breakout of N-day price range signals new institutional demand; forced stops on the other side create momentum continuation. Distinct edge bucket from SMA crossover (structural breakout vs. moving average crossover).
-- **Acceptance criteria:**
-  - [ ] `strategies/donchian/` package implementing `pkg/strategy.Strategy`
-  - [ ] Parameters: `period int` (default 20), `timeframe model.Timeframe`
-  - [ ] Buy signal: `Close > max(High[i-period : i-1])` — current close breaks above prior N bars' highs (current bar excluded from window)
-  - [ ] Sell signal: `Close < min(Low[i-period : i-1])` — current close breaks below prior N bars' lows
-  - [ ] Uses `talib.Max` / `talib.Min` on sliced high/low series
-  - [ ] `Lookback()` returns `period + 1`
-  - [ ] Registered in `cmd/backtest`, `cmd/sweep` (sweep param: `donchian-period`), `cmd/universe-sweep`
-  - [ ] Golden test: synthetic candle series with known breakout at bar N → buy signal fires at bar N (stored, fills at N+1 open)
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** The `[:len-1]` exclusion of the current bar's own high/low from the window is critical — without it the strategy uses the current bar's range to decide entry on that same bar (lookahead).
-
----
 
 ### [TASK-0041] Strategy — MACD Crossover
 

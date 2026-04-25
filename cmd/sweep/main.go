@@ -38,6 +38,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 )
@@ -48,7 +49,7 @@ func main() {
 	toStr := flag.String("to", "", "End date in YYYY-MM-DD (exclusive, required)")
 	tfStr := flag.String("timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
 	cash := flag.Float64("cash", 100000, "Starting cash in ₹")
-	stratName := flag.String("strategy", "", "Strategy to sweep: sma-crossover | rsi-mean-reversion (required)")
+	stratName := flag.String("strategy", "", "Strategy to sweep: sma-crossover | rsi-mean-reversion | donchian-breakout (required)")
 	sweepParam := flag.String("sweep-param", "", "Parameter to sweep (required; see supported combinations in usage)")
 	minVal := flag.Float64("min", 0, "Sweep range minimum (required)")
 	maxVal := flag.Float64("max", 0, "Sweep range maximum (required)")
@@ -60,6 +61,7 @@ func main() {
 	rsiPeriod := flag.Int("rsi-period", 14, "rsi-mean-reversion: fixed RSI period")
 	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: fixed oversold threshold")
 	overbought := flag.Float64("overbought", 70, "rsi-mean-reversion: fixed overbought threshold")
+	donchianPeriod := flag.Int("donchian-period", 20, "donchian-breakout: fixed channel period")
 
 	flag.Parse()
 
@@ -69,11 +71,12 @@ func main() {
 	}
 
 	factory, err := factoryRegistry(*stratName, *sweepParam, tf, fixedParams{
-		fastPeriod: *fastPeriod,
-		slowPeriod: *slowPeriod,
-		rsiPeriod:  *rsiPeriod,
-		oversold:   *oversold,
-		overbought: *overbought,
+		fastPeriod:     *fastPeriod,
+		slowPeriod:     *slowPeriod,
+		rsiPeriod:      *rsiPeriod,
+		oversold:       *oversold,
+		overbought:     *overbought,
+		donchianPeriod: *donchianPeriod,
 	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy / --sweep-param: %v", err)
@@ -131,7 +134,7 @@ func parseAndValidateFlags(fromStr, toStr, tfStr, stratName, sweepParam string, 
 		return time.Time{}, time.Time{}, "", fmt.Errorf("--to is required (e.g. 2024-12-31)")
 	}
 	if stratName == "" {
-		return time.Time{}, time.Time{}, "", fmt.Errorf("--strategy is required: sma-crossover | rsi-mean-reversion")
+		return time.Time{}, time.Time{}, "", fmt.Errorf("--strategy is required: sma-crossover | rsi-mean-reversion | donchian-breakout")
 	}
 	if sweepParam == "" {
 		return time.Time{}, time.Time{}, "", fmt.Errorf("--sweep-param is required (e.g. rsi-period, fast-period, oversold)")
@@ -167,11 +170,12 @@ func parseAndValidateFlags(fromStr, toStr, tfStr, stratName, sweepParam string, 
 }
 
 type fixedParams struct {
-	fastPeriod int
-	slowPeriod int
-	rsiPeriod  int
-	oversold   float64
-	overbought float64
+	fastPeriod     int
+	slowPeriod     int
+	rsiPeriod      int
+	oversold       float64
+	overbought     float64
+	donchianPeriod int
 }
 
 // factoryRegistry returns a StrategyFactory for the given strategy and sweep-param combination.
@@ -206,7 +210,17 @@ func factoryRegistry(stratName, sweepParam string, tf model.Timeframe, fixed fix
 			return nil, fmt.Errorf("rsi-mean-reversion does not support sweep-param %q; use rsi-period or oversold", sweepParam)
 		}
 
+	case "donchian-breakout":
+		switch sweepParam {
+		case "donchian-period":
+			return func(v float64) (strategy.Strategy, error) {
+				return donchian.New(tf, int(math.Round(v)))
+			}, nil
+		default:
+			return nil, fmt.Errorf("donchian-breakout does not support sweep-param %q; use donchian-period", sweepParam)
+		}
+
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion", stratName)
+		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout", stratName)
 	}
 }
