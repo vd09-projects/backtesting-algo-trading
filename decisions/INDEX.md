@@ -8,6 +8,51 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-25-nse-charge-rates-as-unexported-constants
+    title: "NSE charge rates as unexported constants in commission.go, not as OrderConfig fields"
+    date: 2026-04-25
+    status: experimental
+    category: architecture
+    tags: [commission, NSE, constants, OrderConfig, TASK-0038]
+    path: architecture/2026-04-25-nse-charge-rates-as-unexported-constants.md
+    summary: "STT, exchange charges, SEBI charges, stamp duty rates, and GST rate are unexported package-level constants in commission.go. These are statutory facts, not user-configurable parameters — putting them in OrderConfig would imply they are variable inputs."
+
+  - id: 2026-04-25-calcommission-isbuy-bool-not-enum
+    title: "calcCommission side parameter: isBuy bool, not an enum"
+    date: 2026-04-25
+    status: experimental
+    category: convention
+    tags: [commission, calcCommission, bool, enum, TASK-0038]
+    path: convention/2026-04-25-calcommission-isbuy-bool-not-enum.md
+    summary: "isBuy bool chosen over an OrderSide enum for the unexported calcCommission helper. Two states, two call sites, no cross-package visibility. Migrate to enum if the function becomes exported or gains a third call site with a different side semantic."
+
+  - id: 2026-04-25-commission-logic-extracted-to-commission-go
+    title: "Full-model commission logic extracted to commission.go, method stays on *Portfolio"
+    date: 2026-04-25
+    status: experimental
+    category: architecture
+    tags: [commission, file-organization, portfolio.go, commission.go, TASK-0038]
+    path: architecture/2026-04-25-commission-logic-extracted-to-commission-go.md
+    summary: "calcZerodhaFullCommission is a pure helper in commission.go (same engine package). calcCommission method stays on *Portfolio in portfolio.go as the dispatch point. Groups commission math for readability without adding a new package boundary."
+
+  - id: 2026-04-25-gst-base-brokerage-plus-exchange-charges-only
+    title: "GST base = brokerage + exchange charges only (STT, SEBI, stamp exempt)"
+    date: 2026-04-25
+    status: accepted
+    category: convention
+    tags: [commission, GST, NSE, SEBI, STT, stamp-duty, TASK-0038]
+    path: convention/2026-04-25-gst-base-brokerage-plus-exchange-charges-only.md
+    summary: "GST (18%) applies to brokerage + NSE exchange transaction charges only. STT, SEBI charges, and stamp duty are excluded. Confirmed against Indian tax regulation and Zerodha's brokerage calculator (used to hand-verify ₹88.24 round-trip golden test)."
+
+  - id: 2026-04-25-float64-for-commission-arithmetic
+    title: "float64 for commission arithmetic, not decimal — migration deferred"
+    date: 2026-04-25
+    status: experimental
+    category: tradeoff
+    tags: [commission, float64, decimal, shopspring, arithmetic, TASK-0038, TASK-0057]
+    path: tradeoff/2026-04-25-float64-for-commission-arithmetic.md
+    summary: "float64 used in commission.go consistent with the existing engine accounting layer. Partial decimal adoption (commission only) would be worse than uniform float64. Full migration deferred to TASK-0057 — coordinated change across commission.go, portfolio.go, Trade, EquityPoint."
+
   - id: 2026-04-25-cross-instrument-proliferation-gate
     title: "Cross-instrument universe gate supersedes single-instrument proliferation gate"
     date: 2026-04-25

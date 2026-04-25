@@ -140,6 +140,9 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-25 | TASK-0054 | created | priority: high, source: session | Monte Carlo bootstrap on walk-forward survivors — BLOCKED on TASK-0053; owner: Marcus |
 | 2026-04-25 | TASK-0055 | created | priority: high, source: session | Cross-strategy correlation and portfolio construction — BLOCKED on TASK-0054; owner: Marcus |
 | 2026-04-25 | TASK-0056 | created | priority: high, source: session | Pre-live brief kill-switch thresholds and go/no-go sign-off — BLOCKED on TASK-0055/0048; owner: Marcus |
+| 2026-04-25 | TASK-0038 | status → done | all criteria met; commission.go (new), commission_zerodha_full_test.go (new), portfolio.go (modified), pkg/model/order.go (modified); ₹88.24 round-trip on ₹30K hand-verified; quality gate PASS; 5 decisions harvested | archived to 2026-04.md |
+| 2026-04-25 | TASK-0047 | status → todo (unblocked) | TASK-0038 complete; moved from Blocked to Up Next | side-aware architecture in place for MIS extension |
+| 2026-04-25 | TASK-0057 | created | priority: low, source: decision | Migrate engine accounting layer from float64 to shopspring/decimal; deferred from TASK-0038 decision 2026-04-25-float64-for-commission-arithmetic |
 | 2026-04-25 | TASK-0046 | blocker updated | methodology questions answered by Marcus (Decision 2026-04.3.0 + 2026-04.3.1); now blocked on phase sequencing only |
 | 2026-04-25 | TASK-0051 | title corrected | "2018-2024" → "2018-2023" to match acceptance criteria (to date 2024-01-01 is exclusive) |
 | 2026-04-25 | TASK-0052 | blocker corrected | removed spurious TASK-0044 dependency; cmd/universe-sweep exists from TASK-0035, sweep2d not required for universe gate |

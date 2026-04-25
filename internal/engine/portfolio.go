@@ -58,8 +58,10 @@ func (p *Portfolio) calcFillPrice(basePrice float64, isBuy bool) float64 {
 	return basePrice * (1 - p.orderConfig.SlippagePct)
 }
 
-// calcCommission returns the commission cost for a fill of the given trade value (fillPrice * qty).
-func (p *Portfolio) calcCommission(tradeValue float64) float64 {
+// calcCommission returns the commission cost for a fill of the given trade value (fillPrice × qty).
+// isBuy distinguishes buy fills from sell fills; most models ignore this, but
+// CommissionZerodhaFull uses it to gate stamp duty to the buy leg only.
+func (p *Portfolio) calcCommission(tradeValue float64, isBuy bool) float64 {
 	switch p.orderConfig.CommissionModel {
 	case model.CommissionFlat:
 		return p.orderConfig.CommissionValue
@@ -71,6 +73,8 @@ func (p *Portfolio) calcCommission(tradeValue float64) float64 {
 			return 20
 		}
 		return c
+	case model.CommissionZerodhaFull:
+		return calcZerodhaFullCommission(tradeValue, isBuy)
 	default:
 		return 0
 	}
@@ -113,7 +117,7 @@ func (p *Portfolio) openLong(instrument string, price float64, t time.Time, size
 	}
 
 	quantity := cost / fillPrice
-	entryCommission := p.calcCommission(quantity * fillPrice)
+	entryCommission := p.calcCommission(quantity*fillPrice, true)
 	totalCost := quantity*fillPrice + entryCommission
 	if totalCost > p.Cash {
 		// Commission pushes total over available cash — skip.
@@ -147,7 +151,7 @@ func (p *Portfolio) closeLong(instrument string, price float64, t time.Time) err
 	}
 
 	fillPrice := p.calcFillPrice(price, false)
-	exitCommission := p.calcCommission(fillPrice * pos.Quantity)
+	exitCommission := p.calcCommission(fillPrice*pos.Quantity, false)
 
 	// Find the open sentinel trade and complete it.
 	for i := len(p.Trades) - 1; i >= 0; i-- {

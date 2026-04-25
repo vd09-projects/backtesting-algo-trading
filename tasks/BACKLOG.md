@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-25 | **Open tasks:** 21 | **Next up:** TASK-0038
+**Last updated:** 2026-04-25 | **Open tasks:** 21 | **Next up:** TASK-0040
 
 ---
 
@@ -15,25 +15,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0038] Engine — full NSE cost model (CNC delivery)
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Current `CommissionZerodha` only models the ₹20 brokerage cap. NSE equity delivery trades carry additional mandatory charges (STT 0.10% both sides, exchange charges 0.00345%, SEBI 0.0001%, stamp duty 0.015% buy-side, GST 18% on brokerage+exchange) that add ~₹50 per ₹30K round-trip on top of the ₹40 brokerage. All backtests understate costs until this lands.
-- **Acceptance criteria:**
-  - [ ] New `CommissionModel` constant `CommissionZerodhaFull` added to `pkg/model/order.go`
-  - [ ] `internal/engine/portfolio.go:calcCommission` gains a `side` parameter (buy/sell); all existing callers updated
-  - [ ] Full cost stack computed per leg: brokerage `min(0.03%×notional, ₹20)` + STT 0.10% both sides + NSE exchange charges 0.00345% + SEBI charges 0.0001% + stamp duty 0.015% buy-side only + GST 18% on (brokerage+exchange charges)
-  - [ ] Round-trip cost on ₹30K trade equals ₹88-95 (hand-verified expected value in test)
-  - [ ] All existing `CommissionZerodha` callsites unaffected — no behaviour change on old model
-  - [ ] Golden test: known notional → exact expected per-leg and round-trip cost
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** The `calcCommission` signature change is internal to `internal/engine/portfolio.go`. The only public surface change is the new `CommissionModel` constant. `CommissionZerodhaFullMIS` (intraday STT 0.025% sell-only) is a follow-on task (TASK-0047) once this lands.
-
----
 
 ### [TASK-0040] Strategy — Donchian Channel Breakout
 
@@ -136,6 +117,23 @@ _No tasks in progress._
 
 ---
 
+### [TASK-0047] Engine — MIS (intraday) commission model
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-04-25
+- **Source:** session
+- **Context:** Intraday (MIS) orders have a different STT structure than delivery (CNC): 0.025% on sell leg only vs 0.10% on both legs. Without this, intraday backtests overstate costs by ~₹60 per round-trip on a ₹30K trade. Unblocked by TASK-0038 (done 2026-04-25).
+- **Acceptance criteria:**
+  - [x] TASK-0038 is done
+  - [ ] New `CommissionModel` constant `CommissionZerodhaFullMIS` added to `pkg/model/order.go`
+  - [ ] `calcCosts` switch: new case applies STT 0.025% on sell leg only; all other charges same as `CommissionZerodhaFull`
+  - [ ] Round-trip cost on ₹30K intraday trade equals ~₹55-60 (hand-verified in test)
+  - [ ] Golden test: known notional → exact expected per-leg cost for MIS
+  - [ ] Tests written before implementation (TDD)
+
+---
+
 ### [TASK-0044] Tooling — `cmd/sweep2d` CLI entrypoint
 
 - **Status:** todo
@@ -182,7 +180,7 @@ _No tasks in progress._
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Blocked by:** TASK-0038 (full cost model must exist before gates referencing cost-adjusted Sharpe are meaningful to write)
+- **Blocked by:** TASK-0047 (MIS commission model) — cost model family should be complete before cost-adjusted Sharpe gates are committed. TASK-0038 done 2026-04-25.
 - **Context:** Every acceptance gate for the evaluation pipeline must be written and committed before any strategy result is seen. Gates set after seeing results are post-hoc rationalization, not gates. This task produces six decision documents in `decisions/algorithm/`, all dated before any Stage 3+ run begins.
 - **Acceptance criteria:**
   - [ ] Decision record: universe gate — DSR-corrected average Sharpe > 0 AND ≥ 40% of instruments show positive Sharpe with ≥ 30 trades
@@ -202,7 +200,7 @@ _No tasks in progress._
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Blocked by:** TASK-0038, TASK-0040, TASK-0041, TASK-0042, TASK-0043 (all four new strategies must be built before this can run)
+- **Blocked by:** TASK-0040, TASK-0041, TASK-0042, TASK-0043 (all four new strategies must be built before this can run; TASK-0038 done 2026-04-25)
 - **Context:** Before running any full backtest, audit how many trades each strategy generates per instrument in the 2018-2023 window with default parameters. Any combination producing < 30 trades is excluded from further analysis on that instrument. The 2026-04-19 RSI diagnostic showed this problem is real — scaling it to 6 strategies × 15 instruments prevents wasted analysis runs downstream.
 - **Acceptance criteria:**
   - [ ] Run signal frequency diagnostic for each strategy on all 15 instruments in `universes/nifty50-large-cap.yaml` over 2018-01-01 to 2024-01-01
@@ -346,24 +344,6 @@ _No tasks in progress._
 
 ---
 
-### [TASK-0047] Engine — MIS (intraday) commission model
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** TASK-0038 (full NSE cost model — CNC delivery). MIS model is a 3-line addition to the same `calcCosts` switch once the side-aware architecture from TASK-0038 is in place.
-- **Context:** Intraday (MIS) orders have a different STT structure than delivery (CNC): 0.025% on sell leg only vs 0.10% on both legs. Without this, intraday backtests overstate costs by ~₹60 per round-trip on a ₹30K trade.
-- **Acceptance criteria:**
-  - [ ] TASK-0038 is done
-  - [ ] New `CommissionModel` constant `CommissionZerodhaFullMIS` added to `pkg/model/order.go`
-  - [ ] `calcCosts` switch: new case applies STT 0.025% on sell leg only; all other charges same as `CommissionZerodhaFull`
-  - [ ] Round-trip cost on ₹30K intraday trade equals ~₹55-60 (hand-verified in test)
-  - [ ] Golden test: known notional → exact expected per-leg cost for MIS
-  - [ ] Tests written before implementation (TDD)
-
----
-
 ### [TASK-0048] Tooling — weekly kill-switch monitor (`cmd/monitor`)
 
 - **Status:** blocked
@@ -385,6 +365,26 @@ _No tasks in progress._
 ## Todo (Backlog)
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
+
+### [TASK-0057] Engine — migrate accounting layer from float64 to shopspring/decimal
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-04-25
+- **Source:** decision
+- **Context:** The commission arithmetic in `commission.go` and the broader accounting layer (Portfolio.cash, Trade.RealizedPnL, Trade.Commission, EquityPoint.Value) all use float64. Accumulated rounding errors are negligible for backtesting but not acceptable for live execution accounting. This migration must be coordinated — partial decimal adoption creates a worse inconsistency than uniform float64.
+- **Acceptance criteria:**
+  - [ ] `shopspring/decimal` added to `go.mod` (requires explicit approval per CLAUDE.md no-new-deps rule — confirm before implementation)
+  - [ ] `commission.go` migrated: all intermediate calculations use `decimal.Decimal`; final return values converted to float64 only at the portfolio accounting boundary
+  - [ ] `portfolio.go`: `cash` field migrated to `decimal.Decimal`
+  - [ ] `pkg/model/trade.go`: `RealizedPnL`, `Commission` fields migrated to `decimal.Decimal`
+  - [ ] `pkg/model/equity.go`: `EquityPoint.Value` migrated to `decimal.Decimal`
+  - [ ] All existing tests pass with race detector after migration
+  - [ ] Golden tests in `commission_zerodha_full_test.go` updated to use exact decimal comparisons
+  - [ ] Benchmark (`BenchmarkEngineRun`) remains within 1ms/op budget after migration
+- **Notes:** This is a coordinated migration — do not migrate commission.go alone. Deferred from TASK-0038 per decision `2026-04-25-float64-for-commission-arithmetic`. The `shopspring/decimal` dependency must be discussed with the user before implementation per the no-new-dependencies rule in CLAUDE.md. Do not start until that discussion has happened.
+
+---
 
 ### [TASK-0037] Rigor — bootstrap re-run to fill kill-switch p5 Sharpe thresholds
 

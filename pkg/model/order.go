@@ -5,9 +5,10 @@ type CommissionModel string
 
 // Supported commission models.
 const (
-	CommissionFlat       CommissionModel = "flat"       // fixed fee per trade
-	CommissionPercentage CommissionModel = "percentage" // percentage of trade value
-	CommissionZerodha    CommissionModel = "zerodha"    // min(₹20, 0.03% of trade value) per fill
+	CommissionFlat        CommissionModel = "flat"         // fixed fee per trade
+	CommissionPercentage  CommissionModel = "percentage"   // percentage of trade value
+	CommissionZerodha     CommissionModel = "zerodha"      // min(₹20, 0.03% of trade value) per fill
+	CommissionZerodhaFull CommissionModel = "zerodha_full" // full NSE CNC delivery cost stack (brokerage + STT + exchange + SEBI + stamp + GST)
 )
 
 // OrderConfig holds execution cost parameters applied by the engine on every fill.
