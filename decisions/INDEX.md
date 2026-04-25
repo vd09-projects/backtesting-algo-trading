@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-25-cross-instrument-proliferation-gate
+    title: "Cross-instrument universe gate supersedes single-instrument proliferation gate"
+    date: 2026-04-25
+    status: experimental
+    category: algorithm
+    tags: [proliferation-gate, cross-instrument, universe-sweep, DSR, evaluation-methodology, TASK-0049, TASK-0052]
+    path: algorithm/2026-04-25-cross-instrument-proliferation-gate.md
+    summary: "Single-instrument Sharpe ≥ 0.5 gate replaced by: DSR-corrected average Sharpe > 0 across 15 Nifty50 large-caps AND ≥ 40% of instruments show positive Sharpe with ≥ 30 trades. Supersedes 2026-04-10-strategy-proliferation-gate."
+
+  - id: 2026-04-25-2025-live-data-as-true-holdout
+    title: "2025 live trading is the true holdout; no historical data reserved"
+    date: 2026-04-25
+    status: experimental
+    category: algorithm
+    tags: [holdout, walk-forward, OOS, 2025-live, live-validation, evaluation-methodology]
+    path: algorithm/2026-04-25-2025-live-data-as-true-holdout.md
+    summary: "Walk-forward OOS windows (2020-2024 across rolling folds) are the out-of-sample evidence. 2025 live trading at ₹3 lakh is the true holdout. No historical data reserved as a separate holdout split."
+
+  - id: 2026-04-25-intraday-session-detection-ist-cutoff
+    title: "Intraday session-close detection via IST timestamp ≥ 15:15, not bar count"
+    date: 2026-04-25
+    status: experimental
+    category: algorithm
+    tags: [intraday, session-boundary, timezone, IST, TASK-0046]
+    path: algorithm/2026-04-25-intraday-session-detection-ist-cutoff.md
+    summary: "Session close detected by comparing bar timestamp (in IST) against a configurable cutoff of 15:15. Works for any bar frequency (5min, 15min) without per-timeframe config. Parameterized via SessionConfig.SessionCutoff."
+
+  - id: 2026-04-25-intraday-forced-close-fill-price
+    title: "Intraday forced-close fill price: 3:15 PM bar Close"
+    date: 2026-04-25
+    status: experimental
+    category: algorithm
+    tags: [intraday, session-boundary, fill-model, MIS, TASK-0046]
+    path: algorithm/2026-04-25-intraday-forced-close-fill-price.md
+    summary: "MIS positions force-closed at 3:15 PM bar's Close price. Conservative approximation — Zerodha auto-squareoff fills at or slightly worse than bid, so real performance will be at this price or marginally below. Backtest does not flatter live P&L."
+
   - id: 2026-04-22-buildprovider-extracted-to-cmdutil
     title: "`buildProvider` extracted from cmd binaries into `internal/cmdutil.BuildProvider`"
     date: 2026-04-22
@@ -495,9 +531,10 @@ decisions:
     summary: "TASK-0025 is a mandatory gate before any strategy executes. Zerodha's adjustment behaviour must be verified against a known split event. Unadjusted prices cause phantom drawdowns and corrupted Sharpe — silent failures that waste entire strategy evaluation runs."
 
   - id: 2026-04-10-strategy-proliferation-gate
+    superseded_by: 2026-04-25-cross-instrument-proliferation-gate
     title: "Strategy proliferation gate — Sharpe ≥ 0.5 vs buy-and-hold before variation strategies"
     date: 2026-04-10
-    status: accepted
+    status: superseded
     category: algorithm
     tags: [strategy, sharpe, gate, research-methodology, MACD, bollinger-bands, SMA, RSI, buy-and-hold, overfitting]
     path: algorithm/2026-04-10-strategy-proliferation-gate.md

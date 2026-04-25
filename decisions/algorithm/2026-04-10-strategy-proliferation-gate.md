@@ -3,7 +3,8 @@
 | Field    | Value            |
 |----------|------------------|
 | Date     | 2026-04-10       |
-| Status   | accepted         |
+| Superseded by | [Cross-instrument universe gate (2026-04-25)](./2026-04-25-cross-instrument-proliferation-gate.md) |
+| Status   | superseded       |
 | Category | algorithm        |
 | Tags     | strategy, sharpe, gate, research-methodology, MACD, bollinger-bands, SMA, RSI, buy-and-hold, overfitting |
 
