@@ -70,6 +70,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 	stubstrategy "github.com/vikrantdhawan/backtesting-algo-trading/strategies/stub"
@@ -88,14 +89,17 @@ func main() {
 	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold (buy below)")
 	overbought := flag.Float64("overbought", 70, "rsi-mean-reversion: overbought threshold (sell above)")
 	donchianPeriod := flag.Int("donchian-period", 20, "donchian-breakout: channel lookback period")
+	macdFastPeriod := flag.Int("macd-fast-period", 12, "macd-crossover: fast EMA period")
+	macdSlowPeriod := flag.Int("macd-slow-period", 26, "macd-crossover: slow EMA period")
+	macdSignalPeriod := flag.Int("macd-signal-period", 9, "macd-crossover: signal EMA period")
 	outPath := flag.String("out", "", "Path for JSON results export (omit to skip)")
 	curvePath := flag.String("output-curve", "", "Path for equity curve CSV export (omit to skip)")
 	sizingModel := flag.String("sizing-model", "fixed", "Position sizing model: fixed | vol-target")
 	volTarget := flag.Float64("vol-target", 0.10, "Annualized volatility target when --sizing-model=vol-target (e.g. 0.10 = 10%)")
-	gateThreshold  := flag.Float64("proliferation-gate-threshold", 0.0, "Sharpe threshold for proliferation gate PASS/FAIL (0 = disabled; 0.5 recommended for NSE daily)")
-	doBootstrap    := flag.Bool("bootstrap", false, "Run Monte Carlo bootstrap for Sharpe confidence intervals")
-	bootstrapSeed  := flag.Int64("bootstrap-seed", 42, "RNG seed for bootstrap (logged with results for reproducibility)")
-	bootstrapN     := flag.Int("bootstrap-n", 0, "Bootstrap simulation count (0 = default 10,000)")
+	gateThreshold := flag.Float64("proliferation-gate-threshold", 0.0, "Sharpe threshold for proliferation gate PASS/FAIL (0 = disabled; 0.5 recommended for NSE daily)")
+	doBootstrap := flag.Bool("bootstrap", false, "Run Monte Carlo bootstrap for Sharpe confidence intervals")
+	bootstrapSeed := flag.Int64("bootstrap-seed", 42, "RNG seed for bootstrap (logged with results for reproducibility)")
+	bootstrapN := flag.Int("bootstrap-n", 0, "Bootstrap simulation count (0 = default 10,000)")
 	flag.Parse()
 
 	// Validate required flags.
@@ -127,12 +131,15 @@ func main() {
 	}
 
 	selectedStrategy, err := strategyRegistry(*stratName, tf, strategyParams{
-		fastPeriod:     *fastPeriod,
-		slowPeriod:     *slowPeriod,
-		rsiPeriod:      *rsiPeriod,
-		oversold:       *oversold,
-		overbought:     *overbought,
-		donchianPeriod: *donchianPeriod,
+		fastPeriod:       *fastPeriod,
+		slowPeriod:       *slowPeriod,
+		rsiPeriod:        *rsiPeriod,
+		oversold:         *oversold,
+		overbought:       *overbought,
+		donchianPeriod:   *donchianPeriod,
+		macdFastPeriod:   *macdFastPeriod,
+		macdSlowPeriod:   *macdSlowPeriod,
+		macdSignalPeriod: *macdSignalPeriod,
 	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
@@ -185,18 +192,7 @@ func main() {
 		regimeSplits = analytics.ComputeRegimeSplits(curve, analytics.NSERegimes2018_2024, tf)
 	}
 
-	var bootstrapResult *montecarlo.BootstrapResult
-	if *doBootstrap {
-		if len(trades) < 2 {
-			fmt.Println("NOTE: --bootstrap skipped — fewer than 2 closed trades")
-		} else {
-			r := montecarlo.Bootstrap(trades, montecarlo.BootstrapConfig{
-				NSimulations: *bootstrapN,
-				Seed:         *bootstrapSeed,
-			})
-			bootstrapResult = &r
-		}
-	}
+	bootstrapResult := runBootstrap(*doBootstrap, trades, *bootstrapSeed, *bootstrapN)
 
 	if err := output.Write(report, output.Config{
 		PrintToStdout:  true,
@@ -214,13 +210,28 @@ func main() {
 	}
 }
 
+func runBootstrap(enabled bool, trades []model.Trade, seed int64, nSims int) *montecarlo.BootstrapResult {
+	if !enabled {
+		return nil
+	}
+	if len(trades) < 2 {
+		fmt.Println("NOTE: --bootstrap skipped — fewer than 2 closed trades")
+		return nil
+	}
+	r := montecarlo.Bootstrap(trades, montecarlo.BootstrapConfig{NSimulations: nSims, Seed: seed})
+	return &r
+}
+
 type strategyParams struct {
-	fastPeriod     int
-	slowPeriod     int
-	rsiPeriod      int
-	oversold       float64
-	overbought     float64
-	donchianPeriod int
+	fastPeriod       int
+	slowPeriod       int
+	rsiPeriod        int
+	oversold         float64
+	overbought       float64
+	donchianPeriod   int
+	macdFastPeriod   int
+	macdSlowPeriod   int
+	macdSignalPeriod int
 }
 
 func strategyRegistry(name string, tf model.Timeframe, p strategyParams) (strategy.Strategy, error) {
@@ -233,8 +244,10 @@ func strategyRegistry(name string, tf model.Timeframe, p strategyParams) (strate
 		return rsimeanrev.New(tf, p.rsiPeriod, p.oversold, p.overbought)
 	case "donchian-breakout":
 		return donchian.New(tf, p.donchianPeriod)
+	case "macd-crossover":
+		return macd.New(tf, p.macdFastPeriod, p.macdSlowPeriod, p.macdSignalPeriod)
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover, rsi-mean-reversion, donchian-breakout", name)
+		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover", name)
 	}
 }
 
@@ -259,4 +272,3 @@ func parseSizingConfig(sizingModel string, volTarget float64) (model.SizingModel
 	}
 	return sm, nil
 }
-

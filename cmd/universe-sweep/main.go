@@ -37,6 +37,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 )
@@ -58,6 +59,9 @@ func main() {
 	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold")
 	overbought := flag.Float64("overbought", 70, "rsi-mean-reversion: overbought threshold")
 	donchianPeriod := flag.Int("donchian-period", 20, "donchian-breakout: channel lookback period")
+	macdFastPeriod := flag.Int("macd-fast-period", 12, "macd-crossover: fast EMA period")
+	macdSlowPeriod := flag.Int("macd-slow-period", 26, "macd-crossover: slow EMA period")
+	macdSignalPeriod := flag.Int("macd-signal-period", 9, "macd-crossover: signal EMA period")
 
 	flag.Parse()
 
@@ -100,12 +104,15 @@ func main() {
 	}
 
 	selectedStrategy, err := strategyRegistry(*stratName, tf, strategyParams{
-		fastPeriod:     *fastPeriod,
-		slowPeriod:     *slowPeriod,
-		rsiPeriod:      *rsiPeriod,
-		oversold:       *oversold,
-		overbought:     *overbought,
-		donchianPeriod: *donchianPeriod,
+		fastPeriod:       *fastPeriod,
+		slowPeriod:       *slowPeriod,
+		rsiPeriod:        *rsiPeriod,
+		oversold:         *oversold,
+		overbought:       *overbought,
+		donchianPeriod:   *donchianPeriod,
+		macdFastPeriod:   *macdFastPeriod,
+		macdSlowPeriod:   *macdSlowPeriod,
+		macdSignalPeriod: *macdSignalPeriod,
 	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
@@ -150,12 +157,15 @@ func main() {
 }
 
 type strategyParams struct {
-	fastPeriod     int
-	slowPeriod     int
-	rsiPeriod      int
-	oversold       float64
-	overbought     float64
-	donchianPeriod int
+	fastPeriod       int
+	slowPeriod       int
+	rsiPeriod        int
+	oversold         float64
+	overbought       float64
+	donchianPeriod   int
+	macdFastPeriod   int
+	macdSlowPeriod   int
+	macdSignalPeriod int
 }
 
 func strategyRegistry(name string, tf model.Timeframe, p strategyParams) (strategy.Strategy, error) {
@@ -166,7 +176,9 @@ func strategyRegistry(name string, tf model.Timeframe, p strategyParams) (strate
 		return rsimeanrev.New(tf, p.rsiPeriod, p.oversold, p.overbought)
 	case "donchian-breakout":
 		return donchian.New(tf, p.donchianPeriod)
+	case "macd-crossover":
+		return macd.New(tf, p.macdFastPeriod, p.macdSlowPeriod, p.macdSignalPeriod)
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout", name)
+		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover", name)
 	}
 }

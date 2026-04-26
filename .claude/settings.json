@@ -34,7 +34,10 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Read(//Users/vikrantdhawan/.config/backtest/**)",
-      "Bash(gofumpt -l /Users/vikrantdhawan/repos/backtesting-algo-trading/internal/analytics/analytics_internal_test.go)"
+      "Bash(gofumpt -l /Users/vikrantdhawan/repos/backtesting-algo-trading/internal/analytics/analytics_internal_test.go)",
+      "Bash(go version *)",
+      "Bash(bash .claude/hooks/pre-tool-use-edit.sh)",
+      "Bash(echo \"exit code: $?\")"
     ]
   },
   "hooks": {

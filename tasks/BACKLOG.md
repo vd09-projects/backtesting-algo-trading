@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-25 | **Open tasks:** 20 | **Next up:** TASK-0041
+**Last updated:** 2026-04-26 | **Open tasks:** 19 | **Next up:** TASK-0042
 
 ---
 
@@ -15,26 +15,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0041] Strategy — MACD Crossover
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Supersedes TASK-0019 (cancelled 2026-04-16 when SMA crossover failed single-instrument proliferation gate). New methodology: build all strategy families first, validate cross-instrument. MACD is a smoother trend-following variant — slower to signal than SMA crossover, less sensitive to single-bar outliers.
-- **Acceptance criteria:**
-  - [ ] `strategies/macd/` package implementing `pkg/strategy.Strategy`
-  - [ ] Parameters: `fastPeriod int` (12), `slowPeriod int` (26), `signalPeriod int` (9), `timeframe model.Timeframe`
-  - [ ] Uses `talib.Macd(closes, fastPeriod, slowPeriod, signalPeriod)` returning macd, signal, histogram series
-  - [ ] Buy signal: MACD line crosses above signal line (strict: was ≤ previous bar, is > current bar)
-  - [ ] Sell signal: MACD line crosses below signal line (strict crossover)
-  - [ ] `Lookback()` returns `slowPeriod + signalPeriod - 1`
-  - [ ] Registered in `cmd/backtest`, `cmd/sweep` (sweep params: `macd-fast-period`, `macd-slow-period`), `cmd/universe-sweep`
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Previous cancellation rationale: "only build if SMA baseline passes gate." New rationale: all families are validated cross-instrument together; individual-instrument gate is not the decision point.
-
----
 
 ### [TASK-0042] Strategy — Bollinger Band Mean Reversion
 

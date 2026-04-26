@@ -63,4 +63,16 @@ if echo "$FILE_PATH" | grep -qE "^(internal|pkg)/" \
   echo "TDD: have you written the failing test first? (CLAUDE.md: TDD is mandatory)"
 fi
 
+# --- Check 3: Workflow gate — session state must exist before writing production Go code ---
+# Blocks writes to strategies/, internal/, pkg/, cmd/ .go files unless
+# workflows/.session-state.json exists, which proves Steps 1-4 of build.md ran.
+if echo "$FILE_PATH" | grep -qE "\.go$" \
+  && echo "$FILE_PATH" | grep -qE "^(strategies|internal|pkg|cmd)/" \
+  && [ ! -f "$PROJECT/workflows/.session-state.json" ]; then
+  echo "WORKFLOW GATE: No session-state.json found."
+  echo "Complete build.md Steps 1-4 (decision-lookup, Marcus pre-check, Priya plan, SESSION STATE) before writing code."
+  echo "Blocked file: $FILE_PATH"
+  exit 2
+fi
+
 exit 0

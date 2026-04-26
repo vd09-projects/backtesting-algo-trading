@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-26-workflow-gate-pre-tool-use-hook
+    title: "Workflow gate: PreToolUse hook blocks production Go writes when session-state absent"
+    date: 2026-04-26
+    status: accepted
+    category: infrastructure
+    tags: [workflow, hook, pre-tool-use, session-state, build.md, TASK-0041]
+    path: infrastructure/2026-04-26-workflow-gate-pre-tool-use-hook.md
+    summary: "Check 3 added to pre-tool-use-edit.sh blocks Edit/Write to *.go files under strategies/, internal/, pkg/, cmd/ unless workflows/.session-state.json exists. Enforces build.md Steps 1-4 before any implementation; pipe-tested in all three cases."
+
+  - id: 2026-04-26-macd-guard-talib-initialization-boundary
+    title: "MACD guard condition: n <= slow+signal-1 blocks talib zero-fill initialization boundary"
+    date: 2026-04-26
+    status: accepted
+    category: convention
+    tags: [macd, talib, initialization, guard, crossover, TASK-0041]
+    path: convention/2026-04-26-macd-guard-talib-initialization-boundary.md
+    summary: "talib.Macd zero-fills uninitialized output positions with 0. Guard if n <= slow+signal-1 prevents a spurious 0-to-nonzero crossover firing on the first real computation bar. Crossover detection starts at n = slow+signal where both current and previous values are real."
+
   - id: 2026-04-25-nse-charge-rates-as-unexported-constants
     title: "NSE charge rates as unexported constants in commission.go, not as OrderConfig fields"
     date: 2026-04-25
