@@ -127,6 +127,24 @@ Live monitoring (periodic):
 
 ---
 
+## Bootstrap Gate
+
+A strategy passes the bootstrap gate if **both** conditions hold:
+
+```
+SharpeP5 > 0                     (5th-percentile bootstrap Sharpe is positive)
+ProbPositiveSharpe > 0.80        (>80% of 10,000 simulations produce positive Sharpe)
+```
+
+Failing either condition kills the strategy — the kill is recorded in `decisions/algorithm/`.
+Both conditions are required. A strategy with `SharpeP5 = 0.01` but `ProbPositiveSharpe = 0.72`
+fails: the distribution is barely above zero and not concentrated enough above the line.
+
+The `SharpeP5` value from a passing bootstrap run feeds directly into
+`analytics.DeriveKillSwitchThresholds` — it becomes the live monitoring floor.
+
+---
+
 ## Interpreting Results
 
 | Metric | Good signal | Caution |

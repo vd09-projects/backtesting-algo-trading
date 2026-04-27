@@ -167,15 +167,35 @@ analytics.ComputeRegimeSplits(
 
 Pre-defined NSE regimes (2018–2024):
 
-| Regime | Period | Market character |
+| Regime | Window | Market character |
 |---|---|---|
-| Pre-COVID | 2018–2019 | Sideways to down |
-| COVID Crash + Recovery | 2020–2021 | Extreme volatility, V-shaped recovery |
-| Grind | 2022–2024 | Low-volatility uptrend |
+| Pre-COVID | 2018-01-01 to 2020-01-31 | Mixed trending and sideways, moderate vol |
+| COVID Crash + Recovery | 2020-02-01 to 2021-06-30 | Sharp crash, V-shaped recovery, high vol |
+| Post-recovery | 2021-07-01 to 2024-12-31 | Grinding uptrend, 2022 rate-hike bear, lower vol |
 
 Each `RegimeReport` contains Sharpe and MaxDrawdown for the slice of the equity
-curve that falls within that period. A strategy that looks good on full-period
-metrics but collapses in one regime is fragile.
+curve that falls within that period.
+
+### Regime gate
+
+A strategy passes the regime gate if no single regime accounts for ≥ 70% of the
+total Sharpe concentration. Concentration is measured as:
+
+```
+contribution[i] = abs(S[i]) / sum(abs(S[j]) for all j)
+```
+
+where `S[i]` is the per-trade Sharpe for regime `i` (can be negative). Using
+absolute values avoids sign-cancellation when regimes have mixed signs.
+
+The gate **flags but does not kill** — a regime-concentrated strategy receives
+**half-weight** in portfolio construction rather than being excluded. If a strategy
+has zero trades in any regime window, it is treated as concentrated by default.
+
+```
+RegimeConcentrated = false  →  full weight eligible
+RegimeConcentrated = true   →  at most 50% of computed vol-target weight
+```
 
 ---
 
@@ -188,11 +208,15 @@ analytics.ComputeMatrix(curves []NamedCurve) CorrelationMatrix
 
 ```
 PairCorrelation:
-  FullPeriod     float64  // Pearson r over the full overlapping period
-  Crash2020      float64  // Pearson r during Jan 2020 – Jun 2020
-  Correction2022 float64  // Pearson r during Jan 2022 – Jun 2022
-  TooCorrelated  bool     // true if FullPeriod > 0.7 OR either stress period > 0.6
+  FullPeriod     float64  // Pearson r, full backtest period (2018-01-01 to 2024-12-31)
+  Crash2020      float64  // Pearson r, COVID crash: 2020-02-01 to 2020-06-30
+  Correction2022 float64  // Pearson r, rate-hike bear: 2022-01-01 to 2022-12-31
+  TooCorrelated  bool     // true if FullPeriod >= 0.7 OR either stress period >= 0.6
 ```
+
+**Series**: daily log-returns of the equity curve (`ln(equity[t] / equity[t-1])`).
+Flat segments (days with no open position, equity unchanged) contribute a return
+of zero — they are real trading days, not missing data.
 
 **Warmup trimming:** Leading bars where equity equals the initial value (flat —
 no position taken yet) are trimmed before computing returns. A strategy that
@@ -202,8 +226,16 @@ would be misleading).
 NaN is the sentinel for undefined correlation (constant series, empty window).
 `TooCorrelated` is only set when the value is not NaN and exceeds the threshold.
 
-**Use case:** before combining strategies in an ensemble, check that they are
-not highly correlated — especially during stress periods when you need diversification most.
+### Correlation gate thresholds
+
+| Window | Pass condition |
+|---|---|
+| Full period | Pearson r < 0.7 |
+| Either stress period | Pearson r < 0.6 |
+
+Both conditions must hold. Failing either triggers the tiebreaker: keep the
+strategy with higher DSR-corrected Sharpe. If DSR-Sharpe is within 5%, prefer
+the strategy from a different edge bucket (trend-following vs. mean-reversion).
 
 ---
 

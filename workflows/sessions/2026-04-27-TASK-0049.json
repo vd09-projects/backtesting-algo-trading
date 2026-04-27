@@ -1,0 +1,72 @@
+{
+  "session_date": "2026-04-27",
+  "workflow": "build",
+  "task_id": "TASK-0049",
+  "task_title": "Evaluation — pre-commit gate definitions before any backtest runs",
+  "step_completed": 5,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md",
+        "decisions/algorithm/2026-04-21-kill-switch-derivation-methodology.md",
+        "decisions/algorithm/2026-04-22-walk-forward-oos-is-sharpe-threshold.md",
+        "decisions/algorithm/2026-04-22-walk-forward-window-sizing-default.md",
+        "decisions/algorithm/2026-04-20-bootstrap-sharpe-non-annualized-per-trade.md",
+        "decisions/algorithm/2026-04-13-vol-targeting-algorithm-choices.md",
+        "decisions/algorithm/2026-04-15-instrument-declared-before-first-run.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-25-2025-live-data-as-true-holdout.md",
+        "decisions/algorithm/2026-04-22-walk-forward-purpose-stateless-strategies.md",
+        "decisions/algorithm/2026-04-22-walkforward-all-degenerate-no-flags.md",
+        "decisions/algorithm/2026-04-10-strategy-proliferation-gate.md",
+        "decisions/algorithm/2026-04-20-nearest-rank-percentile.md",
+        "decisions/algorithm/2026-04-20-geometric-compounding-bootstrap-drawdown.md"
+      ]
+    },
+    "marcus": {
+      "summary": "Regime gate: abs(regime_sharpe[i]) / sum(abs(regime_sharpe)) contribution metric, 70% threshold, flag (half-weight) not kill. Three windows: pre-COVID 2018-01-01 to 2020-01-31, COVID crash+recovery 2020-02-01 to 2021-06-30, post-recovery 2021-07-01 to 2024-12-31. Correlation gate: daily log-returns of equity curve, Pearson r. Full-period r < 0.7; stress-period r < 0.6 (COVID crash 2020-02-01 to 2020-06-30 AND rate-hike bear 2022-01-01 to 2022-12-31). Tiebreaker: higher DSR-Sharpe wins; within 5%, prefer different edge bucket."
+    },
+    "priya_plan": null,
+    "build": {
+      "quality_gate": "PASS",
+      "files_modified": [
+        "decisions/algorithm/2026-04-27-bootstrap-gate.md",
+        "decisions/algorithm/2026-04-27-regime-gate.md",
+        "decisions/algorithm/2026-04-27-correlation-gate.md",
+        "tasks/BACKLOG.md",
+        "tasks/archive/2026-04.md"
+      ],
+      "notes": "Documentation-only task. No code written. Three new decision files written; two existing decisions confirmed as covering remaining criteria. Task moved to archive."
+    }
+  },
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0049 \"Evaluation — pre-commit gate definitions before any backtest runs\" picked from Up Next.",
+    "[AUTO] Step 2 — Decision lookup: 7 standing orders, 6 context files.",
+    "[AUTO] Step 3 — Marcus: new call made. Regime gate and correlation gate methodology resolved.",
+    "[AUTO] Step 4 — Skipped (documentation task; plan is read existing decisions, write missing ones).",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: decisions/algorithm/2026-04-27-bootstrap-gate.md, decisions/algorithm/2026-04-27-regime-gate.md, decisions/algorithm/2026-04-27-correlation-gate.md, tasks/BACKLOG.md, tasks/archive/2026-04.md.",
+    "[AUTO] Step 6 — Criteria: 6/6 met. Task closed. TASK-0044 is next up."
+  ],
+  "decision_marks_pending": [
+    {
+      "topic": "regime-gate-contribution-metric",
+      "category": "algorithm",
+      "summary": "Regime contribution = abs(S[i]) / sum(abs(S[j])); threshold 70%; flag not kill; half-weight in portfolio",
+      "file": "decisions/algorithm/2026-04-27-regime-gate.md"
+    },
+    {
+      "topic": "correlation-gate-thresholds",
+      "category": "algorithm",
+      "summary": "Full-period Pearson r < 0.7 AND stress-period r < 0.6; stress windows: COVID crash 2020-02-01 to 2020-06-30, rate-hike bear 2022-01-01 to 2022-12-31; tiebreaker: higher DSR-Sharpe, then different edge bucket",
+      "file": "decisions/algorithm/2026-04-27-correlation-gate.md"
+    },
+    {
+      "topic": "bootstrap-gate-thresholds",
+      "category": "algorithm",
+      "summary": "SharpeP5 > 0 AND P(Sharpe > 0) > 80%; both conditions required; failing either kills the strategy",
+      "file": "decisions/algorithm/2026-04-27-bootstrap-gate.md"
+    }
+  ],
+  "hard_stop_active": null
+}

@@ -172,11 +172,27 @@ range in the engine config template.
 
 ---
 
+## Walk-Forward Gate
+
+A strategy passes the walk-forward gate if **both** flags are false:
+
+```
+OverfitFlag     = false    (OOS Sharpe >= 50% of IS Sharpe on average)
+NegativeFoldFlag = false   (fewer than 2 OOS folds with negative Sharpe)
+```
+
+Both are required — not either/or. A strategy can fail by overfitting (IS/OOS
+degradation) or by being regime-unstable (repeated negative OOS folds) independently.
+Failing either condition kills the strategy at this gate; it does not proceed to
+bootstrap or correlation evaluation.
+
+---
+
 ## Interpreting Results
 
 | Result | Interpretation |
 |---|---|
-| OverfitFlag = false, NegativeFoldFlag = false | Strategy shows consistent OOS performance. Parameters are not over-tuned. |
+| OverfitFlag = false, NegativeFoldFlag = false | Strategy passes the walk-forward gate — proceed to bootstrap. |
 | OverfitFlag = true | IS/OOS degradation is significant. Parameters may be curve-fit. Revisit parameter choice. |
 | NegativeFoldFlag = true | Strategy loses money in 2+ time windows. Either the regime changed or the edge was never real. |
 | All folds degenerate | Strategy never trades in OOS windows. Signal frequency too low for the OOS window size. |

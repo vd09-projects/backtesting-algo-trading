@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-27 | **Open tasks:** 18 | **Next up:** TASK-0049
+**Last updated:** 2026-04-27 | **Open tasks:** 17 | **Next up:** TASK-0044
 
 ---
 
@@ -15,25 +15,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0049] Evaluation — pre-commit gate definitions before any backtest runs
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Every acceptance gate for the evaluation pipeline must be written and committed before any strategy result is seen. Gates set after seeing results are post-hoc rationalization, not gates. This task produces six decision documents in `decisions/algorithm/`, all dated before any Stage 3+ run begins.
-- **Acceptance criteria:**
-  - [ ] Decision record: universe gate — DSR-corrected average Sharpe > 0 AND ≥ 40% of instruments show positive Sharpe with ≥ 30 trades
-  - [ ] Decision record: walk-forward gate — OverfitFlag = false AND NegativeFoldFlag = false (both required, not either)
-  - [ ] Decision record: bootstrap gate — SharpeP5 > 0 AND P(Sharpe > 0) > 80%
-  - [ ] Decision record: regime gate — no single regime accounts for more than 70% of full-period Sharpe
-  - [ ] Decision record: correlation gate — full-period r < 0.7 AND stress-period r < 0.6 between any two portfolio strategies
-  - [ ] Decision record: kill-switch gate — thresholds derived from bootstrap p5 Sharpe (not round numbers), documented before live capital
-  - [ ] All six decision files in `decisions/algorithm/` dated before any Stage 3+ run begins
-- **Notes:** Unblocked 2026-04-27 by TASK-0047 (MIS commission model done). Marcus superseded the single-instrument proliferation gate (2026-04-10) in session 2026-04-25. The new cross-instrument gate formally replaces it and must be recorded here. Owner: Marcus (algo-trading-veteran).
-
----
 
 ### [TASK-0044] Tooling — `cmd/sweep2d` CLI entrypoint
 
