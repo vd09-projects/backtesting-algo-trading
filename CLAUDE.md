@@ -17,6 +17,7 @@ Skipping any of these requires explicit user instruction.
 ### During every turn
 
 - **Skill terminal state** → read `workflows/INDEX.md` immediately to determine the next step; do not proceed without checking it
+- **Build workflow trigger** → the `build-session` agent is the top-level orchestrator for feature/refactor tasks; it must be invoked directly (not as a subagent), as it spawns its own subagents internally
 - **Design choice made** → mark inline in the response: `**Decision (topic) — category: status**` so the session-end harvest captures it
 - **Editing production code in `internal/` or `pkg/`** → write the failing test first, before the implementation
 

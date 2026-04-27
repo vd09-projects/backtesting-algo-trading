@@ -224,7 +224,7 @@ If no trigger matches, respond directly — not every interaction needs a workfl
 
 | User intent | Workflow |
 |---|---|
-| "What's next" / picks a task / mentions backlog | Check task type: feature/refactor → `build.md`, bug → `bugfix.md` |
+| "What's next" / picks a task / mentions backlog | Check task type: feature/refactor → invoke the `build-session` agent directly (it is the top-level orchestrator; do not spawn it as a subagent), bug → `bugfix.md` |
 | Has backtest results, run outputs, or metrics to review | `review.md` |
 | New strategy idea, edge thesis, "is this worth building?" | `evaluate.md` |
 | "Review this code" / "run quality check" / "pre-merge review" | `code-review.md` |
