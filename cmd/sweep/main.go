@@ -41,6 +41,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/momentum"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 )
@@ -69,6 +70,8 @@ func main() {
 	macdSignalPeriod := flag.Int("macd-signal-period", 9, "macd-crossover: fixed signal EMA period")
 	bbPeriod := flag.Int("bb-period", 20, "bollinger-mean-reversion: fixed Bollinger Band period")
 	bbNumStdDev := flag.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: fixed number of standard deviations")
+	momentumLookback := flag.Int("momentum-lookback", 231, "momentum: fixed ROC lookback period")
+	momentumThreshold := flag.Float64("momentum-threshold", 10.0, "momentum: fixed ROC threshold in percent")
 
 	flag.Parse()
 
@@ -78,17 +81,19 @@ func main() {
 	}
 
 	factory, err := factoryRegistry(*stratName, *sweepParam, tf, &fixedParams{
-		fastPeriod:       *fastPeriod,
-		slowPeriod:       *slowPeriod,
-		rsiPeriod:        *rsiPeriod,
-		oversold:         *oversold,
-		overbought:       *overbought,
-		donchianPeriod:   *donchianPeriod,
-		macdFastPeriod:   *macdFastPeriod,
-		macdSlowPeriod:   *macdSlowPeriod,
-		macdSignalPeriod: *macdSignalPeriod,
-		bbPeriod:         *bbPeriod,
-		bbNumStdDev:      *bbNumStdDev,
+		fastPeriod:        *fastPeriod,
+		slowPeriod:        *slowPeriod,
+		rsiPeriod:         *rsiPeriod,
+		oversold:          *oversold,
+		overbought:        *overbought,
+		donchianPeriod:    *donchianPeriod,
+		macdFastPeriod:    *macdFastPeriod,
+		macdSlowPeriod:    *macdSlowPeriod,
+		macdSignalPeriod:  *macdSignalPeriod,
+		bbPeriod:          *bbPeriod,
+		bbNumStdDev:       *bbNumStdDev,
+		momentumLookback:  *momentumLookback,
+		momentumThreshold: *momentumThreshold,
 	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy / --sweep-param: %v", err)
@@ -182,69 +187,80 @@ func parseAndValidateFlags(fromStr, toStr, tfStr, stratName, sweepParam string, 
 }
 
 type fixedParams struct {
-	fastPeriod       int
-	slowPeriod       int
-	rsiPeriod        int
-	oversold         float64
-	overbought       float64
-	donchianPeriod   int
-	macdFastPeriod   int
-	macdSlowPeriod   int
-	macdSignalPeriod int
-	bbPeriod         int
-	bbNumStdDev      float64
+	fastPeriod        int
+	slowPeriod        int
+	rsiPeriod         int
+	oversold          float64
+	overbought        float64
+	donchianPeriod    int
+	macdFastPeriod    int
+	macdSlowPeriod    int
+	macdSignalPeriod  int
+	bbPeriod          int
+	bbNumStdDev       float64
+	momentumLookback  int
+	momentumThreshold float64
 }
 
 // factoryRegistry returns a StrategyFactory for the given strategy and sweep-param combination.
 func factoryRegistry(stratName, sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
 	switch stratName {
 	case "sma-crossover":
-		switch sweepParam {
-		case "fast-period":
-			return func(v float64) (strategy.Strategy, error) {
-				return smacrossover.New(tf, int(math.Round(v)), fixed.slowPeriod)
-			}, nil
-		case "slow-period":
-			return func(v float64) (strategy.Strategy, error) {
-				return smacrossover.New(tf, fixed.fastPeriod, int(math.Round(v)))
-			}, nil
-		default:
-			return nil, fmt.Errorf("sma-crossover does not support sweep-param %q; use fast-period or slow-period", sweepParam)
-		}
-
+		return smaFactory(sweepParam, tf, fixed)
 	case "rsi-mean-reversion":
-		switch sweepParam {
-		case "rsi-period":
-			return func(v float64) (strategy.Strategy, error) {
-				return rsimeanrev.New(tf, int(math.Round(v)), fixed.oversold, fixed.overbought)
-			}, nil
-		case "oversold":
-			// Symmetric convention: overbought = 100 − oversold.
-			return func(v float64) (strategy.Strategy, error) {
-				return rsimeanrev.New(tf, fixed.rsiPeriod, v, 100-v)
-			}, nil
-		default:
-			return nil, fmt.Errorf("rsi-mean-reversion does not support sweep-param %q; use rsi-period or oversold", sweepParam)
-		}
-
+		return rsiFactory(sweepParam, tf, fixed)
 	case "donchian-breakout":
-		switch sweepParam {
-		case "donchian-period":
-			return func(v float64) (strategy.Strategy, error) {
-				return donchian.New(tf, int(math.Round(v)))
-			}, nil
-		default:
-			return nil, fmt.Errorf("donchian-breakout does not support sweep-param %q; use donchian-period", sweepParam)
-		}
-
+		return donchianFactory(sweepParam, tf, fixed)
 	case "macd-crossover":
 		return macdFactory(sweepParam, tf, fixed)
-
 	case "bollinger-mean-reversion":
 		return bollingerFactory(sweepParam, tf, fixed)
-
+	case "momentum":
+		return momentumFactory(sweepParam, tf, fixed)
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion", stratName)
+		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum", stratName)
+	}
+}
+
+func smaFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
+	switch sweepParam {
+	case "fast-period":
+		return func(v float64) (strategy.Strategy, error) {
+			return smacrossover.New(tf, int(math.Round(v)), fixed.slowPeriod)
+		}, nil
+	case "slow-period":
+		return func(v float64) (strategy.Strategy, error) {
+			return smacrossover.New(tf, fixed.fastPeriod, int(math.Round(v)))
+		}, nil
+	default:
+		return nil, fmt.Errorf("sma-crossover does not support sweep-param %q; use fast-period or slow-period", sweepParam)
+	}
+}
+
+func rsiFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
+	switch sweepParam {
+	case "rsi-period":
+		return func(v float64) (strategy.Strategy, error) {
+			return rsimeanrev.New(tf, int(math.Round(v)), fixed.oversold, fixed.overbought)
+		}, nil
+	case "oversold":
+		// Symmetric convention: overbought = 100 − oversold.
+		return func(v float64) (strategy.Strategy, error) {
+			return rsimeanrev.New(tf, fixed.rsiPeriod, v, 100-v)
+		}, nil
+	default:
+		return nil, fmt.Errorf("rsi-mean-reversion does not support sweep-param %q; use rsi-period or oversold", sweepParam)
+	}
+}
+
+func donchianFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
+	switch sweepParam {
+	case "donchian-period":
+		return func(v float64) (strategy.Strategy, error) {
+			return donchian.New(tf, int(math.Round(v)))
+		}, nil
+	default:
+		return nil, fmt.Errorf("donchian-breakout does not support sweep-param %q; use donchian-period", sweepParam)
 	}
 }
 
@@ -275,5 +291,20 @@ func bollingerFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams)
 		}, nil
 	default:
 		return nil, fmt.Errorf("bollinger-mean-reversion does not support sweep-param %q; use bb-period or bb-num-std-dev", sweepParam)
+	}
+}
+
+func momentumFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
+	switch sweepParam {
+	case "momentum-lookback":
+		return func(v float64) (strategy.Strategy, error) {
+			return momentum.New(tf, int(math.Round(v)), fixed.momentumThreshold)
+		}, nil
+	case "momentum-threshold":
+		return func(v float64) (strategy.Strategy, error) {
+			return momentum.New(tf, fixed.momentumLookback, v)
+		}, nil
+	default:
+		return nil, fmt.Errorf("momentum does not support sweep-param %q; use momentum-lookback or momentum-threshold", sweepParam)
 	}
 }

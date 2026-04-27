@@ -150,3 +150,11 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-25 | TASK-0039 | reprioritized | moved from position 2 to position 6 in Up Next (after TASK-0043); not on critical path for evaluation pipeline — strategies 0040-0043 unblock TASK-0050 and must be picked up first |
 | 2026-04-25 12:28 | TASK-0040 | status → done | all criteria met, quality gate PASS | |
 | 2026-04-27 | TASK-0042 | status → done | all 9 criteria met; strategies/bollinger/ + CLI wiring in all three CLIs; tests first (TDD) | |
+| 2026-04-27 | TASK-0043 | status → done | all 8 criteria met; strategies/momentum/ + CLI wiring in all three CLIs; cmd/sweep factoryRegistry refactored into per-strategy helpers to satisfy cyclop limit | archived to 2026-04.md |
+| 2026-04-27 | TASK-0050 | status → todo (unblocked) | TASK-0043 complete — all 6 strategies implemented; moved from Blocked to Up Next | |
+| 2026-04-27 | TASK-0058 | created | priority: medium, source: discovery | cmd/rsi-diagnostic/main.go cyclop complexity 17 > 15; pre-existing, surfaced during TASK-0043 build |
+| 2026-04-27 | TASK-0039 | status → done | all 7 criteria met; pkg/strategy/timed_exit.go + timed_exit_test.go; 8 tests pass, quality gate PASS | archived to 2026-04.md |
+| 2026-04-27 | TASK-0059 | created | priority: medium, source: session | walk-forward Run() factory API for stateful wrappers; triggered by TimedExit statefulness (TASK-0039) |
+| 2026-04-27 | TASK-0047 | status → done | all 5 criteria met; CommissionZerodhaFullMIS + calcZerodhaFullMISCommission + portfolio switch case; 5 golden tests pass, quality gate PASS | archived to 2026-04.md |
+| 2026-04-27 | TASK-0049 | status → todo (unblocked) | TASK-0047 done — MIS commission model complete; moved from Blocked to Up Next | |
+| 2026-04-27 | TASK-0060 | created | priority: medium, source: discovery | --commission CLI flag for cmd/backtest, cmd/sweep, cmd/universe-sweep; discovered during TASK-0047 harvest (CLIs hardcode CommissionZerodha) |

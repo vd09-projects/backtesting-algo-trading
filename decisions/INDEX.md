@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-27-mis-stt-constant-placement-commission-go
+    title: "MIS STT rate co-located with CNC STT rate in commission.go constant block"
+    date: 2026-04-27
+    status: experimental
+    category: architecture
+    tags: [commission, MIS, STT, constants, commission.go, TASK-0047]
+    path: architecture/2026-04-27-mis-stt-constant-placement-commission-go.md
+    summary: "nseMISSTTRate placed alongside nseSTTRate in the same const block, grouped by charge type (not model variant). Makes CNC vs MIS STT comparison trivial; consistent with the established pattern of grouping NSE statutory rates by charge category."
+
+  - id: 2026-04-27-timed-exit-statefulness-pkg-strategy
+    title: "TimedExit statefulness — first stateful wrapper in pkg/strategy, not concurrent-safe"
+    date: 2026-04-27
+    status: experimental
+    category: convention
+    tags: [pkg/strategy, TimedExit, statefulness, concurrency, walk-forward, TASK-0039, TASK-0059]
+    path: convention/2026-04-27-timed-exit-statefulness-pkg-strategy.md
+    summary: "TimedExit tracks entryBar and inPosition between Next() calls — the first stateful Strategy in pkg/strategy. A single instance must not be shared across concurrent walk-forward folds; TASK-0059 tracks the factory API change to internal/walkforward that enforces this automatically."
+
+  - id: 2026-04-27-momentum-signal-level-comparison-not-crossover
+    title: "Momentum strategy signal semantics: level-comparison, not crossover"
+    date: 2026-04-27
+    status: experimental
+    category: convention
+    tags: [momentum, signal-semantics, level-comparison, crossover, roc, TASK-0043]
+    path: convention/2026-04-27-momentum-signal-level-comparison-not-crossover.md
+    summary: "ROC threshold comparison is a single-indicator state assertion, not a line-crossing event. Level-comparison (Buy every bar where ROC > threshold) is semantically correct; strict crossover would add tracking state without adding meaning. Under no-pyramiding, practical behaviour is identical."
+
   - id: 2026-04-26-workflow-gate-pre-tool-use-hook
     title: "Workflow gate: PreToolUse hook blocks production Go writes when session-state absent"
     date: 2026-04-26

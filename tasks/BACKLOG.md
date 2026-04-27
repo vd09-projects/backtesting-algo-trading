@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-27 | **Open tasks:** 18 | **Next up:** TASK-0043
+**Last updated:** 2026-04-27 | **Open tasks:** 18 | **Next up:** TASK-0049
 
 ---
 
@@ -16,59 +16,22 @@ _No tasks in progress._
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0043] Strategy — 12-Month Rate-of-Change Momentum
+### [TASK-0049] Evaluation — pre-commit gate definitions before any backtest runs
 
 - **Status:** todo
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Context:** New strategy family. The classic academic equity momentum factor (Jegadeesh & Titman 1993). Edge thesis: institutional herding — stocks that outperformed in the past 11 months continue to outperform for another month on average. The "skip last month" convention avoids short-term reversal contamination and is the standard AQR/academic implementation.
+- **Context:** Every acceptance gate for the evaluation pipeline must be written and committed before any strategy result is seen. Gates set after seeing results are post-hoc rationalization, not gates. This task produces six decision documents in `decisions/algorithm/`, all dated before any Stage 3+ run begins.
 - **Acceptance criteria:**
-  - [ ] `strategies/momentum/` package implementing `pkg/strategy.Strategy`
-  - [ ] Parameters: `lookback int` (231 = 252 − 21 bars, skip-last-month convention), `threshold float64` (10.0, representing 10%), `timeframe model.Timeframe`
-  - [ ] Uses `talib.Roc(closes, lookback)`
-  - [ ] Buy signal: `ROC(lookback) > threshold`
-  - [ ] Sell signal: `ROC(lookback) < -threshold`
-  - [ ] `Lookback()` returns `lookback + 1`
-  - [ ] Registered in all three CLIs; sweep param: `momentum-lookback`, `momentum-threshold`
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** The 231-bar lookback (not 252) is an algorithm decision pre-committed by Marcus in this session. The skip-last-month convention is the Jegadeesh-Titman standard — produces a cleaner momentum signal than raw 12-month return. Symmetric threshold for buy/sell keeps the strategy balanced.
-
----
-
-### [TASK-0039] Strategy — time-based exit wrapper (`pkg/strategy.TimedExit`)
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** All current strategies hold until a reversal signal fires, which can mean months. For 1-7 day hold strategies, the engine needs a way to force-close after N bars regardless of the inner strategy's signal. A wrapper in `pkg/strategy` achieves this without any engine changes.
-- **Acceptance criteria:**
-  - [ ] `TimedExit` struct in `pkg/strategy/` implements the `Strategy` interface
-  - [ ] Constructor: `NewTimedExit(inner Strategy, maxHoldBars int) Strategy`
-  - [ ] `Name()` returns `"timed-exit(" + inner.Name() + ")"`
-  - [ ] `Lookback()` returns `inner.Lookback()`
-  - [ ] `Timeframe()` returns `inner.Timeframe()`
-  - [ ] `Next()`: if inner strategy emits `SignalBuy`, record entry bar index; if `barsSinceEntry >= maxHoldBars` and in position, emit `SignalSell` regardless of inner signal; inner `SignalSell` honored before timer fires
-  - [ ] Tests written before implementation: (a) inner sell fires before timer — timer resets; (b) timer fires before inner sell; (c) exact boundary — sell fires at bar maxHoldBars, not maxHoldBars-1 or maxHoldBars+1; (d) no position held during warmup
-- **Notes:** No engine changes. Composable with all existing and new strategies. Not on the critical path for the Phase 1 evaluation pipeline — reordered after TASK-0040–0043 so the four strategy builds (which unblock TASK-0050) are picked up first.
-
----
-
-### [TASK-0047] Engine — MIS (intraday) commission model
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Intraday (MIS) orders have a different STT structure than delivery (CNC): 0.025% on sell leg only vs 0.10% on both legs. Without this, intraday backtests overstate costs by ~₹60 per round-trip on a ₹30K trade. Unblocked by TASK-0038 (done 2026-04-25).
-- **Acceptance criteria:**
-  - [x] TASK-0038 is done
-  - [ ] New `CommissionModel` constant `CommissionZerodhaFullMIS` added to `pkg/model/order.go`
-  - [ ] `calcCosts` switch: new case applies STT 0.025% on sell leg only; all other charges same as `CommissionZerodhaFull`
-  - [ ] Round-trip cost on ₹30K intraday trade equals ~₹55-60 (hand-verified in test)
-  - [ ] Golden test: known notional → exact expected per-leg cost for MIS
-  - [ ] Tests written before implementation (TDD)
+  - [ ] Decision record: universe gate — DSR-corrected average Sharpe > 0 AND ≥ 40% of instruments show positive Sharpe with ≥ 30 trades
+  - [ ] Decision record: walk-forward gate — OverfitFlag = false AND NegativeFoldFlag = false (both required, not either)
+  - [ ] Decision record: bootstrap gate — SharpeP5 > 0 AND P(Sharpe > 0) > 80%
+  - [ ] Decision record: regime gate — no single regime accounts for more than 70% of full-period Sharpe
+  - [ ] Decision record: correlation gate — full-period r < 0.7 AND stress-period r < 0.6 between any two portfolio strategies
+  - [ ] Decision record: kill-switch gate — thresholds derived from bootstrap p5 Sharpe (not round numbers), documented before live capital
+  - [ ] All six decision files in `decisions/algorithm/` dated before any Stage 3+ run begins
+- **Notes:** Unblocked 2026-04-27 by TASK-0047 (MIS commission model done). Marcus superseded the single-instrument proliferation gate (2026-04-10) in session 2026-04-25. The new cross-instrument gate formally replaces it and must be recorded here. Owner: Marcus (algo-trading-veteran).
 
 ---
 
@@ -108,46 +71,25 @@ _No tasks in progress._
 
 ---
 
-## Blocked
-
-<!-- Waiting on something. Each task must state what it's blocked by. -->
-
-### [TASK-0049] Evaluation — pre-commit gate definitions before any backtest runs
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** TASK-0047 (MIS commission model) — cost model family should be complete before cost-adjusted Sharpe gates are committed. TASK-0038 done 2026-04-25.
-- **Context:** Every acceptance gate for the evaluation pipeline must be written and committed before any strategy result is seen. Gates set after seeing results are post-hoc rationalization, not gates. This task produces six decision documents in `decisions/algorithm/`, all dated before any Stage 3+ run begins.
-- **Acceptance criteria:**
-  - [ ] Decision record: universe gate — DSR-corrected average Sharpe > 0 AND ≥ 40% of instruments show positive Sharpe with ≥ 30 trades
-  - [ ] Decision record: walk-forward gate — OverfitFlag = false AND NegativeFoldFlag = false (both required, not either)
-  - [ ] Decision record: bootstrap gate — SharpeP5 > 0 AND P(Sharpe > 0) > 80%
-  - [ ] Decision record: regime gate — no single regime accounts for more than 70% of full-period Sharpe
-  - [ ] Decision record: correlation gate — full-period r < 0.7 AND stress-period r < 0.6 between any two portfolio strategies
-  - [ ] Decision record: kill-switch gate — thresholds derived from bootstrap p5 Sharpe (not round numbers), documented before live capital
-  - [ ] All six decision files in `decisions/algorithm/` dated before any Stage 3+ run begins
-- **Notes:** Marcus superseded the single-instrument proliferation gate (2026-04-10) in this session (2026-04-25). The new cross-instrument gate formally replaces it and must be recorded here. Owner: Marcus (algo-trading-veteran).
-
----
-
 ### [TASK-0050] Evaluation — signal frequency audit (all 6 strategies × 15 instruments)
 
-- **Status:** blocked
+- **Status:** todo
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Blocked by:** TASK-0043 (TASK-0040, 0041, 0042 done; last remaining strategy before this can run)
 - **Context:** Before running any full backtest, audit how many trades each strategy generates per instrument in the 2018-2023 window with default parameters. Any combination producing < 30 trades is excluded from further analysis on that instrument. The 2026-04-19 RSI diagnostic showed this problem is real — scaling it to 6 strategies × 15 instruments prevents wasted analysis runs downstream.
 - **Acceptance criteria:**
   - [ ] Run signal frequency diagnostic for each strategy on all 15 instruments in `universes/nifty50-large-cap.yaml` over 2018-01-01 to 2024-01-01
   - [ ] Produce and save matrix: strategy × instrument → trade count to `runs/signal-frequency-audit-YYYY-MM-DD.csv`
   - [ ] Flag any cell with < 30 trades as EXCLUDED
   - [ ] If any strategy fires < 30 trades across the ENTIRE 15-instrument universe combined, kill that strategy before any full backtest runs
-- **Notes:** Not optional. Skipping this step means discovering insufficient trades after running the full validation pipeline, which wastes significant compute and analysis time. Owner: Marcus (algo-trading-veteran).
+- **Notes:** Not optional. Skipping this step means discovering insufficient trades after running the full validation pipeline, which wastes significant compute and analysis time. Owner: Marcus (algo-trading-veteran). Unblocked 2026-04-27: TASK-0043 (momentum strategy) is now done — all 6 strategies implemented.
 
 ---
+
+## Blocked
+
+<!-- Waiting on something. Each task must state what it's blocked by. -->
 
 ### [TASK-0051] Evaluation — in-sample baseline and parameter sensitivity (all 6 strategies, RELIANCE, 2018-2023)
 
@@ -337,6 +279,56 @@ _No tasks in progress._
   - [ ] Paste the `Per-trade Sharpe p5` value from each run into the respective decision file, replacing `PENDING`
   - [ ] Update decision file status from `accepted` (PENDING) to reflect actual values
 - **Notes:** Both strategies failed the proliferation gate — these thresholds are reference values, not live deployment approval. With only 7 and 22 trades respectively, the p5 Sharpe will have wide confidence intervals. Document that caveat alongside the values.
+
+---
+
+### [TASK-0060] Tooling — `--commission` flag for `cmd/backtest`, `cmd/sweep`, `cmd/universe-sweep`
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-04-27
+- **Source:** discovery
+- **Context:** `CommissionZerodhaFull` and `CommissionZerodhaFullMIS` exist in `pkg/model/order.go` but the CLI binaries hardcode `CommissionZerodha` (brokerage-only). Running intraday backtests with the correct MIS cost model requires code changes, not just a flag. A `--commission` flag accepting the string value of `CommissionModel` would expose all models without hard-coding.
+- **Acceptance criteria:**
+  - [ ] `--commission` flag added to `cmd/backtest`, `cmd/sweep`, `cmd/universe-sweep`; accepted values: `zerodha` (default, preserves existing behavior), `zerodha_full`, `zerodha_full_mis`, `flat`, `percentage`
+  - [ ] Flag wired into `model.OrderConfig.CommissionModel` for each binary
+  - [ ] Invalid value returns a clear error at startup, not a silent fallback
+  - [ ] Help text documents the accepted values and their cost structures
+  - [ ] At least one integration test: `cmd/backtest` with `--commission zerodha_full_mis` produces a different (lower) total commission than `--commission zerodha_full` on the same synthetic candle series
+- **Notes:** Discovered during TASK-0047 harvest — `CommissionZerodhaFullMIS` is only accessible via Go code today. Medium priority: Phase 1 evaluation uses daily-bar CNC strategies, so `CommissionZerodhaFull` is the correct model and does not need this flag. Required before any MIS intraday backtest run (Phase 2+).
+
+---
+
+### [TASK-0058] Tooling — fix cyclomatic complexity in `cmd/rsi-diagnostic/main.go`
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-04-27
+- **Source:** discovery
+- **Context:** `cmd/rsi-diagnostic/main.go` `main()` function has cyclomatic complexity 17, exceeding the project's golangci-lint cyclop limit of 15. Discovered during TASK-0043 build session — the file was pre-existing, not introduced by TASK-0043. The fix pattern is established: extract strategy-dispatch and parameter-parsing logic into named helper functions, matching the refactor applied to `cmd/sweep/main.go` in TASK-0043 (smaFactory, rsiFactory, donchianFactory extraction).
+- **Acceptance criteria:**
+  - [ ] `golangci-lint run ./cmd/rsi-diagnostic/...` reports 0 issues
+  - [ ] `go1.25.0 test -race ./...` still passes
+  - [ ] No behavioral changes — refactor only
+- **Notes:** The same cyclop issue does NOT exist in cmd/backtest or cmd/sweep after TASK-0043 refactored sweep's factoryRegistry. rsi-diagnostic is the only remaining offender.
+
+---
+
+### [TASK-0059] Engine — walk-forward `Run()` factory API for stateful strategy wrappers
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-04-27
+- **Source:** session
+- **Context:** `TimedExit` (added in TASK-0039) is the first stateful `Strategy` implementation — it tracks `entryBar` and `inPosition` between `Next()` calls. The walk-forward harness (`internal/walkforward`) currently accepts a single `strategy.Strategy` instance, documented as safe only when the strategy is stateless. Using `TimedExit` with walk-forward today would silently produce corrupted results across fold boundaries because the shared state is never reset between folds.
+- **Acceptance criteria:**
+  - [ ] `internal/walkforward.Run()` signature changed to accept `factory func() strategy.Strategy` instead of a single `strategy.Strategy` instance
+  - [ ] Each fold constructs a fresh strategy instance via `factory()` — no shared state across folds
+  - [ ] Existing callers updated: stateless strategies pass `func() strategy.Strategy { return myStrategy }` closures
+  - [ ] All 17 existing walk-forward tests still pass with race detector
+  - [ ] New test: `TimedExit`-wrapped strategy used in walk-forward — verify fold 2 starts with clean position state
+  - [ ] Godoc on `Run()` updated to remove the concurrent-safety caveat (factory eliminates the concern)
+- **Notes:** Triggered by `2026-04-27-timed-exit-statefulness-pkg-strategy` decision. The `decisions/tradeoff/2026-04-22-walkforward-strategy-single-instance.md` revisit trigger fires here: "If stateful strategies are added, the signature changes to `func() strategy.Strategy`." This is that moment. Breaking API change — scan all callers in `cmd/` before implementing.
 
 ---
 

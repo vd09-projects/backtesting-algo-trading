@@ -75,6 +75,8 @@ func (p *Portfolio) calcCommission(tradeValue float64, isBuy bool) float64 {
 		return c
 	case model.CommissionZerodhaFull:
 		return calcZerodhaFullCommission(tradeValue, isBuy)
+	case model.CommissionZerodhaFullMIS:
+		return calcZerodhaFullMISCommission(tradeValue, isBuy)
 	default:
 		return 0
 	}

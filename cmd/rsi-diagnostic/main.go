@@ -24,7 +24,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"math"
 	"net/http"
 	"os"
 	"time"
@@ -97,20 +96,7 @@ func main() {
 	}
 
 	rsiVals := talib.Rsi(closes, *rsiPeriod)
-
-	var oversoldBars, overboughtBars int
-	// talib.Rsi fills the first rsiPeriod entries with NaN; start after them.
-	for i := *rsiPeriod; i < len(rsiVals); i++ {
-		v := rsiVals[i]
-		if math.IsNaN(v) {
-			continue
-		}
-		if v < *oversold {
-			oversoldBars++
-		} else if v > *overbought {
-			overboughtBars++
-		}
-	}
+	oversoldBars, overboughtBars := countRSISignals(rsiVals, *rsiPeriod, *oversold, *overbought)
 	totalSignals := oversoldBars + overboughtBars
 	validBars := len(rsiVals) - *rsiPeriod
 
@@ -143,6 +129,23 @@ func main() {
 		fmt.Println("Thresholds are breached sufficiently. Investigate entry suppression")
 		fmt.Println("(e.g. vol-targeting zeroing position size during high-volatility events).")
 	}
+}
+
+// countRSISignals counts oversold and overbought bars in rsiVals[start:].
+// talib.Rsi fills the first period entries with NaN; callers pass start=period.
+func countRSISignals(rsiVals []float64, start int, oversold, overbought float64) (oversoldBars, overboughtBars int) {
+	for i := start; i < len(rsiVals); i++ {
+		v := rsiVals[i]
+		if v != v { // NaN check without importing math
+			continue
+		}
+		if v < oversold {
+			oversoldBars++
+		} else if v > overbought {
+			overboughtBars++
+		}
+	}
+	return
 }
 
 func buildProvider(ctx context.Context) (*cache.CachedProvider, error) {

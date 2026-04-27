@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -674,5 +675,145 @@ func TestWrite_RegimeSplits_OmittedWhenEmpty(t *testing.T) {
 	}
 	if strings.Contains(buf.String(), "Regime Split") {
 		t.Errorf("expected no regime section when RegimeSplits is nil:\n%s", buf.String())
+	}
+}
+
+// --- WriteCorrelationMatrix tests ---
+
+func TestWriteCorrelationMatrix_BasicValues(t *testing.T) {
+	m := analytics.CorrelationMatrix{
+		Pairs: []analytics.PairCorrelation{
+			{NameA: "sma", NameB: "donchian", FullPeriod: 0.4321, Crash2020: 0.5678, Correction2022: 0.2345},
+			{NameA: "macd", NameB: "bollinger", FullPeriod: -0.1234, Crash2020: 0.3210, Correction2022: -0.0987},
+		},
+	}
+	var buf bytes.Buffer
+	if err := output.WriteCorrelationMatrix(&buf, m); err != nil {
+		t.Fatalf("WriteCorrelationMatrix: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"Strategy Correlation Matrix", "Strategy A", "Strategy B",
+		"Full-Period", "2020-Crash", "2022-Corr",
+		"sma", "donchian", "0.4321",
+		"macd", "bollinger", "-0.1234",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWriteCorrelationMatrix_NaN(t *testing.T) {
+	m := analytics.CorrelationMatrix{
+		Pairs: []analytics.PairCorrelation{
+			{NameA: "a", NameB: "b", FullPeriod: math.NaN(), Crash2020: math.NaN(), Correction2022: 0.5},
+		},
+	}
+	var buf bytes.Buffer
+	if err := output.WriteCorrelationMatrix(&buf, m); err != nil {
+		t.Fatalf("WriteCorrelationMatrix: %v", err)
+	}
+	if !strings.Contains(buf.String(), "n/a") {
+		t.Errorf("expected NaN to render as n/a:\n%s", buf.String())
+	}
+}
+
+func TestWriteCorrelationMatrix_TooCorrelated(t *testing.T) {
+	m := analytics.CorrelationMatrix{
+		Pairs: []analytics.PairCorrelation{
+			{NameA: "sma", NameB: "ema", FullPeriod: 0.85, Crash2020: 0.90, Correction2022: 0.88, TooCorrelated: true},
+		},
+	}
+	var buf bytes.Buffer
+	if err := output.WriteCorrelationMatrix(&buf, m); err != nil {
+		t.Fatalf("WriteCorrelationMatrix: %v", err)
+	}
+	if !strings.Contains(buf.String(), "too correlated") {
+		t.Errorf("expected TooCorrelated warning note in output:\n%s", buf.String())
+	}
+}
+
+func TestWriteCorrelationMatrix_WriteError_Header(t *testing.T) {
+	m := analytics.CorrelationMatrix{
+		Pairs: []analytics.PairCorrelation{{NameA: "a", NameB: "b", FullPeriod: 0.5}},
+	}
+	if err := output.WriteCorrelationMatrix(&failWriter{}, m); err == nil {
+		t.Error("expected error when writer fails, got nil")
+	}
+}
+
+func TestWriteCorrelationMatrix_WriteError_Row(t *testing.T) {
+	m := analytics.CorrelationMatrix{
+		Pairs: []analytics.PairCorrelation{{NameA: "a", NameB: "b", FullPeriod: 0.5}},
+	}
+	if err := output.WriteCorrelationMatrix(&failAfterFirstWriter{}, m); err == nil {
+		t.Error("expected error when row write fails, got nil")
+	}
+}
+
+// --- WriteSweep DSR section ---
+
+func TestWriteSweep_DSRSection(t *testing.T) {
+	report := sweep.Report{
+		ParameterName: "period",
+		Results: []sweep.Result{
+			{ParamValue: 14, SharpeRatio: 1.5, TotalPnL: 5000, TradeCount: 20, MaxDrawdown: 8.5},
+			{ParamValue: 12, SharpeRatio: 1.2, TotalPnL: 4200, TradeCount: 22, MaxDrawdown: 9.1},
+		},
+		VariantCount:  5,
+		NObservations: 252,
+	}
+	var buf bytes.Buffer
+	if err := output.WriteSweep(&buf, report); err != nil {
+		t.Fatalf("WriteSweep: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{"DSR", "variants", "obs"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("DSR section missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// --- Bootstrap write-error paths ---
+
+// failAfterNWriter fails after exactly N successful writes.
+type failAfterNWriter struct {
+	n   int
+	saw int
+}
+
+func (f *failAfterNWriter) Write(p []byte) (int, error) {
+	if f.saw >= f.n {
+		return 0, errors.New("write failed")
+	}
+	f.saw++
+	return len(p), nil
+}
+
+func TestWrite_Bootstrap_WriteError(t *testing.T) {
+	tests := []struct {
+		name       string
+		failAfterN int // number of writes that succeed before failure
+	}{
+		{"header_fails", 2},   // summary + (bootstrap header fails)
+		{"sharpe_fails", 3},   // summary + bootstrap header + (sharpe line fails)
+		{"drawdown_fails", 4}, // summary + header + sharpe + (drawdown line fails)
+	}
+	result := &montecarlo.BootstrapResult{ProbPositiveSharpe: 0.7}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := output.Config{
+				PrintToStdout:  true,
+				Stdout:         &failAfterNWriter{n: tt.failAfterN},
+				Bootstrap:      result,
+				BootstrapSeed:  1,
+				BootstrapNSims: 1000,
+			}
+			if err := output.Write(analytics.Report{}, cfg); err == nil {
+				t.Errorf("failAfterN=%d: expected error, got nil", tt.failAfterN)
+			}
+		})
 	}
 }

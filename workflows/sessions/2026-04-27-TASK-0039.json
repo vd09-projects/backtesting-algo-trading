@@ -1,0 +1,60 @@
+{
+  "session_date": "2026-04-27",
+  "workflow": "build",
+  "task_id": "TASK-0039",
+  "task_title": "Strategy — time-based exit wrapper (pkg/strategy.TimedExit)",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/convention/2026-04-09-no-type-name-stutter-project-wide.md",
+        "decisions/convention/2026-04-08-godoc-required-on-exported-types.md",
+        "decisions/convention/2026-04-09-error-wrapping-required-at-every-call-site.md",
+        "decisions/convention/2026-04-07-hold-signal-not-passed-to-portfolio.md",
+        "decisions/tradeoff/2026-04-03-no-pyramiding-v1.md",
+        "decisions/architecture/2026-04-02-strategy-lookback-as-interface-method.md",
+        "decisions/algorithm/2026-04-13-sma-lookback-returns-slow-period-with-guard.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-13-sma-crossover-strict-crossover-vs-level-comparison.md",
+        "decisions/convention/2026-04-27-momentum-signal-level-comparison-not-crossover.md",
+        "decisions/tradeoff/2026-04-22-walkforward-strategy-single-instance.md",
+        "decisions/infrastructure/2026-04-26-workflow-gate-pre-tool-use-hook.md"
+      ]
+    },
+    "marcus": {
+      "summary": "not applicable — step skipped."
+    },
+    "priya_plan": {
+      "plan_summary": "Create pkg/strategy/timed_exit.go and pkg/strategy/timed_exit_test.go. TimedExit is a stateful decorator in the pkg/strategy package.",
+      "files_to_create": ["pkg/strategy/timed_exit_test.go", "pkg/strategy/timed_exit.go"],
+      "files_to_modify": [],
+      "approach": "Stateful decorator with entryBar and inPosition fields."
+    },
+    "build": {
+      "quality_gate": "PASS",
+      "files_modified": [
+        "pkg/strategy/timed_exit_test.go",
+        "pkg/strategy/timed_exit.go"
+      ],
+      "test_summary": "8 tests pass, race detector clean; 0 lint issues",
+      "lint_summary": "0 issues in pkg/strategy"
+    },
+    "session_end": {
+      "tasks_created": ["TASK-0059 — Engine — walk-forward Run() factory API for stateful strategy wrappers"],
+      "decisions_written": ["decisions/convention/2026-04-27-timed-exit-statefulness-pkg-strategy.md"]
+    }
+  },
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0039 \"Strategy — time-based exit wrapper (pkg/strategy.TimedExit)\" picked from Up Next.",
+    "[AUTO] Step 2 — Decision lookup: 7 standing orders, 4 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (task is a pure structural wrapper with fully specified signal semantics in the acceptance criteria; no fill model, sizing, or evaluation methodology involved).",
+    "[AUTO] Step 4 — Plan: complete. Approach: Create pkg/strategy/timed_exit_test.go (tests first, TDD) then pkg/strategy/timed_exit.go — stateful decorator wrapping any Strategy, forcing sell after maxHoldBars bars without any CLI or engine changes.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: pkg/strategy/timed_exit_test.go, pkg/strategy/timed_exit.go.",
+    "[DECISION] Priya [convention]: TimedExit statefulness — first stateful wrapper in pkg/strategy, not safe for concurrent fold use.",
+    "[AUTO] Step 6 — Verify: all 7 criteria met. Session-end: 1 decision harvested, 1 task created (TASK-0059).",
+    "[CLOSED] TASK-0039 done. All criteria met. Archived."
+  ],
+  "decision_marks_pending": [],
+  "hard_stop_active": null
+}

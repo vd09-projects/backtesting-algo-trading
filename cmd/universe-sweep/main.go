@@ -39,6 +39,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/momentum"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 )
@@ -65,6 +66,8 @@ func main() {
 	macdSignalPeriod := flag.Int("macd-signal-period", 9, "macd-crossover: signal EMA period")
 	bbPeriod := flag.Int("bb-period", 20, "bollinger-mean-reversion: Bollinger Band period")
 	bbNumStdDev := flag.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: number of standard deviations")
+	momentumLookback := flag.Int("momentum-lookback", 231, "momentum: ROC lookback period (default 231 = 252-21, skip-last-month convention)")
+	momentumThreshold := flag.Float64("momentum-threshold", 10.0, "momentum: ROC threshold in percent (buy above, sell below negative)")
 
 	flag.Parse()
 
@@ -107,17 +110,19 @@ func main() {
 	}
 
 	selectedStrategy, err := strategyRegistry(*stratName, tf, &strategyParams{
-		fastPeriod:       *fastPeriod,
-		slowPeriod:       *slowPeriod,
-		rsiPeriod:        *rsiPeriod,
-		oversold:         *oversold,
-		overbought:       *overbought,
-		donchianPeriod:   *donchianPeriod,
-		macdFastPeriod:   *macdFastPeriod,
-		macdSlowPeriod:   *macdSlowPeriod,
-		macdSignalPeriod: *macdSignalPeriod,
-		bbPeriod:         *bbPeriod,
-		bbNumStdDev:      *bbNumStdDev,
+		fastPeriod:        *fastPeriod,
+		slowPeriod:        *slowPeriod,
+		rsiPeriod:         *rsiPeriod,
+		oversold:          *oversold,
+		overbought:        *overbought,
+		donchianPeriod:    *donchianPeriod,
+		macdFastPeriod:    *macdFastPeriod,
+		macdSlowPeriod:    *macdSlowPeriod,
+		macdSignalPeriod:  *macdSignalPeriod,
+		bbPeriod:          *bbPeriod,
+		bbNumStdDev:       *bbNumStdDev,
+		momentumLookback:  *momentumLookback,
+		momentumThreshold: *momentumThreshold,
 	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
@@ -162,17 +167,19 @@ func main() {
 }
 
 type strategyParams struct {
-	fastPeriod       int
-	slowPeriod       int
-	rsiPeriod        int
-	oversold         float64
-	overbought       float64
-	donchianPeriod   int
-	macdFastPeriod   int
-	macdSlowPeriod   int
-	macdSignalPeriod int
-	bbPeriod         int
-	bbNumStdDev      float64
+	fastPeriod        int
+	slowPeriod        int
+	rsiPeriod         int
+	oversold          float64
+	overbought        float64
+	donchianPeriod    int
+	macdFastPeriod    int
+	macdSlowPeriod    int
+	macdSignalPeriod  int
+	bbPeriod          int
+	bbNumStdDev       float64
+	momentumLookback  int
+	momentumThreshold float64
 }
 
 func strategyRegistry(name string, tf model.Timeframe, p *strategyParams) (strategy.Strategy, error) {
@@ -187,7 +194,9 @@ func strategyRegistry(name string, tf model.Timeframe, p *strategyParams) (strat
 		return macd.New(tf, p.macdFastPeriod, p.macdSlowPeriod, p.macdSignalPeriod)
 	case "bollinger-mean-reversion":
 		return bollinger.New(tf, p.bbPeriod, p.bbNumStdDev)
+	case "momentum":
+		return momentum.New(tf, p.momentumLookback, p.momentumThreshold)
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion", name)
+		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum", name)
 	}
 }

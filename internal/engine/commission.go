@@ -1,22 +1,26 @@
 package engine
 
-// NSE CNC (delivery) statutory charge rates.
-// Sources: Zerodha support → "Charges and taxes for equity delivery"
+// NSE statutory charge rates.
+// Sources: Zerodha support → "Charges and taxes for equity delivery/intraday"
 // and SEBI circular SEBI/HO/MRD2/DCAP/CIR/P/2019/67 for exchange charges.
 // All rates are fractions (not percentages) unless noted.
 const (
 	// nseZerodhaBrokerageRate is 0.03% of trade value.
-	// Zerodha equity delivery brokerage: min(rate×notional, ₹20) per order.
+	// Zerodha equity brokerage: min(rate×notional, ₹20) per order.
 	nseZerodhaBrokerageRate = 0.0003
 
 	// nseZerodhaBrokerageCap is the maximum per-order brokerage Zerodha charges.
 	nseZerodhaBrokerageCap = 20.0
 
-	// nseSTTRate is Securities Transaction Tax for equity delivery.
+	// nseSTTRate is Securities Transaction Tax for equity delivery (CNC).
 	// 0.10% on both buy and sell legs.
 	nseSTTRate = 0.001
 
-	// nseExchangeChargesRate is the NSE transaction charge for equity delivery.
+	// nseMISSTTRate is Securities Transaction Tax for equity intraday (MIS).
+	// 0.025% on the sell leg only; zero on the buy leg.
+	nseMISSTTRate = 0.00025
+
+	// nseExchangeChargesRate is the NSE transaction charge.
 	// 0.00345% of trade value.
 	nseExchangeChargesRate = 0.0000345
 
@@ -24,7 +28,7 @@ const (
 	// 0.0001% of trade value.
 	nseSEBIChargesRate = 0.000001
 
-	// nseStampDutyRate is stamp duty on buy-side equity delivery orders.
+	// nseStampDutyRate is stamp duty on buy-side orders.
 	// 0.015% of trade value. Applies to buy leg only.
 	nseStampDutyRate = 0.00015
 
@@ -52,6 +56,46 @@ func calcZerodhaFullCommission(tradeValue float64, isBuy bool) float64 {
 	}
 
 	stt := tradeValue * nseSTTRate
+	exchangeCharges := tradeValue * nseExchangeChargesRate
+	sebi := tradeValue * nseSEBIChargesRate
+
+	var stamp float64
+	if isBuy {
+		stamp = tradeValue * nseStampDutyRate
+	}
+
+	gst := (brokerage + exchangeCharges) * nseGSTRate
+
+	return brokerage + stt + exchangeCharges + sebi + stamp + gst
+}
+
+// calcZerodhaFullMISCommission returns the full NSE MIS (intraday) cost for a single
+// leg at the given trade value (fill price × quantity).
+//
+// MIS differs from CNC only in STT: 0.025% on the sell leg only; zero on the buy leg.
+// All other charges (brokerage, exchange, SEBI, stamp duty, GST) are identical to CNC.
+//
+// Cost components:
+//
+//	brokerage      = min(0.03% × notional, ₹20)
+//	STT            = 0                                      (buy leg: exempt for MIS)
+//	STT            = 0.025% × notional                     (sell leg only)
+//	exchange       = 0.00345% × notional
+//	SEBI           = 0.0001% × notional
+//	stamp duty     = 0.015% × notional                     (buy leg only)
+//	GST            = 18% × (brokerage + exchange charges)
+func calcZerodhaFullMISCommission(tradeValue float64, isBuy bool) float64 {
+	brokerage := tradeValue * nseZerodhaBrokerageRate
+	if brokerage > nseZerodhaBrokerageCap {
+		brokerage = nseZerodhaBrokerageCap
+	}
+
+	// MIS STT: 0.025% on sell leg only; zero on buy leg.
+	var stt float64
+	if !isBuy {
+		stt = tradeValue * nseMISSTTRate
+	}
+
 	exchangeCharges := tradeValue * nseExchangeChargesRate
 	sebi := tradeValue * nseSEBIChargesRate
 

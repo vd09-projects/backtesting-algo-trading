@@ -1,0 +1,65 @@
+{
+  "session_date": "2026-04-27",
+  "workflow": "build",
+  "task_id": "TASK-0047",
+  "task_title": "Engine — MIS (intraday) commission model",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/convention/2026-04-25-nse-charge-rates-as-unexported-constants.md",
+        "decisions/convention/2026-04-25-calcommission-isbuy-bool-not-enum.md",
+        "decisions/architecture/2026-04-25-commission-logic-extracted-to-commission-go.md",
+        "decisions/convention/2026-04-25-gst-base-brokerage-plus-exchange-charges-only.md",
+        "decisions/tradeoff/2026-04-25-float64-for-commission-arithmetic.md",
+        "decisions/convention/2026-04-09-no-type-name-stutter-project-wide.md",
+        "decisions/convention/2026-04-08-godoc-required-on-exported-types.md",
+        "decisions/convention/2026-04-09-error-wrapping-required-at-every-call-site.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-25-intraday-forced-close-fill-price.md",
+        "decisions/algorithm/2026-04-25-intraday-session-detection-ist-cutoff.md",
+        "decisions/tradeoff/2026-04-25-float64-for-commission-arithmetic.md"
+      ]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Add CommissionZerodhaFullMIS to pkg/model/order.go, implement calcZerodhaFullMISCommission in internal/engine/commission.go (STT 0.025% sell-only), add switch case in portfolio.go, golden-test via TDD. Correct golden values: buy 16.3713, sell 19.3713, round-trip 35.7426.",
+      "files_to_create": ["internal/engine/commission_zerodha_mis_test.go"],
+      "files_to_modify": ["pkg/model/order.go", "internal/engine/commission.go", "internal/engine/portfolio.go"],
+      "approach": "Mirror TASK-0038 pattern with nseMISSTTRate constant, calcZerodhaFullMISCommission helper, CommissionZerodhaFullMIS constant, and switch case in portfolio.go. TDD with golden values."
+    },
+    "build": {
+      "build_summary": "Added CommissionZerodhaFullMIS to pkg/model/order.go; added nseMISSTTRate=0.00025 and calcZerodhaFullMISCommission to commission.go; wired new case in portfolio.go calcCommission switch. TDD honored. Golden values: buy 16.3713, sell 19.3713, round-trip 35.7426. gofumpt auto-fixed on order.go.",
+      "files_modified": [
+        "pkg/model/order.go",
+        "internal/engine/commission.go",
+        "internal/engine/portfolio.go",
+        "internal/engine/commission_zerodha_mis_test.go"
+      ],
+      "tests_written": [
+        "TestCalcZerodhaFullMISCommission_BuyLeg",
+        "TestCalcZerodhaFullMISCommission_SellLeg",
+        "TestCalcZerodhaFullMISCommission_RoundTrip",
+        "TestCalcZerodhaFullMISCommission_STTBuyIsZero",
+        "TestCalcZerodhaFullMISCommission_BrokerageCap"
+      ],
+      "quality_gate": "PASS",
+      "quality_findings": ["gofumpt alignment on pkg/model/order.go constant block — auto-fixed"]
+    }
+  },
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0047 \"Engine — MIS (intraday) commission model\" picked from Up Next.",
+    "[AUTO] Step 2 — Decision lookup: 8 standing orders, 3 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (prior decision applies: NSE charge rates as unexported constants).",
+    "[AUTO] Step 4 — Plan: complete. Approach: Mirror TASK-0038 pattern — nseMISSTTRate constant, calcZerodhaFullMISCommission, CommissionZerodhaFullMIS, switch case in portfolio.go; TDD with golden values 16.3713/19.3713/35.7426.",
+    "[FLAGGED] AC arithmetic discrepancy: '~55-60' round-trip band was a transposition error. Correct MIS round-trip at 30K = 35.7426. The 60 figure refers to CNC savings vs MIS cost. Golden tests use arithmetically correct values.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: pkg/model/order.go, internal/engine/commission.go, internal/engine/portfolio.go, internal/engine/commission_zerodha_mis_test.go.",
+    "[DECISION] Priya [architecture]: MIS STT constant co-located with CNC STT in commission.go — grouped by charge type, not model variant.",
+    "[AUTO] Step 6 — All 5 actionable acceptance criteria met. Task closed."
+  ],
+  "decision_marks_pending": [
+    "**Decision (MIS STT constant placement) — architecture: experimental**: nseMISSTTRate co-located with nseSTTRate in commission.go constant block, grouped by charge type not commission model variant."
+  ],
+  "hard_stop_active": null
+}
