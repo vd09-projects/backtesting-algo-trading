@@ -34,10 +34,11 @@ Log:
 [AUTO] Session end — Decision harvest: N decisions written.
 ```
 
-### Step 2 — Clear session state
+### Step 2 — Mark session state complete
 
-Delete `workflows/.session-state.json`. The session is complete; the checkpoint is no longer
-needed. If the next session starts and the file is absent, it starts fresh.
+Session files under `workflows/sessions/` are NOT deleted — they serve as a lightweight run log.
+No action needed here; the orchestrator only reads the file matching the current task ID, so
+completed session files are ignored automatically and add no token cost to future sessions.
 
 ### Step 3 — Session Summary
 
@@ -79,5 +80,5 @@ Omit any section that is empty. If no code changes were made, omit the commit se
   new tasks, both harvests will come back empty — that is fine, log them and move on.
 - If a Hard STOP fired during the session, the Summary includes the stop condition and the
   current SESSION STATE so the next session can resume from the right step.
-- The Summary is the handoff artifact. Combined with `.session-state.json` (if a Hard STOP
-  is active), it contains everything needed to restart work in a future session.
+- The Summary is the handoff artifact. Combined with the session file in `workflows/sessions/`
+  (if a Hard STOP is active), it contains everything needed to restart work in a future session.

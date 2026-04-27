@@ -1,14 +1,14 @@
 # Handoff Schemas
 
 Canonical schemas for SESSION STATE and all sub-agent responses.
-The orchestrator writes SESSION STATE to `workflows/.session-state.json` after every step.
+The orchestrator writes SESSION STATE to `workflows/sessions/{today}-{TASK-ID}.json` after every step.
 Sub-agents return structured JSON — the orchestrator reads only that JSON, nothing else.
 
 ---
 
 ## SESSION STATE
 
-Written to `workflows/.session-state.json` after every completed step.
+Written to `workflows/sessions/{today}-{TASK-ID}.json` after every completed step.
 
 ```json
 {

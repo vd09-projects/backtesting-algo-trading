@@ -149,3 +149,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-25 | TASK-0052 | blocker corrected | removed spurious TASK-0044 dependency; cmd/universe-sweep exists from TASK-0035, sweep2d not required for universe gate |
 | 2026-04-25 | TASK-0039 | reprioritized | moved from position 2 to position 6 in Up Next (after TASK-0043); not on critical path for evaluation pipeline — strategies 0040-0043 unblock TASK-0050 and must be picked up first |
 | 2026-04-25 12:28 | TASK-0040 | status → done | all criteria met, quality gate PASS | |
+| 2026-04-27 | TASK-0042 | status → done | all 9 criteria met; strategies/bollinger/ + CLI wiring in all three CLIs; tests first (TDD) | |

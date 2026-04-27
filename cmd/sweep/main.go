@@ -38,6 +38,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
@@ -66,6 +67,8 @@ func main() {
 	macdFastPeriod := flag.Int("macd-fast-period", 12, "macd-crossover: fixed fast EMA period")
 	macdSlowPeriod := flag.Int("macd-slow-period", 26, "macd-crossover: fixed slow EMA period")
 	macdSignalPeriod := flag.Int("macd-signal-period", 9, "macd-crossover: fixed signal EMA period")
+	bbPeriod := flag.Int("bb-period", 20, "bollinger-mean-reversion: fixed Bollinger Band period")
+	bbNumStdDev := flag.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: fixed number of standard deviations")
 
 	flag.Parse()
 
@@ -74,7 +77,7 @@ func main() {
 		cmdutil.Fatalf("%v", err)
 	}
 
-	factory, err := factoryRegistry(*stratName, *sweepParam, tf, fixedParams{
+	factory, err := factoryRegistry(*stratName, *sweepParam, tf, &fixedParams{
 		fastPeriod:       *fastPeriod,
 		slowPeriod:       *slowPeriod,
 		rsiPeriod:        *rsiPeriod,
@@ -84,6 +87,8 @@ func main() {
 		macdFastPeriod:   *macdFastPeriod,
 		macdSlowPeriod:   *macdSlowPeriod,
 		macdSignalPeriod: *macdSignalPeriod,
+		bbPeriod:         *bbPeriod,
+		bbNumStdDev:      *bbNumStdDev,
 	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy / --sweep-param: %v", err)
@@ -186,10 +191,12 @@ type fixedParams struct {
 	macdFastPeriod   int
 	macdSlowPeriod   int
 	macdSignalPeriod int
+	bbPeriod         int
+	bbNumStdDev      float64
 }
 
 // factoryRegistry returns a StrategyFactory for the given strategy and sweep-param combination.
-func factoryRegistry(stratName, sweepParam string, tf model.Timeframe, fixed fixedParams) (func(float64) (strategy.Strategy, error), error) {
+func factoryRegistry(stratName, sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
 	switch stratName {
 	case "sma-crossover":
 		switch sweepParam {
@@ -233,12 +240,15 @@ func factoryRegistry(stratName, sweepParam string, tf model.Timeframe, fixed fix
 	case "macd-crossover":
 		return macdFactory(sweepParam, tf, fixed)
 
+	case "bollinger-mean-reversion":
+		return bollingerFactory(sweepParam, tf, fixed)
+
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover", stratName)
+		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion", stratName)
 	}
 }
 
-func macdFactory(sweepParam string, tf model.Timeframe, fixed fixedParams) (func(float64) (strategy.Strategy, error), error) {
+func macdFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
 	switch sweepParam {
 	case "macd-fast-period":
 		return func(v float64) (strategy.Strategy, error) {
@@ -250,5 +260,20 @@ func macdFactory(sweepParam string, tf model.Timeframe, fixed fixedParams) (func
 		}, nil
 	default:
 		return nil, fmt.Errorf("macd-crossover does not support sweep-param %q; use macd-fast-period or macd-slow-period", sweepParam)
+	}
+}
+
+func bollingerFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
+	switch sweepParam {
+	case "bb-period":
+		return func(v float64) (strategy.Strategy, error) {
+			return bollinger.New(tf, int(math.Round(v)), fixed.bbNumStdDev)
+		}, nil
+	case "bb-num-std-dev":
+		return func(v float64) (strategy.Strategy, error) {
+			return bollinger.New(tf, fixed.bbPeriod, v)
+		}, nil
+	default:
+		return nil, fmt.Errorf("bollinger-mean-reversion does not support sweep-param %q; use bb-period or bb-num-std-dev", sweepParam)
 	}
 }

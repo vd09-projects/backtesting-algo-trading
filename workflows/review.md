@@ -25,7 +25,7 @@ Read `workflows/agents/decision-lookup.md`. Fill slots:
 - `{{task_context}}` — what the user shared (strategy names, timeframe, key metrics seen)
 
 Spawn sub-agent. These file paths are the ground truth Marcus will compare results against.
-Update SESSION STATE: `verdicts.decision_lookup`. Write `.session-state.json`.
+Update SESSION STATE: `verdicts.decision_lookup`. Write session file.
 
 Log:
 ```
@@ -45,7 +45,7 @@ Read `workflows/agents/marcus-precheck.md`. Fill slots:
 Also set `go_iterate_kill` per strategy in the verdict.
 
 Spawn sub-agent. Parse JSON. Update SESSION STATE: `verdicts.marcus`.
-Append any `decision_marks` to `decision_marks_pending`. Write `.session-state.json`.
+Append any `decision_marks` to `decision_marks_pending`. Write session file.
 
 Log:
 ```

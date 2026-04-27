@@ -69,6 +69,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
@@ -92,6 +93,8 @@ func main() {
 	macdFastPeriod := flag.Int("macd-fast-period", 12, "macd-crossover: fast EMA period")
 	macdSlowPeriod := flag.Int("macd-slow-period", 26, "macd-crossover: slow EMA period")
 	macdSignalPeriod := flag.Int("macd-signal-period", 9, "macd-crossover: signal EMA period")
+	bbPeriod := flag.Int("bb-period", 20, "bollinger-mean-reversion: Bollinger Band period")
+	bbNumStdDev := flag.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: number of standard deviations")
 	outPath := flag.String("out", "", "Path for JSON results export (omit to skip)")
 	curvePath := flag.String("output-curve", "", "Path for equity curve CSV export (omit to skip)")
 	sizingModel := flag.String("sizing-model", "fixed", "Position sizing model: fixed | vol-target")
@@ -130,7 +133,7 @@ func main() {
 		cmdutil.Fatalf("--timeframe %q is not valid; choose one of: 1min, 5min, 15min, daily, weekly", *tfStr)
 	}
 
-	selectedStrategy, err := strategyRegistry(*stratName, tf, strategyParams{
+	selectedStrategy, err := strategyRegistry(*stratName, tf, &strategyParams{
 		fastPeriod:       *fastPeriod,
 		slowPeriod:       *slowPeriod,
 		rsiPeriod:        *rsiPeriod,
@@ -140,6 +143,8 @@ func main() {
 		macdFastPeriod:   *macdFastPeriod,
 		macdSlowPeriod:   *macdSlowPeriod,
 		macdSignalPeriod: *macdSignalPeriod,
+		bbPeriod:         *bbPeriod,
+		bbNumStdDev:      *bbNumStdDev,
 	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
@@ -232,9 +237,11 @@ type strategyParams struct {
 	macdFastPeriod   int
 	macdSlowPeriod   int
 	macdSignalPeriod int
+	bbPeriod         int
+	bbNumStdDev      float64
 }
 
-func strategyRegistry(name string, tf model.Timeframe, p strategyParams) (strategy.Strategy, error) {
+func strategyRegistry(name string, tf model.Timeframe, p *strategyParams) (strategy.Strategy, error) {
 	switch name {
 	case "stub":
 		return stubstrategy.New(tf), nil
@@ -246,8 +253,10 @@ func strategyRegistry(name string, tf model.Timeframe, p strategyParams) (strate
 		return donchian.New(tf, p.donchianPeriod)
 	case "macd-crossover":
 		return macd.New(tf, p.macdFastPeriod, p.macdSlowPeriod, p.macdSignalPeriod)
+	case "bollinger-mean-reversion":
+		return bollinger.New(tf, p.bbPeriod, p.bbNumStdDev)
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover", name)
+		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion", name)
 	}
 }
 

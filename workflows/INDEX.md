@@ -20,25 +20,34 @@ the main context stays under 4,000 tokens regardless of how many steps run.
 4. Sub-agent does the heavy work: reads files, invokes skills, iterates
 5. Sub-agent returns ONLY a structured JSON block — see `workflows/handoffs/schema.md`
 6. Orchestrator updates SESSION STATE with the verdict
-7. Orchestrator writes SESSION STATE to `workflows/.session-state.json` (checkpoint)
+7. Orchestrator writes SESSION STATE to `workflows/sessions/{today}-{TASK-ID}.json` (checkpoint)
 
 ### SESSION STATE
 
-Maintained inline in the orchestrator's response. Written to `workflows/.session-state.json`
-after every step. Schema defined in `workflows/handoffs/schema.md`.
+Maintained inline in the orchestrator's response. Written to a uniquely named file under
+`workflows/sessions/` after every step. Schema defined in `workflows/handoffs/schema.md`.
+
+**File naming:** `workflows/sessions/{YYYY-MM-DD}-{TASK-ID}.json`
+Example: `workflows/sessions/2026-04-27-TASK-0043.json`
+
+One file per task run. Each new orchestrator start creates (or overwrites) its own file —
+no accumulation of state across sessions, no large file to read on resume.
 
 ### Resume protocol
 
 At session start, before routing to a workflow:
 
-1. Check if `workflows/.session-state.json` exists
-2. If it exists and `hard_stop_active` is null: resume from `step_completed + 1`
+1. List files in `workflows/sessions/`. Find the most recent file whose task ID matches
+   the task being started (or the most recently modified file if task is unknown).
+2. If a matching file exists and `hard_stop_active` is null: resume from `step_completed + 1`
    Log: `[AUTO] Resuming from checkpoint: TASK-NNNN, step N completed. Continuing from step N+1.`
 3. If `hard_stop_active` is set: present the stop condition to the user, wait for resolution
-4. If the file does not exist: normal session start
+4. If no matching file exists: normal session start — create a new file named
+   `workflows/sessions/{today}-{TASK-ID}.json`
 
-Clear `workflows/.session-state.json` at the end of session-end (after the Session Summary
-is produced). The file is ephemeral — it only matters during an active session.
+Session state files are NOT deleted at session end — they serve as a lightweight run log.
+The orchestrator only reads the file matching the current task ID, so old files are ignored
+automatically and never add token cost.
 
 ### Sub-agent discipline
 

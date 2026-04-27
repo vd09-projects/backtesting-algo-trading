@@ -30,7 +30,7 @@ task context and the area of the codebase the bug is in. Spawn sub-agent.
 A bug near accounting / fills / metrics often has prior decisions about correct behavior —
 those are the ground truth for what "fixed" means.
 
-Parse JSON. Update SESSION STATE: `verdicts.decision_lookup`. Write `.session-state.json`.
+Parse JSON. Update SESSION STATE: `verdicts.decision_lookup`. Write session file.
 
 Log:
 ```
@@ -56,7 +56,7 @@ in `flag`. When `flag` describes a methodology pivot, spawn a marcus-precheck su
 The sub-agent handles the quality gate loop internally (quick by default; standard if the
 fix touches `internal/engine/` or `internal/analytics/`).
 
-Parse JSON. Update SESSION STATE. Write `.session-state.json`. Update `step_completed` = 3.
+Parse JSON. Update SESSION STATE. Write session file. Update `step_completed` = 3.
 
 Log:
 ```

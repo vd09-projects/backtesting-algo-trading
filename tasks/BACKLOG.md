@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-26 | **Open tasks:** 19 | **Next up:** TASK-0042
+**Last updated:** 2026-04-27 | **Open tasks:** 18 | **Next up:** TASK-0043
 
 ---
 
@@ -15,27 +15,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0042] Strategy — Bollinger Band Mean Reversion
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Supersedes TASK-0020 (cancelled 2026-04-16 when RSI failed single-instrument proliferation gate). Bollinger is a vol-normalized mean reversion — buys when price is unusually extended below the mean, more adaptive to regime changes than fixed RSI thresholds.
-- **Acceptance criteria:**
-  - [ ] `strategies/bollinger/` package implementing `pkg/strategy.Strategy`
-  - [ ] Parameters: `period int` (20), `numStdDev float64` (2.0), `timeframe model.Timeframe`
-  - [ ] Uses `talib.Bbands(closes, period, numStdDev, numStdDev, talib.SMA)` returning upper, middle, lower
-  - [ ] Buy signal: Close crosses below lower band (was ≥ lower previous bar, is < lower current bar)
-  - [ ] Sell signal: Close crosses above upper band (was ≤ upper previous bar, is > upper current bar)
-  - [ ] Strict crossover detection — consistent with SMA and MACD strategy patterns
-  - [ ] `Lookback()` returns `period`
-  - [ ] Registered in all three CLIs; sweep params: `bb-period`, `bb-num-std-dev`
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Exit is on upper band touch (not return to middle). Positions can be held for weeks in trending markets. A "return-to-mean" exit variant is worth a separate sweep after initial validation — not in scope here.
-
----
 
 ### [TASK-0043] Strategy — 12-Month Rate-of-Change Momentum
 
@@ -159,7 +138,7 @@ _No tasks in progress._
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Blocked by:** TASK-0040, TASK-0041, TASK-0042, TASK-0043 (all four new strategies must be built before this can run; TASK-0038 done 2026-04-25)
+- **Blocked by:** TASK-0043 (TASK-0040, 0041, 0042 done; last remaining strategy before this can run)
 - **Context:** Before running any full backtest, audit how many trades each strategy generates per instrument in the 2018-2023 window with default parameters. Any combination producing < 30 trades is excluded from further analysis on that instrument. The 2026-04-19 RSI diagnostic showed this problem is real — scaling it to 6 strategies × 15 instruments prevents wasted analysis runs downstream.
 - **Acceptance criteria:**
   - [ ] Run signal frequency diagnostic for each strategy on all 15 instruments in `universes/nifty50-large-cap.yaml` over 2018-01-01 to 2024-01-01
