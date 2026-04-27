@@ -1,3 +1,4 @@
 - [Task categories triggering Marcus](feedback_marcus_triggers.md) — commission model tasks do NOT trigger Marcus; statutory rate changes are architecture not methodology
 - [AC arithmetic errors pattern](feedback_ac_arithmetic_errors.md) — cost savings figures have been transposed as cost figures in task ACs; verify band arithmetic before building
 - [Session file naming convention](project_session_files.md) — session files live in workflows/sessions/{YYYY-MM-DD}-{TASK-ID}.json; one file per task run
+- [cmd/ entrypoint pattern](project_cmd_entrypoint_pattern.md) — flags struct + factoryRegistry + parseAndValidateFlags + cmdutil.BuildProvider; reference: cmd/sweep/main.go

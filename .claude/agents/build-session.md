@@ -24,8 +24,10 @@ At startup, initialize:
     "decision_lookup": null,
     "marcus": null,
     "priya_plan": null,
-    "build": null
+    "build": null,
+    "quality_review": null
   },
+  "quality_review_round": 0,
   "execution_log": [],
   "decision_marks_pending": [],
   "hard_stop_active": null
@@ -43,6 +45,7 @@ Declare a Hard STOP (explain clearly, do not proceed) if:
 2. A genuinely new methodology question arises with no prior decision basis to resolve it.
 3. A requirements gap has two or more plausible interpretations and cannot be resolved from existing context.
 4. A build blocker remains unresolved after 2 sub-agent rounds.
+5. The quality review loop completes 3 rounds without reaching a PASS (no blockers).
 
 For Hard STOPs: state the blocker, what information is needed, and stop. Do not guess or paper over it.
 
@@ -154,6 +157,60 @@ Log:
 [DECISION] Priya [<category>]: <decision marks if any>
 [WARN] <any quality findings, with suggested follow-up task IDs>
 ```
+
+Proceed immediately to Step 5b.
+
+---
+
+## STEP 5b — Quality Review Loop (sub-agents via Agent())
+
+**You MUST call Agent() for both the review and the iterate steps. Do not run lint, tests, or read files yourself.**
+
+This loop runs after the build passes and repeats until the quality review returns no blockers or Hard STOP condition 5 triggers.
+
+### On each iteration:
+
+**5b-i. Spawn quality-review sub-agent**
+
+Call `Agent(subagent_type="go-quality-review-runner")`. Pass in the prompt:
+- `task_id` — from SESSION STATE
+- `files_modified` — from `verdicts.build.files_modified` (first round) or from the previous iterate verdict (subsequent rounds)
+
+The agent invokes the `go-quality-review` skill at standard level and returns structured JSON. Parse the JSON. Increment `quality_review_round`. Write session file.
+
+Evaluate result:
+
+| Condition | Action |
+|-----------|--------|
+| `quality_gate == "PASS"` (no blockers) | Exit loop → proceed to Step 6 |
+| `warning_count > 0` and warnings require code changes | Proceed to 5b-ii |
+| `warning_count > 0` and warnings are cosmetic only | Log as follow-up tasks, exit loop → proceed to Step 6 |
+| `blocker_count > 0` | Proceed to 5b-ii |
+| `quality_review_round >= 3` | Hard STOP (condition 5) |
+
+**Cosmetic-only warnings** are those where the fix is a comment, a rename, or a documentation addition — no logic changes. If in doubt, treat as requiring code changes and proceed to 5b-ii.
+
+**5b-ii. Spawn priya-iterate sub-agent** (only when code changes are needed)
+
+Call `Agent(subagent_type="priya-iterate")`. Pass in the prompt:
+- `task_id`, `task_title` — from SESSION STATE
+- `files_modified` — from the most recent build or iterate verdict
+- `quality_findings` — the `findings` array from the quality-review verdict, blockers and warnings only (omit suggestions), serialized as JSON
+
+Parse returned JSON. Append any decision marks to `decision_marks_pending`. Update `verdicts.quality_review`. Write session file.
+
+Evaluate result:
+- `status == "BLOCKED"` → Hard STOP: state the unresolvable finding
+- `status == "RESOLVED"` or `"PARTIAL"` → return to 5b-i with updated `files_modified`
+
+Log each round:
+```
+[AUTO] Step 5b round <N> — Quality review: <blocker_count> blockers, <warning_count> warnings, <suggestion_count> suggestions.
+[AUTO] Step 5b round <N> — Iterate: status=<RESOLVED|PARTIAL|BLOCKED>. Files: <list>.
+[DECISION] Priya [<category>]: <decision marks if any>
+```
+
+Update SESSION STATE: `verdicts.quality_review`. Set `step_completed = 5` (step 5b is part of step 5's gate). Write session file.
 
 ---
 

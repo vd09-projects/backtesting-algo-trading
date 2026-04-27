@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-27 | **Open tasks:** 17 | **Next up:** TASK-0044
+**Last updated:** 2026-04-27 | **Open tasks:** 17 | **Next up:** TASK-0045
 
 ---
 
@@ -15,24 +15,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0044] Tooling — `cmd/sweep2d` CLI entrypoint
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** `internal/sweep2d` is complete (implemented in TASK-0032) but has no CLI entrypoint. The 2D sweep is needed to test parameter interaction surfaces (e.g. SMA fast × slow period grid) and produces DSR-corrected peak Sharpe automatically.
-- **Acceptance criteria:**
-  - [ ] `cmd/sweep2d/main.go` created; wires to `internal/sweep2d` package
-  - [ ] Flags: `--instrument`, `--from`, `--to`, `--timeframe`, `--cash`, `--strategy`, `--p1-name/--p1-min/--p1-max/--p1-step`, `--p2-name/--p2-min/--p2-max/--p2-step`, `--out` (CSV output path; stdout if omitted)
-  - [ ] Fixed-param flags for each strategy (same set as `cmd/sweep`)
-  - [ ] Supports `sma-crossover` (fast × slow) and `rsi-mean-reversion` (period × oversold) initially; extend as new strategies land
-  - [ ] DSR-corrected peak Sharpe printed to stderr alongside CSV path
-  - [ ] End-to-end smoke test: runs on synthetic/cached data, produces valid CSV with correct column headers
-- **Notes:** All the heavy lifting is in `internal/sweep2d`. This is purely CLI wiring — should be the lightest task in Phase 1. `internal/cmdutil.BuildProvider` (extracted in TASK-0035) handles provider setup.
-
----
 
 ### [TASK-0045] Research spike — NIFTY TRI benchmark data availability
 
@@ -310,6 +292,23 @@ _No tasks in progress._
   - [ ] New test: `TimedExit`-wrapped strategy used in walk-forward — verify fold 2 starts with clean position state
   - [ ] Godoc on `Run()` updated to remove the concurrent-safety caveat (factory eliminates the concern)
 - **Notes:** Triggered by `2026-04-27-timed-exit-statefulness-pkg-strategy` decision. The `decisions/tradeoff/2026-04-22-walkforward-strategy-single-instance.md` revisit trigger fires here: "If stateful strategies are added, the signature changes to `func() strategy.Strategy`." This is that moment. Breaking API change — scan all callers in `cmd/` before implementing.
+
+---
+
+### [TASK-0061] Tooling — extend `cmd/sweep2d` factoryRegistry to all 6 strategies
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-04-27
+- **Source:** session
+- **Context:** `cmd/sweep2d/main.go` was built in TASK-0044 with `sma-crossover` and `rsi-mean-reversion` only ("extend as new strategies land"). The remaining four strategies (donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum) need 2D axis mappings added to `factoryRegistry2D`. The `fixedParams` struct is also duplicated between `cmd/sweep` and `cmd/sweep2d` — each new strategy requires updating both files. Consider extracting to `internal/cmdutil` or a shared cmd-layer type at this point.
+- **Acceptance criteria:**
+  - [ ] `factoryRegistry2D` in `cmd/sweep2d/main.go` handles all 6 strategies
+  - [ ] Axis mappings documented in code comments: donchian (p1=period, p2=tbd), macd (p1=fast, p2=slow), bollinger (p1=period, p2=num-std-dev), momentum (p1=lookback, p2=threshold)
+  - [ ] `fixedParams` struct duplication between `cmd/sweep` and `cmd/sweep2d` resolved — either extracted to shared location or duplication accepted with a comment
+  - [ ] All new factory paths covered by `TestFactoryRegistry2D_KnownStrategies`
+  - [ ] `golangci-lint run ./cmd/sweep2d/...` still passes
+- **Notes:** Donchian has only one meaningful sweep parameter (period) — its p2 axis is less obvious; defer the axis mapping decision until this task is picked up. The `fixedParams` duplication is a low-friction issue for now (2 files to update per new strategy) but compounds at 6 strategies.
 
 ---
 

@@ -158,3 +158,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-27 | TASK-0047 | status → done | all 5 criteria met; CommissionZerodhaFullMIS + calcZerodhaFullMISCommission + portfolio switch case; 5 golden tests pass, quality gate PASS | archived to 2026-04.md |
 | 2026-04-27 | TASK-0049 | status → todo (unblocked) | TASK-0047 done — MIS commission model complete; moved from Blocked to Up Next | |
 | 2026-04-27 | TASK-0060 | created | priority: medium, source: discovery | --commission CLI flag for cmd/backtest, cmd/sweep, cmd/universe-sweep; discovered during TASK-0047 harvest (CLIs hardcode CommissionZerodha) |
+| 2026-04-27 | TASK-0044 | status → done | all 6 criteria met; cmd/sweep2d/main.go + main_test.go; 5 tests (TDD), quality gate PASS | archived to 2026-04.md |
+| 2026-04-27 | TASK-0061 | created | priority: low, source: session | extend cmd/sweep2d factoryRegistry to all 6 strategies + resolve fixedParams duplication with cmd/sweep |

@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-27-sweep2d-csv-writer-io-writer-helper
+    title: "sweep2d CSV writer via io.Writer helper (writeCSVToWriter)"
+    date: 2026-04-27
+    status: experimental
+    category: convention
+    tags: [sweep2d, io.Writer, csv, testability, cmd/sweep2d, TASK-0044]
+    path: convention/2026-04-27-sweep2d-csv-writer-io-writer-helper.md
+    summary: "writeCSVToWriter(io.Writer) helper in cmd/sweep2d serializes the Sharpe matrix to any writer, enabling smoke tests without temp files. Production path routes to os.Stdout (no --out) or sweep2d.WriteCSV (--out set). Follows output.Config.Stdout injectable-writer pattern."
+
+  - id: 2026-04-27-flags2d-value-struct-flag-parsing-testability
+    title: "flags2D value struct for flag parsing testability in cmd/sweep2d"
+    date: 2026-04-27
+    status: experimental
+    category: convention
+    tags: [cmd/sweep2d, flags, testability, value-struct, TASK-0044]
+    path: convention/2026-04-27-flags2d-value-struct-flag-parsing-testability.md
+    summary: "Parsed flag values bundled into a flags2D struct passed to parseAndValidateFlags2D. Tests construct the struct directly — no flag.FlagSet construction needed. Avoids the 10-parameter function smell and keeps the signature stable as flags are added."
+
+  - id: 2026-04-27-sweep2d-stdout-fallback-bytes-buffer
+    title: "sweep2d stdout fallback via writeCSVToWriter io.Writer helper"
+    date: 2026-04-27
+    status: experimental
+    category: convention
+    tags: [sweep2d, stdout, bytes.Buffer, io.Writer, testability, cmd/sweep2d, TASK-0044]
+    path: convention/2026-04-27-sweep2d-stdout-fallback-bytes-buffer.md
+    summary: "When --out is omitted, cmd/sweep2d writes CSV via writeCSVToWriter to os.Stdout rather than a temp-file-then-copy approach. Keeps the stdout path testable via bytes.Buffer. Minor format duplication with sweep2d.WriteCSV accepted; cross-reference comment enforces sync."
+
+  - id: 2026-04-27-sweep2d-sma-crossover-axis-p1-fast-p2-slow
+    title: "sweep2d sma-crossover axis mapping: p1=fast-period, p2=slow-period"
+    date: 2026-04-27
+    status: experimental
+    category: convention
+    tags: [sweep2d, sma-crossover, axis-mapping, cmd/sweep2d, TASK-0044]
+    path: convention/2026-04-27-sweep2d-sma-crossover-axis-p1-fast-p2-slow.md
+    summary: "For cmd/sweep2d, sma-crossover always maps p1→fast-period and p2→slow-period. Fixed by convention in factoryRegistry2D; --p1-name/--p2-name are cosmetic labels only, not axis selectors. Natural fast×slow grid orientation. Revisit if axis-swap CLI control is needed."
+
   - id: 2026-04-27-mis-stt-constant-placement-commission-go
     title: "MIS STT rate co-located with CNC STT rate in commission.go constant block"
     date: 2026-04-27
