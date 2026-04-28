@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-27 | **Open tasks:** 17 | **Next up:** TASK-0045
+**Last updated:** 2026-04-28 | **Open tasks:** 18 | **Next up:** TASK-0050
 
 ---
 
@@ -15,24 +15,6 @@ _No tasks in progress._
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0045] Research spike — NIFTY TRI benchmark data availability
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Marcus established that the correct benchmark is NIFTY 50 Total Return Index (TRI), not the price index. TRI includes dividend reinvestment (~1.3-1.5% per year), which matters over multi-year comparisons. Before any benchmark code is written, we need to know whether Zerodha Kite provides TRI data.
-- **Acceptance criteria:**
-  - [ ] Timebox: 2 hours
-  - [ ] Inspect the downloaded Zerodha instruments CSV for any instrument matching patterns: `NIFTY.*TOTAL`, `NIFTY.*TRI`, `NIFTY.*RETURN`
-  - [ ] If found: document the exact instrument string and verify a candle fetch returns plausible TRI values
-  - [ ] If not found: document the two implementation options — (a) external CSV loader pointing at NSE's published TRI data, (b) a second `DataProvider` implementation for NSE data
-  - [ ] Outcome recorded as a decision in `decisions/infrastructure/`
-  - [ ] No code written until the decision is recorded
-- **Notes:** NSE publishes historical TRI data at nseindia.com/products/content/equities/indices/historical_total_returns.htm as downloadable CSV. If Zerodha doesn't have it, the external CSV loader option is simpler than a second provider.
-
----
 
 ### [TASK-0050] Evaluation — signal frequency audit (all 6 strategies × 15 instruments)
 
@@ -209,6 +191,25 @@ _No tasks in progress._
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
 
+### [TASK-0062] Tooling — NIFTY 50 TRI CSV loader for benchmark comparison
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-04-28
+- **Source:** decision
+- **Context:** TASK-0045 confirmed that NIFTY 50 TRI is not available via Zerodha Kite Connect. Decision `2026-04-28-nifty-tri-benchmark-data-source.md` chose Option A: load TRI from NSE-published CSV. This task implements the loader so benchmark comparisons use TRI (with dividend reinvestment) rather than the price index, which understates buy-and-hold by ~8–10% over 6 years.
+- **Acceptance criteria:**
+  - [ ] Download NIFTY 50 TRI historical CSV from NSE (`nseindia.com/products/content/equities/indices/historical_total_returns.htm`) covering 2015-01-01 to present; store at `data/benchmarks/nifty50-tri.csv`
+  - [ ] `LoadNSETRICSV(path string) ([]model.Candle, error)` function implemented — parses the NSE CSV, returns daily candles with `Instrument: "NSE:NIFTY50-TRI"` and Close set to the TRI value; Open/High/Low set equal to Close (TRI is close-only)
+  - [ ] Loader placed in `internal/analytics` alongside `ComputeBenchmark`, or a dedicated `internal/benchmark` package if benchmark logic is being extracted — decide at build time
+  - [ ] A sample TRI fixture CSV (20 rows minimum, covering a verifiable date range) added to testdata
+  - [ ] `TestLoadNSETRICSV` covers: happy path, missing file, malformed row (skipped vs. error), empty file
+  - [ ] `ComputeBenchmark` updated to accept the TRI candle series instead of fetching `NSE:NIFTY 50` from Zerodha when a TRI path is provided
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Per decision, TRI series is stable historical data — no live fetch needed. Manual update cadence: re-download from NSE before each full evaluation run that extends beyond the last downloaded date. The price index (`NSE:NIFTY 50`) remains the default when no TRI path is provided, for backwards compatibility. Blocked by nothing — can start immediately.
+
+---
+
 ### [TASK-0057] Engine — migrate accounting layer from float64 to shopspring/decimal
 
 - **Status:** todo
@@ -309,6 +310,24 @@ _No tasks in progress._
   - [ ] All new factory paths covered by `TestFactoryRegistry2D_KnownStrategies`
   - [ ] `golangci-lint run ./cmd/sweep2d/...` still passes
 - **Notes:** Donchian has only one meaningful sweep parameter (period) — its p2 axis is less obvious; defer the axis mapping decision until this task is picked up. The `fixedParams` duplication is a low-friction issue for now (2 files to update per new strategy) but compounds at 6 strategies.
+
+---
+
+### [TASK-0062] Tooling — NIFTY 50 TRI benchmark: download CSV and implement StaticCSVProvider
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-04-28
+- **Source:** decision
+- **Context:** TASK-0045 (research spike) confirmed NIFTY 50 TRI is not available via Zerodha Kite Connect. Decision `2026-04-28-nifty-tri-benchmark-data-source.md` chose Option A: NSE-published CSV loader. This task implements that decision — download the authoritative TRI CSV from NSE and build a minimal `StaticCSVProvider` so the benchmark computation path is provider-agnostic.
+- **Acceptance criteria:**
+  - [ ] `data/benchmarks/nifty50-tri.csv` downloaded from NSE (nseindia.com/products/content/equities/indices/historical_total_returns.htm) covering 2015-01-01 to present; committed to repo
+  - [ ] `pkg/provider/csv/` package created with `StaticCSVProvider` implementing `provider.DataProvider` for a single instrument (daily timeframe only)
+  - [ ] `StaticCSVProvider` returns `ErrUnsupportedTimeframe` for non-daily timeframes and `ErrInstrumentNotFound` for instruments not in the loaded file
+  - [ ] `BenchmarkReport` computation wired to use `StaticCSVProvider` for the TRI benchmark when `--benchmark-tri` flag is set (or equivalent)
+  - [ ] Tests written before implementation (TDD); `go1.25.0 test -race ./pkg/provider/csv/...` passes
+  - [ ] `golangci-lint run ./pkg/provider/csv/...` passes
+- **Notes:** `StaticCSVProvider` should satisfy `provider.DataProvider` at compile time via a `var _ provider.DataProvider = (*StaticCSVProvider)(nil)` check. NSE CSV columns: Date, Open, High, Low, Close (or just Index Value for TRI — inspect the actual download first). TRI values will be in the 9,000–28,000 range for 2015–2024. No chunking, no auth, no rate limits needed. Follow-up to decision `2026-04-28-nifty-tri-benchmark-data-source.md`.
 
 ---
 

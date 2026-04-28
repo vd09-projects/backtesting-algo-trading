@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-28-nifty-tri-benchmark-data-source
+    title: "NIFTY 50 TRI benchmark — not available via Zerodha Kite; use NSE-published CSV"
+    date: 2026-04-28
+    status: accepted
+    category: infrastructure
+    tags: [benchmark, NIFTY-TRI, total-return, data-source, zerodha, NSE, kite-connect, TASK-0045]
+    path: infrastructure/2026-04-28-nifty-tri-benchmark-data-source.md
+    summary: "NIFTY 50 TRI is not in Kite instruments master — only price return index (token 256265) is available. TR-named instruments (NIFTY50 TR 2X LEV, NIFTY50 TR 1X INV) are leveraged/inverse strategy indices, not the TRI benchmark. Decision: use NSE-published CSV (Option A) rather than a second DataProvider. Implementation deferred to build task."
+
   - id: 2026-04-27-sweep2d-csv-writer-io-writer-helper
     title: "sweep2d CSV writer via io.Writer helper (writeCSVToWriter)"
     date: 2026-04-27

@@ -1,0 +1,54 @@
+{
+  "session_date": "2026-04-28",
+  "workflow": "build",
+  "task_id": "TASK-0045",
+  "task_title": "Research spike — NIFTY TRI benchmark data availability",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/infrastructure/2026-04-10-zerodha-daily-candles-adjusted-for-corporate-actions.md",
+        "decisions/infrastructure/2026-04-10-corporate-action-verification-gate.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-13-benchmark-cagr-from-elapsed-time.md",
+        "decisions/convention/2026-04-13-benchmark-report-separate-struct.md",
+        "decisions/algorithm/2026-04-15-baseline-backtest-period-2018-2024.md",
+        "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md"
+      ]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Research spike: fetch the public Kite Connect instruments CSV, grep for TRI patterns, document finding as decision file. No Go code written.",
+      "files_to_create": ["decisions/infrastructure/2026-04-28-nifty-tri-benchmark-data-source.md"],
+      "files_to_modify": ["tasks/BACKLOG.md"],
+      "approach": "Fetch public Kite instruments CSV, search for TRI patterns, document finding as decision file."
+    },
+    "build": {
+      "build_summary": "Fetched Kite Connect instruments CSV (150,306 rows). NIFTY 50 TRI NOT available. Decision: NSE-published CSV loader. Decision file written. TASK-0045 archived.",
+      "files_modified": [
+        "decisions/infrastructure/2026-04-28-nifty-tri-benchmark-data-source.md",
+        "tasks/BACKLOG.md",
+        "tasks/archive/2026-04.md"
+      ],
+      "tests_written": [],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": null
+  },
+  "quality_review_round": 0,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0045 \"Research spike — NIFTY TRI benchmark data availability\" picked from Up Next.",
+    "[AUTO] Step 2 — Decision lookup: 2 standing orders, 4 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (task is a pure data-availability research spike).",
+    "[AUTO] Step 4 — Plan: complete. Approach: Fetch public Kite instruments CSV, search for TRI patterns, document finding in decisions/infrastructure/ with no Go code written.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: decisions/infrastructure/2026-04-28-nifty-tri-benchmark-data-source.md, tasks/BACKLOG.md, tasks/archive/2026-04.md.",
+    "[DECISION] Priya [infrastructure]: NSE-published CSV loader chosen over second DataProvider implementation for NIFTY 50 TRI data.",
+    "[AUTO] Step 5b — skipped (no internal/ or pkg/ code modified; documentation-only spike).",
+    "[AUTO] Step 6 — Criteria: 5/5 met. Follow-up task created: TASK-0062 (StaticCSVProvider + nifty50-tri.csv).",
+    "[CLOSED] TASK-0045 done. All criteria met. Archived."
+  ],
+  "decision_marks_pending": [],
+  "hard_stop_active": null
+}
