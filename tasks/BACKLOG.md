@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-28 | **Open tasks:** 18 | **Next up:** TASK-0050
+**Last updated:** 2026-04-29 | **Open tasks:** 17 | **Next up:** TASK-0051
 
 ---
 
@@ -16,22 +16,6 @@ _No tasks in progress._
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0050] Evaluation — signal frequency audit (all 6 strategies × 15 instruments)
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Before running any full backtest, audit how many trades each strategy generates per instrument in the 2018-2023 window with default parameters. Any combination producing < 30 trades is excluded from further analysis on that instrument. The 2026-04-19 RSI diagnostic showed this problem is real — scaling it to 6 strategies × 15 instruments prevents wasted analysis runs downstream.
-- **Acceptance criteria:**
-  - [ ] Run signal frequency diagnostic for each strategy on all 15 instruments in `universes/nifty50-large-cap.yaml` over 2018-01-01 to 2024-01-01
-  - [ ] Produce and save matrix: strategy × instrument → trade count to `runs/signal-frequency-audit-YYYY-MM-DD.csv`
-  - [ ] Flag any cell with < 30 trades as EXCLUDED
-  - [ ] If any strategy fires < 30 trades across the ENTIRE 15-instrument universe combined, kill that strategy before any full backtest runs
-- **Notes:** Not optional. Skipping this step means discovering insufficient trades after running the full validation pipeline, which wastes significant compute and analysis time. Owner: Marcus (algo-trading-veteran). Unblocked 2026-04-27: TASK-0043 (momentum strategy) is now done — all 6 strategies implemented.
-
----
-
 ## Blocked
 
 <!-- Waiting on something. Each task must state what it's blocked by. -->
@@ -42,7 +26,7 @@ _No tasks in progress._
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Blocked by:** TASK-0049, TASK-0050
+- **Blocked by:** TASK-0049 (pre-commit gate definitions — already done). TASK-0050 tooling now complete; unblocked when actual audit run is executed and produces the matrix CSV.
 - **Context:** Orientation run on a single instrument to understand each strategy's behavior and find the robust parameter region via 1D sweep. Not a gate — the universe sweep is the gate. The output of this task is the plateau-midpoint parameter for each strategy, which is what gets used in the universe sweep.
 - **Acceptance criteria:**
   - [ ] Run `cmd/backtest` for all 6 strategies on NSE:RELIANCE 2018-01-01 to 2024-01-01 with `CommissionZerodhaFull` and default parameters

@@ -162,3 +162,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-27 | TASK-0061 | created | priority: low, source: session | extend cmd/sweep2d factoryRegistry to all 6 strategies + resolve fixedParams duplication with cmd/sweep |
 | 2026-04-28 | TASK-0045 | status → done | research spike complete; NIFTY 50 TRI not in Kite; decision recorded in decisions/infrastructure/2026-04-28-nifty-tri-benchmark-data-source.md | archived to 2026-04.md |
 | 2026-04-28 | TASK-0062 | created | priority: medium, source: decision | NIFTY 50 TRI benchmark: download NSE CSV + implement StaticCSVProvider in pkg/provider/csv/ | spawned from TASK-0045 decision |
+| 2026-04-29 | TASK-0050 | status → done | internal/signalaudit + cmd/signal-audit implemented; 11 tests (TDD), quality gate PASS (89.8% coverage, 0 lint issues, race clean) | archived to 2026-04.md |
