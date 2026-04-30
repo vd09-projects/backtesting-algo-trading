@@ -25,6 +25,27 @@
   - [ ] Select plateau-midpoint parameter for each strategy for use in universe sweep; if no valid plateau exists, flag strategy as "sensitivity concern" and use defaults for universe sweep
   - [ ] Results saved to `runs/baseline-2026-04-29/` with JSON and CSV outputs; `plateau-params.json` produced
 - **Notes:** Tooling gate complete as of 2026-04-29. Remaining work: execute the CLI runs (requires live Zerodha token). Use `--commission zerodha_full --bootstrap` for baseline runs. Plateau logic now applies ≥30 trade filter per Marcus's verdict. Owner: Marcus (algo-trading-veteran).
+- **Execution plan:**
+  - **Step 1 — Baseline runs** (all 6, NSE:RELIANCE, 2018-01-01 to 2024-01-01, `--commission zerodha_full --bootstrap`):
+    ```
+    go run ./cmd/backtest --strategy macd-crossover            --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/macd-reliance.json
+    go run ./cmd/backtest --strategy sma-crossover             --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/sma-reliance.json
+    go run ./cmd/backtest --strategy rsi-mean-reversion        --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/rsi-reliance.json
+    go run ./cmd/backtest --strategy donchian-breakout         --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/donchian-reliance.json
+    go run ./cmd/backtest --strategy bollinger-mean-reversion  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/bollinger-reliance.json
+    go run ./cmd/backtest --strategy momentum                  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/momentum-reliance.json
+    ```
+  - **Step 2 — Parameter sweeps** (find plateau: peak Sharpe within ≥30-trade region; pick midpoint of range within 80% of peak):
+    ```
+    go run ./cmd/sweep --strategy macd-crossover           --sweep-param fast-period        --min 5   --max 20  --step 2  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
+    go run ./cmd/sweep --strategy sma-crossover            --sweep-param slow-period        --min 20  --max 60  --step 5  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
+    go run ./cmd/sweep --strategy rsi-mean-reversion       --sweep-param rsi-period         --min 7   --max 21  --step 2  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
+    go run ./cmd/sweep --strategy donchian-breakout        --sweep-param donchian-period    --min 10  --max 30  --step 2  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
+    go run ./cmd/sweep --strategy bollinger-mean-reversion --sweep-param bb-period          --min 10  --max 40  --step 5  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
+    go run ./cmd/sweep --strategy momentum                 --sweep-param momentum-lookback  --min 30  --max 180 --step 15 --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
+    ```
+  - **Step 3 — Record plateau-midpoint params** → `runs/baseline-2026-05-01/plateau-params.json`. For strategies with no ≥30-trade plateau (expected: RSI, Momentum), flag as `"sensitivity_concern": true` and record the best-Sharpe param anyway for the universe sweep.
+  - **Step 4 — Re-run signal-audit** with plateau-midpoint params for the flagged strategies to verify they now clear the 30-trade floor before advancing to TASK-0052.
 
 ---
 

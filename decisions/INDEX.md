@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-01-task0051-signal-audit-routing-macd-proceeds-others-need-sensitivity
+    title: "TASK-0051 routing: MACD proceeds on defaults; other 5 require parameter sensitivity pass first"
+    date: 2026-05-01
+    status: experimental
+    category: algorithm
+    tags: [TASK-0051, TASK-0052, signal-audit, routing, parameter-sensitivity, macd, 30-trade-floor, kill-gate, Marcus]
+    path: algorithm/2026-05-01-task0051-signal-audit-routing-macd-proceeds-others-need-sensitivity.md
+    summary: "MACD (44–65 trades/instrument at defaults) proceeds to TASK-0051 directly. SMA, RSI, Donchian, Bollinger, Momentum must find a ≥30-trade parameter region via sensitivity sweep before advancing. Strategies with no valid parameter at any sweep value are killed here, not held for pooled analysis."
+
+  - id: 2026-05-01-signalaudit-strategy-factory-decoupling
+    title: "signalaudit package uses StrategyFactory — no import of concrete strategy packages"
+    date: 2026-05-01
+    status: experimental
+    category: architecture
+    tags: [signalaudit, strategy-factory, decoupling, cmd-layer, dependency-direction, TASK-0050]
+    path: architecture/2026-05-01-signalaudit-strategy-factory-decoupling.md
+    summary: "internal/signalaudit defines a StrategyFactory type; the cmd layer owns the factory closure that imports concrete strategy packages. Keeps internal/signalaudit free of strategies/ dependency and matches the pattern in internal/sweep and internal/walkforward."
+
+  - id: 2026-05-01-signalaudit-sequential-strategies-parallel-instruments
+    title: "signalaudit: strategies run sequentially, instruments fan out in parallel"
+    date: 2026-05-01
+    status: experimental
+    category: tradeoff
+    tags: [signalaudit, concurrency, errgroup, zerodha-api, rate-limit, TASK-0050]
+    path: tradeoff/2026-05-01-signalaudit-sequential-strategies-parallel-instruments.md
+    summary: "6 strategies run sequentially; within each, 15 instruments fan out in parallel via errgroup. Full parallelism (90 concurrent runs) would overwhelm Zerodha rate limits. Sequential strategies give full hardware utilisation on the inner loop without multiplying API pressure by 6."
+
+  - id: 2026-05-01-signal-audit-no-per-strategy-parameter-flags
+    title: "cmd/signal-audit hardcodes strategy defaults — no per-strategy parameter override flags"
+    date: 2026-05-01
+    status: experimental
+    category: convention
+    tags: [signal-audit, cmd, flags, default-params, audit-purpose, TASK-0050]
+    path: convention/2026-05-01-signal-audit-no-per-strategy-parameter-flags.md
+    summary: "cmd/signal-audit accepts no strategy-specific parameter flags. Its sole purpose is auditing default-parameter trade frequency. cmd/universe-sweep and cmd/sweep serve the parameter-explorer role. Avoids 13-flag proliferation and keeps the binary's responsibility narrow."
+
   - id: 2026-04-29-parse-commission-model-extracted-to-cmdutil
     title: "ParseCommissionModel extracted to internal/cmdutil — shared flag-parsing helper"
     date: 2026-04-29

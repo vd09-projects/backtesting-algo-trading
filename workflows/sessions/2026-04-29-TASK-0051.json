@@ -1,0 +1,90 @@
+{
+  "session_date": "2026-04-29",
+  "workflow": "build",
+  "task_id": "TASK-0051",
+  "task_title": "Evaluation — in-sample baseline and parameter sensitivity (all 6 strategies, RELIANCE, 2018-2023)",
+  "step_completed": 5,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md",
+        "decisions/algorithm/2026-04-15-baseline-backtest-period-2018-2024.md",
+        "decisions/algorithm/2026-04-15-instrument-declared-before-first-run.md",
+        "decisions/convention/2026-04-26-macd-guard-talib-initialization-boundary.md",
+        "decisions/algorithm/2026-04-21-kill-switch-derivation-methodology.md",
+        "decisions/architecture/2026-04-22-buildprovider-extracted-to-cmdutil.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-16-rsi-mean-reversion-proliferation-gate-failed.md",
+        "decisions/algorithm/2026-04-16-sma-crossover-proliferation-gate-failed.md",
+        "decisions/architecture/2026-04-15-sweep-plateau-non-contiguous-min-max-range.md",
+        "decisions/tradeoff/2026-04-15-sweep-run-returns-report-not-slice.md",
+        "decisions/architecture/2026-04-15-sweep-strategy-factory-func-type.md",
+        "decisions/algorithm/2026-04-20-bootstrap-sharpe-non-annualized-per-trade.md",
+        "decisions/convention/2026-04-27-momentum-signal-level-comparison-not-crossover.md",
+        "decisions/algorithm/2026-04-25-2025-live-data-as-true-holdout.md"
+      ]
+    },
+    "marcus": {
+      "summary": "Marcus calls: (1) find the best Sharpe within the ≥30-trade valid region first, then apply 80% threshold to that valid-region peak — not the global peak; if no parameter achieves ≥30 trades, flag and use default params for universe sweep. (2) Keep 80% threshold unchanged. (3) If all valid-region Sharpes are negative, flag as sensitivity concern but record least-bad param as orientation; fall back to strategy defaults for universe sweep rather than a loss-minimizing parameter.",
+      "go_iterate_kill": "n/a"
+    },
+    "priya_plan": {
+      "plan_summary": "Both cmd/backtest and cmd/sweep already have all 6 strategies wired — the reported missing-strategy blocker is stale. Two real gaps: (1) both CLIs hardcode CommissionZerodha; acceptance criteria require CommissionZerodhaFull — implement --commission flag (TASK-0060 pulled forward) with ParseCommissionModel extracted to internal/cmdutil; (2) internal/sweep.computePlateau uses global peak Sharpe — Marcus's verdict requires applying 80% floor against the valid-region peak (entries with TradeCount >= 30). Update computePlateau, add SensitivityConcern to PlateauRange/Report, write new test cases first. After code gate passes, run 6 baseline backtest commands and 6 sweep commands, save to runs/baseline-2026-04-29/, produce plateau-params.json.",
+      "files_to_create": ["runs/baseline-2026-04-29/"],
+      "files_to_modify": [
+        "cmd/backtest/main.go",
+        "cmd/sweep/main.go",
+        "internal/cmdutil/cmdutil.go",
+        "internal/sweep/sweep.go",
+        "internal/sweep/sweep_test.go"
+      ],
+      "approach": "TDD order: (1) write failing tests for valid-region plateau logic in sweep_test.go; (2) write failing test for ParseCommissionModel; (3) implement computePlateau changes; (4) implement ParseCommissionModel in cmdutil and wire --commission flag into both CLIs; (5) run quality gate."
+    },
+    "build": {
+      "build_summary": "Added --commission flag to cmd/backtest and cmd/sweep with ParseCommissionModel extracted to internal/cmdutil. Updated internal/sweep.computePlateauWithMinTrades to apply 80% Sharpe floor against the valid-region peak (TradeCount >= MinTradesForPlateau=30). Added SensitivityConcern field to Report. Refactored into filterByMinTrades, peakSharpe, and accumulatePlateau helpers. Both cmd binaries default to CommissionZerodha (preserving existing behavior). Iterate step: added TestReport_SensitivityConcern_AllNegativeValidRegion, fixed --strategy flag help strings in both CLIs.",
+      "files_modified": [
+        "internal/sweep/sweep.go",
+        "internal/sweep/sweep_test.go",
+        "internal/cmdutil/cmdutil.go",
+        "internal/cmdutil/cmdutil_test.go",
+        "cmd/backtest/main.go",
+        "cmd/sweep/main.go"
+      ],
+      "tests_written": [
+        "TestComputePlateauWithMinTrades",
+        "TestReport_SensitivityConcern_EmptyValidRegion",
+        "TestReport_SensitivityConcern_AllNegativeValidRegion",
+        "TestParseCommissionModel"
+      ],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "round1": {"blockers": 0, "warnings": 2, "suggestions": 1},
+      "round2": {"blockers": 0, "warnings": 0, "suggestions": 0},
+      "final": "PASS"
+    }
+  },
+  "quality_review_round": 2,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0051 'Evaluation — in-sample baseline and parameter sensitivity (all 6 strategies, RELIANCE, 2018-2023)' picked from Blocked section (unblocked per session context).",
+    "[AUTO] Step 2 — Decision lookup: 6 standing orders, 8 context files.",
+    "[AUTO] Step 3 — Marcus: new call made.",
+    "[DECISION] Marcus [algorithm]: plateau procedure — evaluate within ≥30-trade valid region only; use valid-region peak for 80% threshold, not global peak.",
+    "[DECISION] Marcus [algorithm]: fallback to strategy defaults for universe sweep when no valid plateau exists (valid region empty or all-negative Sharpe).",
+    "[AUTO] Step 4 — Plan: complete. Approach: extend sweep.computePlateau with valid-region (>=30 trades) logic, add --commission flag to cmd/backtest and cmd/sweep via shared cmdutil.ParseCommissionModel, then run 6 baseline + 6 sweep commands and produce plateau-params.json.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: internal/sweep/sweep.go, internal/sweep/sweep_test.go, internal/cmdutil/cmdutil.go, internal/cmdutil/cmdutil_test.go, cmd/backtest/main.go, cmd/sweep/main.go",
+    "[DECISION] Priya [convention]: ParseCommissionModel extracted to internal/cmdutil — shared by cmd/backtest and cmd/sweep, following buildProvider DRY precedent.",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 2 warnings, 1 suggestion.",
+    "[AUTO] Step 5b round 1 — Iterate: status=RESOLVED. Files: internal/sweep/sweep_test.go, cmd/backtest/main.go, cmd/sweep/main.go",
+    "[AUTO] Step 5b round 2 — Quality review: 0 blockers, 0 warnings, 0 suggestions. PASS. Proceeding to Step 6.",
+    "[WARN] Suggestion (cosmetic): cmd/backtest/main.go package doc comment Available strategies section still lists only 3 strategies — no logic change required, pure documentation gap. Follow-up task recommended."
+  ],
+  "decision_marks_pending": [
+    "**Decision (plateau procedure for trade-count-constrained strategies) — algorithm: experimental**",
+    "**Decision (fallback to defaults for universe sweep when no valid plateau exists) — algorithm: experimental**",
+    "**Decision (ParseCommissionModel extracted to internal/cmdutil) — convention: experimental**"
+  ],
+  "hard_stop_active": null
+}
