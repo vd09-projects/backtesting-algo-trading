@@ -215,7 +215,8 @@ func allStrategyFactories(tf model.Timeframe) []signalaudit.StrategyFactory {
 		{
 			Name: "sma-crossover",
 			New: func() signalaudit.Strategy {
-				s, err := smacrossover.New(tf, 10, 50)
+				// plateau-midpoint: slow=20 (default slow=50 has <30 trades on RELIANCE)
+				s, err := smacrossover.New(tf, 10, 20)
 				if err != nil {
 					cmdutil.Fatalf("sma-crossover: %v", err)
 				}
@@ -235,7 +236,8 @@ func allStrategyFactories(tf model.Timeframe) []signalaudit.StrategyFactory {
 		{
 			Name: "donchian-breakout",
 			New: func() signalaudit.Strategy {
-				s, err := donchian.New(tf, 20)
+				// plateau-midpoint: period=10 (only value with ≥30 trades on RELIANCE)
+				s, err := donchian.New(tf, 10)
 				if err != nil {
 					cmdutil.Fatalf("donchian-breakout: %v", err)
 				}
@@ -245,7 +247,8 @@ func allStrategyFactories(tf model.Timeframe) []signalaudit.StrategyFactory {
 		{
 			Name: "macd-crossover",
 			New: func() signalaudit.Strategy {
-				s, err := macd.New(tf, 12, 26, 9)
+				// plateau-midpoint: fast=17 (plateau [15,21], midpoint 17)
+				s, err := macd.New(tf, 17, 26, 9)
 				if err != nil {
 					cmdutil.Fatalf("macd-crossover: %v", err)
 				}

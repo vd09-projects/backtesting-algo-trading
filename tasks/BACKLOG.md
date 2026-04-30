@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-01 | **Open tasks:** 19 | **Next up:** TASK-0051
+**Last updated:** 2026-05-01 | **Open tasks:** 18 | **Next up:** TASK-0052
 
 ---
 
@@ -8,64 +8,18 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
-### [TASK-0051] Evaluation — in-sample baseline and parameter sensitivity (all 6 strategies, RELIANCE, 2018-2023)
-
-- **Status:** in-progress
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Orientation run on a single instrument to understand each strategy's behavior and find the robust parameter region via 1D sweep. Not a gate — the universe sweep is the gate. The output of this task is the plateau-midpoint parameter for each strategy, which is what gets used in the universe sweep.
-- **Acceptance criteria:**
-  - [x] Extend `cmd/backtest` and `cmd/sweep` to support all 6 strategies with `--commission` flag (done 2026-04-29; `ParseCommissionModel` extracted to `internal/cmdutil`)
-  - [x] `internal/sweep.computePlateau` updated to apply 80% floor against valid-region peak (TradeCount ≥ 30) per Marcus's verdict; `SensitivityConcern` field added to `Report`
-  - [ ] Run `cmd/backtest` for all 6 strategies on NSE:RELIANCE 2018-01-01 to 2024-01-01 with `--commission zerodha_full` and default parameters
-  - [ ] Record for each: Sharpe, regime splits (3 NSE windows), trade count, max drawdown, bootstrap p5 Sharpe
-  - [ ] Run 1D parameter sweep (`cmd/sweep`) for each strategy on its key parameter (rsi-period, sma-fast/slow, macd-fast/slow, bb-period, donchian-period, momentum-lookback)
-  - [ ] Identify plateau range (within 80% of peak Sharpe in ≥30-trade valid region) for each strategy
-  - [ ] Select plateau-midpoint parameter for each strategy for use in universe sweep; if no valid plateau exists, flag strategy as "sensitivity concern" and use defaults for universe sweep
-  - [ ] Results saved to `runs/baseline-2026-04-29/` with JSON and CSV outputs; `plateau-params.json` produced
-- **Notes:** Tooling gate complete as of 2026-04-29. Remaining work: execute the CLI runs (requires live Zerodha token). Use `--commission zerodha_full --bootstrap` for baseline runs. Plateau logic now applies ≥30 trade filter per Marcus's verdict. Owner: Marcus (algo-trading-veteran).
-- **Execution plan:**
-  - **Step 1 — Baseline runs** (all 6, NSE:RELIANCE, 2018-01-01 to 2024-01-01, `--commission zerodha_full --bootstrap`):
-    ```
-    go run ./cmd/backtest --strategy macd-crossover            --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/macd-reliance.json
-    go run ./cmd/backtest --strategy sma-crossover             --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/sma-reliance.json
-    go run ./cmd/backtest --strategy rsi-mean-reversion        --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/rsi-reliance.json
-    go run ./cmd/backtest --strategy donchian-breakout         --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/donchian-reliance.json
-    go run ./cmd/backtest --strategy bollinger-mean-reversion  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/bollinger-reliance.json
-    go run ./cmd/backtest --strategy momentum                  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full --bootstrap --out runs/baseline-2026-05-01/momentum-reliance.json
-    ```
-  - **Step 2 — Parameter sweeps** (find plateau: peak Sharpe within ≥30-trade region; pick midpoint of range within 80% of peak):
-    ```
-    go run ./cmd/sweep --strategy macd-crossover           --sweep-param fast-period        --min 5   --max 20  --step 2  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
-    go run ./cmd/sweep --strategy sma-crossover            --sweep-param slow-period        --min 20  --max 60  --step 5  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
-    go run ./cmd/sweep --strategy rsi-mean-reversion       --sweep-param rsi-period         --min 7   --max 21  --step 2  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
-    go run ./cmd/sweep --strategy donchian-breakout        --sweep-param donchian-period    --min 10  --max 30  --step 2  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
-    go run ./cmd/sweep --strategy bollinger-mean-reversion --sweep-param bb-period          --min 10  --max 40  --step 5  --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
-    go run ./cmd/sweep --strategy momentum                 --sweep-param momentum-lookback  --min 30  --max 180 --step 15 --instrument "NSE:RELIANCE" --from 2018-01-01 --to 2024-01-01 --commission zerodha_full
-    ```
-  - **Step 3 — Record plateau-midpoint params** → `runs/baseline-2026-05-01/plateau-params.json`. For strategies with no ≥30-trade plateau (expected: RSI, Momentum), flag as `"sensitivity_concern": true` and record the best-Sharpe param anyway for the universe sweep.
-  - **Step 4 — Re-run signal-audit** with plateau-midpoint params for the flagged strategies to verify they now clear the 30-trade floor before advancing to TASK-0052.
-
 ---
 
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-## Blocked
-
-<!-- Waiting on something. Each task must state what it's blocked by. -->
-
----
-
 ### [TASK-0052] Evaluation — universe sweep (cross-instrument primary gate)
 
-- **Status:** blocked
+- **Status:** todo
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Blocked by:** TASK-0051 (plateau-midpoint parameters needed for the sweep run)
 - **Context:** The primary validation gate for all six strategy families. A real edge should work on more than one instrument. Strategies that pass on RELIANCE only are not robust — they passed the wrong test. This run determines which strategies and instruments survive into walk-forward.
 - **Acceptance criteria:**
   - [ ] Run `cmd/universe-sweep` for all 6 strategies using plateau-midpoint parameters from TASK-0051, across all 15 instruments in `universes/nifty50-large-cap.yaml`, 2018-01-01 to 2024-01-01
@@ -74,7 +28,13 @@
   - [ ] Produce explicit survivor matrix: strategy × instrument (pass/fail per cell)
   - [ ] Apply regime gate (from TASK-0049): no single regime accounts for > 70% of total Sharpe; strategies failing the regime gate are flagged even if they pass the universe gate
   - [ ] Results saved to `runs/universe-sweep-YYYY-MM-DD.csv`
-- **Notes:** This replaces the single-instrument proliferation gate (2026-04-10 decision, formally superseded in TASK-0049). Marcus signed off on the supersession 2026-04-25. Owner: Marcus (algo-trading-veteran).
+- **Notes:** Unblocked by TASK-0051 (done 2026-05-01). Plateau-midpoint params to use: MACD fast=17/slow=26/signal=9; SMA fast=10/slow=20; Donchian period=10; RSI period=14 (sensitivity concern — all 15 cells excluded in signal audit); Bollinger period=20 (sensitivity concern); Momentum lookback=231 (sensitivity concern). Signal audit preview: RSI/Bollinger/Momentum likely fail universe gate (all instrument cells excluded at ≥30-trade threshold). This replaces the single-instrument proliferation gate (2026-04-10 decision, formally superseded in TASK-0049). Marcus signed off on the supersession 2026-04-25. TASK-0060 (`--commission` flag for `cmd/universe-sweep`) should be completed first or in parallel. Owner: Marcus (algo-trading-veteran).
+
+## Blocked
+
+<!-- Waiting on something. Each task must state what it's blocked by. -->
+
+---
 
 ---
 
