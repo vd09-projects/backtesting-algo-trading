@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha/cache"
 )
@@ -120,6 +121,35 @@ func BuildProvider(ctx context.Context) (*cache.CachedProvider, error) {
 		cacheDir = ".cache/zerodha"
 	}
 	return cache.NewCachedProvider(inner, cacheDir), nil
+}
+
+// ParseCommissionModel parses a commission model string into a model.CommissionModel.
+// Accepted values: "zerodha" (default), "zerodha_full", "zerodha_full_mis", "flat", "percentage".
+// Returns an error for any unrecognized value.
+//
+// **Decision (ParseCommissionModel extracted to internal/cmdutil) — convention: experimental**
+// scope: internal/cmdutil, cmd/backtest, cmd/sweep, cmd/universe-sweep
+// tags: commission, DRY, cmd, flag-parsing
+// owner: priya
+//
+// Two cmd binaries (cmd/backtest, cmd/sweep) both need --commission flag parsing.
+// cmd/universe-sweep will be a third. Extracting to cmdutil follows the same
+// three-copy threshold that drove buildProvider extraction (2026-04-22 decision).
+func ParseCommissionModel(s string) (model.CommissionModel, error) {
+	switch s {
+	case "zerodha":
+		return model.CommissionZerodha, nil
+	case "zerodha_full":
+		return model.CommissionZerodhaFull, nil
+	case "zerodha_full_mis":
+		return model.CommissionZerodhaFullMIS, nil
+	case "flat":
+		return model.CommissionFlat, nil
+	case "percentage":
+		return model.CommissionPercentage, nil
+	default:
+		return "", fmt.Errorf("%q is not a valid commission model; accepted: zerodha, zerodha_full, zerodha_full_mis, flat, percentage", s)
+	}
 }
 
 // LoginFlow runs the interactive Kite Connect browser login flow and returns

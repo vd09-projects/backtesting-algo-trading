@@ -48,6 +48,25 @@ func (t *thresholdStrategy) Next(candles []model.Candle) model.Signal {
 	return model.SignalSell
 }
 
+// invertedThresholdStrategy emits Sell when the most recent close strictly exceeds
+// threshold, and Buy otherwise. This is the opposite of thresholdStrategy, and
+// produces losing trades on alternating-candle series: it buys at high prices
+// (next bar open is low) and sells at low prices (next bar open is high).
+type invertedThresholdStrategy struct {
+	threshold float64
+	tf        model.Timeframe
+}
+
+func (s *invertedThresholdStrategy) Name() string               { return fmt.Sprintf("inverted-%.0f", s.threshold) }
+func (s *invertedThresholdStrategy) Timeframe() model.Timeframe { return s.tf }
+func (s *invertedThresholdStrategy) Lookback() int              { return 1 }
+func (s *invertedThresholdStrategy) Next(candles []model.Candle) model.Signal {
+	if candles[len(candles)-1].Close > s.threshold {
+		return model.SignalSell
+	}
+	return model.SignalBuy
+}
+
 // makeAlternatingCandles returns n daily candles alternating between highClose and
 // lowClose, starting with highClose on bar 0. All OHLC fields equal the close so
 // engine fills at Open are fully deterministic.
@@ -376,6 +395,215 @@ func TestRun_IntegrationGolden(t *testing.T) { //nolint:cyclop // golden integra
 	// ParameterName is propagated to the report.
 	if report.ParameterName != cfg.ParameterName {
 		t.Errorf("ParameterName: got %q, want %q", report.ParameterName, cfg.ParameterName)
+	}
+}
+
+// TestComputePlateauWithMinTrades tests computePlateau with a positive minTrades
+// constraint — the valid region is restricted to entries with TradeCount >= minTrades.
+func TestComputePlateauWithMinTrades(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		results   []Result
+		minTrades int
+		want      *PlateauRange
+		wantNil   bool
+	}{
+		{
+			// Global peak Sharpe=2.0 comes from a 5-trade entry (below minTrades=30).
+			// Valid region contains only the 35-trade entry (Sharpe=1.0).
+			// 80% of valid-region peak (1.0) = 0.8; only the 35-trade entry qualifies.
+			name: "global peak below minTrades; valid region peak lower",
+			results: []Result{
+				{ParamValue: 10, SharpeRatio: 2.0, TradeCount: 5},  // invalid: < 30 trades
+				{ParamValue: 20, SharpeRatio: 1.0, TradeCount: 35}, // valid
+				{ParamValue: 30, SharpeRatio: 0.5, TradeCount: 40}, // valid but below 80% of 1.0
+			},
+			minTrades: 30,
+			want:      &PlateauRange{MinParam: 20, MaxParam: 20, Count: 1, MinSharpe: 1.0},
+		},
+		{
+			// All entries have TradeCount < 30. Valid region is empty.
+			// Expect nil plateau with SensitivityConcern set.
+			name: "no entry meets minTrades — empty valid region",
+			results: []Result{
+				{ParamValue: 10, SharpeRatio: 1.5, TradeCount: 5},
+				{ParamValue: 20, SharpeRatio: 1.0, TradeCount: 10},
+			},
+			minTrades: 30,
+			wantNil:   true,
+		},
+		{
+			// Valid region exists but all valid Sharpes are negative.
+			// Expect nil plateau.
+			name: "valid region is all-negative Sharpe",
+			results: []Result{
+				{ParamValue: 10, SharpeRatio: -0.5, TradeCount: 35},
+				{ParamValue: 20, SharpeRatio: -1.0, TradeCount: 40},
+			},
+			minTrades: 30,
+			wantNil:   true,
+		},
+		{
+			// Multiple entries in valid region; 80% floor applied to valid-region peak.
+			// Valid region: Sharpe 2.0 (TradeCount=40), 1.8 (TradeCount=50), 1.0 (TradeCount=35).
+			// Valid-region peak = 2.0; floor = 0.8*2.0 = 1.6.
+			// Qualifying: Sharpe 2.0 (param=20), 1.8 (param=30). Not 1.0 (param=10, below 1.6).
+			name: "plateau within valid region, floor from valid-region peak",
+			results: []Result{
+				{ParamValue: 20, SharpeRatio: 2.0, TradeCount: 40},
+				{ParamValue: 30, SharpeRatio: 1.8, TradeCount: 50},
+				{ParamValue: 10, SharpeRatio: 1.0, TradeCount: 35},
+			},
+			minTrades: 30,
+			want:      &PlateauRange{MinParam: 20, MaxParam: 30, Count: 2, MinSharpe: 1.8},
+		},
+		{
+			// minTrades=0 — equivalent to old behavior. Same as existing tests.
+			// All entries qualify; global peak is used.
+			name: "minTrades=0 behaves as no-filter (backward compatibility)",
+			results: []Result{
+				{ParamValue: 14, SharpeRatio: 1.0, TradeCount: 0},
+				{ParamValue: 13, SharpeRatio: 0.85, TradeCount: 0},
+				{ParamValue: 15, SharpeRatio: 0.82, TradeCount: 0},
+				{ParamValue: 12, SharpeRatio: 0.70, TradeCount: 0},
+			},
+			minTrades: 0,
+			want:      &PlateauRange{MinParam: 13, MaxParam: 15, Count: 3, MinSharpe: 0.82},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := computePlateauWithMinTrades(tt.results, tt.minTrades)
+			if tt.wantNil {
+				if got != nil {
+					t.Errorf("expected nil plateau, got %+v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("expected non-nil plateau, got nil")
+			}
+			if got.MinParam != tt.want.MinParam {
+				t.Errorf("MinParam: got %.4f, want %.4f", got.MinParam, tt.want.MinParam)
+			}
+			if got.MaxParam != tt.want.MaxParam {
+				t.Errorf("MaxParam: got %.4f, want %.4f", got.MaxParam, tt.want.MaxParam)
+			}
+			if got.Count != tt.want.Count {
+				t.Errorf("Count: got %d, want %d", got.Count, tt.want.Count)
+			}
+			if math.Abs(got.MinSharpe-tt.want.MinSharpe) > 1e-9 {
+				t.Errorf("MinSharpe: got %.9f, want %.9f", got.MinSharpe, tt.want.MinSharpe)
+			}
+		})
+	}
+}
+
+// TestReport_SensitivityConcern verifies that Run sets SensitivityConcern on the Report
+// when the sweep's valid region (TradeCount >= MinTradesForPlateau) is empty or all-negative.
+// Uses a synthetic strategy that generates 0 trades — all results will have TradeCount=0,
+// so with minTrades=30 the valid region is empty.
+func TestReport_SensitivityConcern_EmptyValidRegion(t *testing.T) {
+	t.Parallel()
+	// Use a strategy that always holds (no trades) to produce TradeCount=0 for every param.
+	// With minTrades=30, the valid region is empty — SensitivityConcern must be set.
+	candles := makeAlternatingCandles(300, 120, 80)
+	p := &staticProvider{candles: candles}
+
+	// A strategy that never trades (always returns Hold).
+	factory := func(_ float64) (strategy.Strategy, error) {
+		return &thresholdStrategy{threshold: 200, tf: model.TimeframeDaily}, nil // threshold above any close
+	}
+
+	cfg := Config{
+		ParameterName:   "threshold",
+		Min:             10,
+		Max:             20,
+		Step:            10,
+		Timeframe:       model.TimeframeDaily,
+		EngineConfig:    testEngineConfig(),
+		StrategyFactory: factory,
+	}
+
+	report, err := Run(context.Background(), cfg, p)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// With MinTradesForPlateau=30, all TradeCount=0 entries are invalid.
+	// Plateau must be nil and SensitivityConcern must be set.
+	if report.Plateau != nil {
+		t.Errorf("expected nil Plateau when valid region is empty, got %+v", report.Plateau)
+	}
+	if report.SensitivityConcern == "" {
+		t.Error("expected SensitivityConcern to be set when valid region is empty, got empty string")
+	}
+}
+
+// TestReport_SensitivityConcern_AllNegativeValidRegion verifies that Run sets
+// SensitivityConcern when the valid region (TradeCount >= MinTradesForPlateau) exists
+// but every entry in it has non-positive Sharpe.
+//
+// Setup: invertedThresholdStrategy on alternating candles (high=120, low=80).
+// The engine fills at the next bar's open price:
+//   - Low bar (close=80 ≤ threshold=100) → Buy signal → fills at next bar's open=120. Buys at 120.
+//   - High bar (close=120 > threshold=100) → Sell signal → fills at next bar's open=80. Sells at 80.
+//
+// Each round-trip: buy at 120, sell at 80 → loss. 300 candles produce ~150 trades
+// (well above MinTradesForPlateau=30), all losing. SensitivityConcern must be set.
+func TestReport_SensitivityConcern_AllNegativeValidRegion(t *testing.T) {
+	t.Parallel()
+	candles := makeAlternatingCandles(300, 120, 80)
+	p := &staticProvider{candles: candles}
+
+	// invertedThresholdStrategy with threshold=100 on alternating candles:
+	// buys at 120 (on low bars), sells at 80 (on high bars) — always loses.
+	factory := func(_ float64) (strategy.Strategy, error) {
+		return &invertedThresholdStrategy{threshold: 100, tf: model.TimeframeDaily}, nil
+	}
+
+	cfg := Config{
+		ParameterName:   "threshold",
+		Min:             10,
+		Max:             20,
+		Step:            10,
+		Timeframe:       model.TimeframeDaily,
+		EngineConfig:    testEngineConfig(),
+		StrategyFactory: factory,
+	}
+
+	report, err := Run(context.Background(), cfg, p)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// All valid-region entries have negative Sharpe — Plateau must be nil.
+	if report.Plateau != nil {
+		t.Errorf("expected nil Plateau for all-negative valid region, got %+v", report.Plateau)
+	}
+
+	// At least one entry must have TradeCount >= MinTradesForPlateau to confirm
+	// the valid region is non-empty (the !hasPositive branch, not !hasValid).
+	hasValidEntry := false
+	for _, r := range report.Results {
+		if r.TradeCount >= MinTradesForPlateau {
+			hasValidEntry = true
+			break
+		}
+	}
+	if !hasValidEntry {
+		t.Fatalf("no result has TradeCount >= %d; test setup is wrong — invertedThresholdStrategy should generate many losing trades", MinTradesForPlateau)
+	}
+
+	// SensitivityConcern must be the all-negative-region message, not the empty-region message.
+	if report.SensitivityConcern == "" {
+		t.Error("expected SensitivityConcern to be set for all-negative valid region, got empty string")
+	}
+	if report.SensitivityConcern == "no parameter achieves >= 30 trades in sweep range" {
+		t.Errorf("SensitivityConcern is the wrong message (empty-region): got %q; expected the all-negative message", report.SensitivityConcern)
 	}
 }
 

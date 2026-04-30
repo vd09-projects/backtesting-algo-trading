@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-04-29-parse-commission-model-extracted-to-cmdutil
+    title: "ParseCommissionModel extracted to internal/cmdutil — shared flag-parsing helper"
+    date: 2026-04-29
+    status: experimental
+    category: convention
+    tags: [commission, DRY, cmdutil, flag-parsing, cmd/backtest, cmd/sweep, cmd/universe-sweep, TASK-0051, TASK-0060]
+    path: convention/2026-04-29-parse-commission-model-extracted-to-cmdutil.md
+    summary: "ParseCommissionModel(s string) (model.CommissionModel, error) extracted to internal/cmdutil rather than duplicated in cmd/backtest and cmd/sweep. Third caller (cmd/universe-sweep, TASK-0060) is imminent — extraction at two callers accepted given near-zero cost and established cmdutil precedent."
+
+  - id: 2026-04-29-fallback-to-defaults-no-valid-plateau
+    title: "Fallback to strategy defaults for universe sweep when no valid plateau exists"
+    date: 2026-04-29
+    status: experimental
+    category: algorithm
+    tags: [sweep, plateau, universe-sweep, sensitivity-concern, parameter-selection, overfitting, TASK-0051]
+    path: algorithm/2026-04-29-fallback-to-defaults-no-valid-plateau.md
+    summary: "When the valid region (TradeCount >= 30) of a parameter sweep is empty or all-negative Sharpe, use strategy defaults for the universe sweep — not the least-bad parameter. Selecting the least-bad parameter on RELIANCE would overfit losses on one instrument. Defaults carry no RELIANCE-specific bias."
+
+  - id: 2026-04-29-plateau-procedure-trade-count-constrained
+    title: "Plateau procedure for trade-count-constrained strategies: apply 80% floor against valid-region peak"
+    date: 2026-04-29
+    status: experimental
+    category: algorithm
+    tags: [sweep, plateau, trade-count, valid-region, sensitivity-concern, parameter-sensitivity, TASK-0051]
+    path: algorithm/2026-04-29-plateau-procedure-trade-count-constrained.md
+    summary: "The 80% Sharpe floor for plateau identification is applied against the peak Sharpe within the valid region (TradeCount >= MinTradesForPlateau=30), not the global peak. A global peak from a 5-trade parameter would set an unreliable bar. If valid region is empty or all-negative, Report.SensitivityConcern is set and Report.Plateau is nil."
+
   - id: 2026-04-28-nifty-tri-benchmark-data-source
     title: "NIFTY 50 TRI benchmark — not available via Zerodha Kite; use NSE-published CSV"
     date: 2026-04-28

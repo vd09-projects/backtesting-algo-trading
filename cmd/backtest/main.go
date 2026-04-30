@@ -84,7 +84,7 @@ func main() {
 	toStr := flag.String("to", "", "End date in YYYY-MM-DD (exclusive)")
 	tfStr := flag.String("timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
 	cash := flag.Float64("cash", 100000, "Starting cash in ₹")
-	stratName := flag.String("strategy", "stub", "Strategy name: stub, sma-crossover, rsi-mean-reversion, donchian-breakout")
+	stratName := flag.String("strategy", "stub", "Strategy name: stub, sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum")
 	fastPeriod := flag.Int("fast-period", 10, "sma-crossover: fast SMA period")
 	slowPeriod := flag.Int("slow-period", 50, "sma-crossover: slow SMA period")
 	rsiPeriod := flag.Int("rsi-period", 14, "rsi-mean-reversion: RSI period")
@@ -98,6 +98,7 @@ func main() {
 	bbNumStdDev := flag.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: number of standard deviations")
 	momentumLookback := flag.Int("momentum-lookback", 231, "momentum: ROC lookback period (default 231 = 252-21, skip-last-month convention)")
 	momentumThreshold := flag.Float64("momentum-threshold", 10.0, "momentum: ROC threshold in percent (buy above, sell below negative)")
+	commissionStr := flag.String("commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
 	outPath := flag.String("out", "", "Path for JSON results export (omit to skip)")
 	curvePath := flag.String("output-curve", "", "Path for equity curve CSV export (omit to skip)")
 	sizingModel := flag.String("sizing-model", "fixed", "Position sizing model: fixed | vol-target")
@@ -169,6 +170,11 @@ func main() {
 		cmdutil.Fatalf("%v", err)
 	}
 
+	commissionModel, err := cmdutil.ParseCommissionModel(*commissionStr)
+	if err != nil {
+		cmdutil.Fatalf("--commission: %v", err)
+	}
+
 	eng := engine.New(engine.Config{
 		Instrument:           *instrument,
 		From:                 from,
@@ -179,7 +185,7 @@ func main() {
 		VolatilityTarget:     *volTarget,
 		OrderConfig: model.OrderConfig{
 			SlippagePct:     0.0005,
-			CommissionModel: model.CommissionZerodha,
+			CommissionModel: commissionModel,
 		},
 	})
 

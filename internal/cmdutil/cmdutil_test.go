@@ -12,7 +12,48 @@ import (
 	"testing"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
+
+// ── ParseCommissionModel ──────────────────────────────────────────────────────
+
+func TestParseCommissionModel(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		input   string
+		want    model.CommissionModel
+		wantErr bool
+	}{
+		{"zerodha accepted", "zerodha", model.CommissionZerodha, false},
+		{"zerodha_full accepted", "zerodha_full", model.CommissionZerodhaFull, false},
+		{"zerodha_full_mis accepted", "zerodha_full_mis", model.CommissionZerodhaFullMIS, false},
+		{"flat accepted", "flat", model.CommissionFlat, false},
+		{"percentage accepted", "percentage", model.CommissionPercentage, false},
+		{"empty string rejected", "", "", true},
+		{"unknown value rejected", "free", "", true},
+		{"case-sensitive — Zerodha rejected", "Zerodha", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := cmdutil.ParseCommissionModel(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ParseCommissionModel(%q): expected error, got nil", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseCommissionModel(%q): unexpected error: %v", tt.input, err)
+			}
+			if got != tt.want {
+				t.Errorf("ParseCommissionModel(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
 
 // ── LoadDotEnv ────────────────────────────────────────────────────────────────
 

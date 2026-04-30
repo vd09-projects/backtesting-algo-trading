@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-04-29 | **Open tasks:** 17 | **Next up:** TASK-0051
+**Last updated:** 2026-04-29 | **Open tasks:** 18 | **Next up:** TASK-0051
 
 ---
 
@@ -8,7 +8,23 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
-_No tasks in progress._
+### [TASK-0051] Evaluation — in-sample baseline and parameter sensitivity (all 6 strategies, RELIANCE, 2018-2023)
+
+- **Status:** in-progress
+- **Priority:** high
+- **Created:** 2026-04-25
+- **Source:** session
+- **Context:** Orientation run on a single instrument to understand each strategy's behavior and find the robust parameter region via 1D sweep. Not a gate — the universe sweep is the gate. The output of this task is the plateau-midpoint parameter for each strategy, which is what gets used in the universe sweep.
+- **Acceptance criteria:**
+  - [x] Extend `cmd/backtest` and `cmd/sweep` to support all 6 strategies with `--commission` flag (done 2026-04-29; `ParseCommissionModel` extracted to `internal/cmdutil`)
+  - [x] `internal/sweep.computePlateau` updated to apply 80% floor against valid-region peak (TradeCount ≥ 30) per Marcus's verdict; `SensitivityConcern` field added to `Report`
+  - [ ] Run `cmd/backtest` for all 6 strategies on NSE:RELIANCE 2018-01-01 to 2024-01-01 with `--commission zerodha_full` and default parameters
+  - [ ] Record for each: Sharpe, regime splits (3 NSE windows), trade count, max drawdown, bootstrap p5 Sharpe
+  - [ ] Run 1D parameter sweep (`cmd/sweep`) for each strategy on its key parameter (rsi-period, sma-fast/slow, macd-fast/slow, bb-period, donchian-period, momentum-lookback)
+  - [ ] Identify plateau range (within 80% of peak Sharpe in ≥30-trade valid region) for each strategy
+  - [ ] Select plateau-midpoint parameter for each strategy for use in universe sweep; if no valid plateau exists, flag strategy as "sensitivity concern" and use defaults for universe sweep
+  - [ ] Results saved to `runs/baseline-2026-04-29/` with JSON and CSV outputs; `plateau-params.json` produced
+- **Notes:** Tooling gate complete as of 2026-04-29. Remaining work: execute the CLI runs (requires live Zerodha token). Use `--commission zerodha_full --bootstrap` for baseline runs. Plateau logic now applies ≥30 trade filter per Marcus's verdict. Owner: Marcus (algo-trading-veteran).
 
 ---
 
@@ -19,23 +35,6 @@ _No tasks in progress._
 ## Blocked
 
 <!-- Waiting on something. Each task must state what it's blocked by. -->
-
-### [TASK-0051] Evaluation — in-sample baseline and parameter sensitivity (all 6 strategies, RELIANCE, 2018-2023)
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** TASK-0049 (pre-commit gate definitions — already done). TASK-0050 tooling now complete; unblocked when actual audit run is executed and produces the matrix CSV.
-- **Context:** Orientation run on a single instrument to understand each strategy's behavior and find the robust parameter region via 1D sweep. Not a gate — the universe sweep is the gate. The output of this task is the plateau-midpoint parameter for each strategy, which is what gets used in the universe sweep.
-- **Acceptance criteria:**
-  - [ ] Run `cmd/backtest` for all 6 strategies on NSE:RELIANCE 2018-01-01 to 2024-01-01 with `CommissionZerodhaFull` and default parameters
-  - [ ] Record for each: Sharpe, regime splits (3 NSE windows), trade count, max drawdown, bootstrap p5 Sharpe
-  - [ ] Run 1D parameter sweep (`cmd/sweep`) for each strategy on its key parameter (rsi-period, sma-fast/slow, macd-fast/slow, bb-period, donchian-period, momentum-lookback)
-  - [ ] Identify plateau range (within 80% of peak Sharpe) for each strategy
-  - [ ] Select plateau-midpoint parameter for each strategy for use in universe sweep; if no plateau exists, flag strategy as "sensitivity concern" — this does not disqualify it, but the flag is recorded
-  - [ ] Results saved to `runs/baseline-YYYY-MM-DD/` with JSON and CSV outputs
-- **Notes:** A strategy with Sharpe < 0 on RELIANCE is not killed here — the universe sweep is the primary gate. This step is for orientation and parameter selection, not elimination. Owner: Marcus (algo-trading-veteran).
 
 ---
 
@@ -230,20 +229,21 @@ _No tasks in progress._
 
 ---
 
-### [TASK-0060] Tooling — `--commission` flag for `cmd/backtest`, `cmd/sweep`, `cmd/universe-sweep`
+### [TASK-0060] Tooling — `--commission` flag for `cmd/universe-sweep`
 
 - **Status:** todo
 - **Priority:** medium
 - **Created:** 2026-04-27
 - **Source:** discovery
-- **Context:** `CommissionZerodhaFull` and `CommissionZerodhaFullMIS` exist in `pkg/model/order.go` but the CLI binaries hardcode `CommissionZerodha` (brokerage-only). Running intraday backtests with the correct MIS cost model requires code changes, not just a flag. A `--commission` flag accepting the string value of `CommissionModel` would expose all models without hard-coding.
+- **Context:** `CommissionZerodhaFull` and `CommissionZerodhaFullMIS` exist in `pkg/model/order.go`. `cmd/backtest` and `cmd/sweep` received the `--commission` flag in TASK-0051 (2026-04-29). `cmd/universe-sweep` still hardcodes `CommissionZerodha` and needs the same treatment. `ParseCommissionModel` is already in `internal/cmdutil` — wiring it in is a small change.
 - **Acceptance criteria:**
-  - [ ] `--commission` flag added to `cmd/backtest`, `cmd/sweep`, `cmd/universe-sweep`; accepted values: `zerodha` (default, preserves existing behavior), `zerodha_full`, `zerodha_full_mis`, `flat`, `percentage`
-  - [ ] Flag wired into `model.OrderConfig.CommissionModel` for each binary
+  - [x] `--commission` flag added to `cmd/backtest` (done 2026-04-29, TASK-0051)
+  - [x] `--commission` flag added to `cmd/sweep` (done 2026-04-29, TASK-0051)
+  - [x] `ParseCommissionModel` extracted to `internal/cmdutil` (done 2026-04-29, TASK-0051)
+  - [ ] `--commission` flag added to `cmd/universe-sweep`; wire `cmdutil.ParseCommissionModel` into `model.OrderConfig.CommissionModel`
   - [ ] Invalid value returns a clear error at startup, not a silent fallback
-  - [ ] Help text documents the accepted values and their cost structures
-  - [ ] At least one integration test: `cmd/backtest` with `--commission zerodha_full_mis` produces a different (lower) total commission than `--commission zerodha_full` on the same synthetic candle series
-- **Notes:** Discovered during TASK-0047 harvest — `CommissionZerodhaFullMIS` is only accessible via Go code today. Medium priority: Phase 1 evaluation uses daily-bar CNC strategies, so `CommissionZerodhaFull` is the correct model and does not need this flag. Required before any MIS intraday backtest run (Phase 2+).
+  - [ ] Help text documents the accepted values
+- **Notes:** `cmd/backtest` and `cmd/sweep` done in TASK-0051. Only `cmd/universe-sweep` remains. Required before any MIS intraday backtest run (Phase 2+). Low friction to implement now that `ParseCommissionModel` is shared.
 
 ---
 
@@ -331,6 +331,20 @@ _No tasks in progress._
   - [ ] At least one working notebook: `notebooks/equity-curve.ipynb` reads `runs/<name>-curve.csv` and plots equity curve with regime shading
 - **Notes:** Depends on TASK-0029 (equity curve CSV output) for the first working notebook.
   The file contract in README.md is the formal boundary — Python never feeds back into Go inputs.
+
+---
+
+### [TASK-0063] Tooling — update `cmd/backtest` package doc comment to list all 6 strategies
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-04-29
+- **Source:** discovery
+- **Context:** The package-level doc comment in `cmd/backtest/main.go` lists only `stub`, `sma-crossover`, and `rsi-mean-reversion` under "Available strategies". The `strategyRegistry` and `--strategy` flag help text now correctly list all 6, but the doc comment at the top of the file is stale and would mislead someone reading the source. Discovered during TASK-0051 quality review.
+- **Acceptance criteria:**
+  - [ ] `cmd/backtest/main.go` package doc comment "Available strategies" section updated to list all 6 strategies with their flag descriptions
+  - [ ] `golangci-lint run ./cmd/backtest/...` still passes
+- **Notes:** Pure documentation change — no logic, no tests needed. Low priority; do alongside any other `cmd/backtest` touch.
 
 ---
 

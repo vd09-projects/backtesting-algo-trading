@@ -52,11 +52,13 @@ func main() {
 	toStr := flag.String("to", "", "End date in YYYY-MM-DD (exclusive, required)")
 	tfStr := flag.String("timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
 	cash := flag.Float64("cash", 100000, "Starting cash in ₹")
-	stratName := flag.String("strategy", "", "Strategy to sweep: sma-crossover | rsi-mean-reversion | donchian-breakout (required)")
+	stratName := flag.String("strategy", "", "Strategy to sweep: sma-crossover | rsi-mean-reversion | donchian-breakout | macd-crossover | bollinger-mean-reversion | momentum (required)")
 	sweepParam := flag.String("sweep-param", "", "Parameter to sweep (required; see supported combinations in usage)")
 	minVal := flag.Float64("min", 0, "Sweep range minimum (required)")
 	maxVal := flag.Float64("max", 0, "Sweep range maximum (required)")
 	stepVal := flag.Float64("step", 0, "Sweep step size (required, must be > 0)")
+
+	commissionStr := flag.String("commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
 
 	// Fixed parameters for the non-swept dimensions.
 	fastPeriod := flag.Int("fast-period", 10, "sma-crossover: fixed fast SMA period")
@@ -78,6 +80,11 @@ func main() {
 	from, to, tf, err := parseAndValidateFlags(*fromStr, *toStr, *tfStr, *stratName, *sweepParam, *stepVal, *minVal, *maxVal)
 	if err != nil {
 		cmdutil.Fatalf("%v", err)
+	}
+
+	commissionModel, err := cmdutil.ParseCommissionModel(*commissionStr)
+	if err != nil {
+		cmdutil.Fatalf("--commission: %v", err)
 	}
 
 	factory, err := factoryRegistry(*stratName, *sweepParam, tf, &fixedParams{
@@ -122,7 +129,7 @@ func main() {
 			PositionSizeFraction: 0.1,
 			OrderConfig: model.OrderConfig{
 				SlippagePct:     0.0005,
-				CommissionModel: model.CommissionZerodha,
+				CommissionModel: commissionModel,
 			},
 		},
 		StrategyFactory: factory,
@@ -151,7 +158,7 @@ func parseAndValidateFlags(fromStr, toStr, tfStr, stratName, sweepParam string, 
 		return time.Time{}, time.Time{}, "", fmt.Errorf("--to is required (e.g. 2024-12-31)")
 	}
 	if stratName == "" {
-		return time.Time{}, time.Time{}, "", fmt.Errorf("--strategy is required: sma-crossover | rsi-mean-reversion | donchian-breakout")
+		return time.Time{}, time.Time{}, "", fmt.Errorf("--strategy is required: sma-crossover | rsi-mean-reversion | donchian-breakout | macd-crossover | bollinger-mean-reversion | momentum")
 	}
 	if sweepParam == "" {
 		return time.Time{}, time.Time{}, "", fmt.Errorf("--sweep-param is required (e.g. rsi-period, fast-period, oversold)")
