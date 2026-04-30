@@ -37,7 +37,11 @@
       "Bash(gofumpt -l /Users/vikrantdhawan/repos/backtesting-algo-trading/internal/analytics/analytics_internal_test.go)",
       "Bash(go version *)",
       "Bash(bash .claude/hooks/pre-tool-use-edit.sh)",
-      "Bash(echo \"exit code: $?\")"
+      "Bash(echo \"exit code: $?\")",
+      "Bash(tee runs/baseline-2026-05-01/sweep-macd-fast-period.txt)",
+      "Bash(tee runs/baseline-2026-05-01/sweep-sma-slow-period.txt)",
+      "Bash(tee runs/baseline-2026-05-01/sweep-bollinger-period.txt)",
+      "Bash(tee runs/baseline-2026-05-01/sweep-momentum-lookback.txt)"
     ]
   },
   "hooks": {

@@ -166,3 +166,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-04-29 | TASK-0051 | status → in-progress | tooling gate complete: --commission flag added to cmd/backtest + cmd/sweep; ParseCommissionModel in internal/cmdutil; sweep.computePlateau updated to valid-region (≥30 trades) logic with SensitivityConcern field; quality gate PASS (92.4% coverage); remaining: CLI runs requiring live Zerodha token | |
 | 2026-04-29 | TASK-0060 | scope updated | cmd/backtest + cmd/sweep --commission done in TASK-0051; scope narrowed to cmd/universe-sweep only; ParseCommissionModel already in internal/cmdutil | |
 | 2026-04-29 | TASK-0063 | created | priority: low, source: discovery | cmd/backtest package doc comment Available strategies lists only 3 strategies; cosmetic fix alongside next cmd/backtest touch |
+| 2026-05-01 10:00 | TASK-0064 | created | priority: medium, source: discovery | runs output missing timeframe/metadata in filename and JSON |
