@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-01 | **Open tasks:** 18 | **Next up:** TASK-0052
+**Last updated:** 2026-05-01 | **Open tasks:** 17 | **Next up:** TASK-0052
 
 ---
 
@@ -226,23 +226,6 @@
 
 ---
 
-### [TASK-0060] Tooling — `--commission` flag for `cmd/universe-sweep`
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-27
-- **Source:** discovery
-- **Context:** `CommissionZerodhaFull` and `CommissionZerodhaFullMIS` exist in `pkg/model/order.go`. `cmd/backtest` and `cmd/sweep` received the `--commission` flag in TASK-0051 (2026-04-29). `cmd/universe-sweep` still hardcodes `CommissionZerodha` and needs the same treatment. `ParseCommissionModel` is already in `internal/cmdutil` — wiring it in is a small change.
-- **Acceptance criteria:**
-  - [x] `--commission` flag added to `cmd/backtest` (done 2026-04-29, TASK-0051)
-  - [x] `--commission` flag added to `cmd/sweep` (done 2026-04-29, TASK-0051)
-  - [x] `ParseCommissionModel` extracted to `internal/cmdutil` (done 2026-04-29, TASK-0051)
-  - [ ] `--commission` flag added to `cmd/universe-sweep`; wire `cmdutil.ParseCommissionModel` into `model.OrderConfig.CommissionModel`
-  - [ ] Invalid value returns a clear error at startup, not a silent fallback
-  - [ ] Help text documents the accepted values
-- **Notes:** `cmd/backtest` and `cmd/sweep` done in TASK-0051. Only `cmd/universe-sweep` remains. Required before any MIS intraday backtest run (Phase 2+). Low friction to implement now that `ParseCommissionModel` is shared.
-
----
 
 ### [TASK-0058] Tooling — fix cyclomatic complexity in `cmd/rsi-diagnostic/main.go`
 

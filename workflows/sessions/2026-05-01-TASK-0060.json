@@ -1,0 +1,50 @@
+{
+  "session_date": "2026-05-01",
+  "workflow": "build",
+  "task_id": "TASK-0060",
+  "task_title": "Tooling — `--commission` flag for `cmd/universe-sweep`",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/convention/2026-04-29-parse-commission-model-extracted-to-cmdutil.md"
+      ],
+      "context_files": [
+        "decisions/architecture/2026-04-22-buildprovider-extracted-to-cmdutil.md",
+        "decisions/convention/2026-04-09-error-wrapping-required-at-every-call-site.md",
+        "decisions/convention/2026-04-08-godoc-required-on-exported-types.md"
+      ]
+    },
+    "marcus": {
+      "summary": "not applicable — step skipped (CLI flag wiring, no methodology questions)"
+    },
+    "priya_plan": {
+      "plan_summary": "Add --commission flag to cmd/universe-sweep by following the identical pattern already in cmd/backtest. Declare the flag with the same help text, call cmdutil.ParseCommissionModel at validation time with a Fatalf on error, and replace the hardcoded model.CommissionZerodha in OrderConfig with the parsed value. Update the package doc comment to reference --commission. No new files, no new packages, no new tests.",
+      "files_to_create": [],
+      "files_to_modify": ["cmd/universe-sweep/main.go"],
+      "approach": "In cmd/universe-sweep/main.go: (1) add commissionStr flag declaration; (2) call cmdutil.ParseCommissionModel with Fatalf on error; (3) replace hardcoded model.CommissionZerodha with commissionModel; (4) update package doc comment."
+    },
+    "build": {
+      "verdict": "PASS",
+      "files_modified": ["cmd/universe-sweep/main.go"],
+      "notes": "Flag wired. Cyclop limit breach (complexity 16 > 15) fixed by extracting parseDateRangeAndTimeframe helper. Named return values used to satisfy gocritic unnamedResult rule."
+    },
+    "quality_review": {
+      "verdict": "PASS",
+      "lint": "0 issues — golangci-lint run ./cmd/universe-sweep/...",
+      "tests": "all pass — go1.25.0 test -race ./..."
+    }
+  },
+  "quality_review_round": 1,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0060 \"Tooling — `--commission` flag for `cmd/universe-sweep`\" picked from Todo (Backlog) per explicit user selection.",
+    "[AUTO] Step 2 — Decision lookup: 1 standing order, 3 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (CLI flag wiring — no methodology questions).",
+    "[AUTO] Step 4 — Plan: complete. Approach: Add --commission flag to cmd/universe-sweep following the identical pattern in cmd/backtest.",
+    "[AUTO] Step 5 — Build: implementation already present from prior session; cyclop lint failure (complexity 16) fixed by extracting parseDateRangeAndTimeframe; gocritic unnamedResult fixed with named returns + var err pre-declaration.",
+    "[AUTO] Step 6 — Quality gate: PASS. golangci-lint 0 issues, go test -race all pass. TASK-0060 archived to tasks/archive/2026-05.md.",
+    "[CLOSED] TASK-0060 done. All criteria met. Archived."
+  ],
+  "decision_marks_pending": [],
+  "hard_stop_active": null
+}

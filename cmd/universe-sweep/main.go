@@ -9,7 +9,8 @@
 //	    --from 2020-01-01 \
 //	    --to   2024-12-31 \
 //	    --timeframe daily \
-//	    --cash 100000
+//	    --cash 100000 \
+//	    --commission zerodha_full
 //
 // The output is CSV written to stdout:
 //
@@ -18,6 +19,14 @@
 // Rows are sorted descending by Sharpe. Instruments with fewer than the minimum
 // trades or candle-points required for reliable metrics are flagged with
 // insufficient_data=true (Sharpe is zeroed for those rows).
+//
+// Commission models:
+//
+//	zerodha         — simplified Zerodha model (default)
+//	zerodha_full    — full Zerodha CNC model with STT, exchange charges, SEBI, stamp duty, GST
+//	zerodha_full_mis — full Zerodha MIS intraday model
+//	flat            — flat per-trade fee
+//	percentage      — percentage of notional
 //
 // Credentials are read from KITE_API_KEY and KITE_API_SECRET environment
 // variables (or a .env file in the working directory). Token handling is
@@ -53,6 +62,7 @@ func main() {
 	cash := flag.Float64("cash", 100000, "Starting cash in ₹")
 	positionSize := flag.Float64("position-size", 0.10, "Fraction of cash deployed per trade")
 	slippage := flag.Float64("slippage", 0.0005, "Slippage as decimal fraction (e.g. 0.0005 = 0.05%)")
+	commissionStr := flag.String("commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
 
 	// Strategy-specific parameters.
 	fastPeriod := flag.Int("fast-period", 10, "sma-crossover: fast SMA period")
@@ -84,24 +94,11 @@ func main() {
 		cmdutil.Fatalf("--to is required (e.g. 2024-12-31)")
 	}
 
-	from, err := time.Parse("2006-01-02", *fromStr)
-	if err != nil {
-		cmdutil.Fatalf("--from %q: %v", *fromStr, err)
-	}
-	to, err := time.Parse("2006-01-02", *toStr)
-	if err != nil {
-		cmdutil.Fatalf("--to %q: %v", *toStr, err)
-	}
-	if !to.After(from) {
-		cmdutil.Fatalf("--to must be strictly after --from")
-	}
+	from, to, tf := parseDateRangeAndTimeframe(*fromStr, *toStr, *tfStr)
 
-	tf := model.Timeframe(*tfStr)
-	switch tf {
-	case model.Timeframe1Min, model.Timeframe5Min, model.Timeframe15Min,
-		model.TimeframeDaily, model.TimeframeWeekly:
-	default:
-		cmdutil.Fatalf("--timeframe %q is not valid; choose one of: 1min, 5min, 15min, daily, weekly", *tfStr)
+	commissionModel, err := cmdutil.ParseCommissionModel(*commissionStr)
+	if err != nil {
+		cmdutil.Fatalf("--commission: %v", err)
 	}
 
 	instruments, err := universesweep.ParseUniverseFile(*universeFile)
@@ -150,7 +147,7 @@ func main() {
 			PositionSizeFraction: *positionSize,
 			OrderConfig: model.OrderConfig{
 				SlippagePct:     *slippage,
-				CommissionModel: model.CommissionZerodha,
+				CommissionModel: commissionModel,
 			},
 		},
 		Timeframe: tf,
@@ -164,6 +161,31 @@ func main() {
 	if err := universesweep.WriteCSV(os.Stdout, report); err != nil {
 		cmdutil.Fatalf("write CSV: %v", err)
 	}
+}
+
+// parseDateRangeAndTimeframe validates --from, --to, and --timeframe flags and
+// returns the parsed values. It calls cmdutil.Fatalf and exits on any error.
+func parseDateRangeAndTimeframe(fromStr, toStr, tfStr string) (from, to time.Time, tf model.Timeframe) {
+	var err error
+	from, err = time.Parse("2006-01-02", fromStr)
+	if err != nil {
+		cmdutil.Fatalf("--from %q: %v", fromStr, err)
+	}
+	to, err = time.Parse("2006-01-02", toStr)
+	if err != nil {
+		cmdutil.Fatalf("--to %q: %v", toStr, err)
+	}
+	if !to.After(from) {
+		cmdutil.Fatalf("--to must be strictly after --from")
+	}
+	tf = model.Timeframe(tfStr)
+	switch tf {
+	case model.Timeframe1Min, model.Timeframe5Min, model.Timeframe15Min,
+		model.TimeframeDaily, model.TimeframeWeekly:
+	default:
+		cmdutil.Fatalf("--timeframe %q is not valid; choose one of: 1min, 5min, 15min, daily, weekly", tfStr)
+	}
+	return
 }
 
 type strategyParams struct {
