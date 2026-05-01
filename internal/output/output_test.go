@@ -752,6 +752,151 @@ func TestWriteCorrelationMatrix_WriteError_Row(t *testing.T) {
 	}
 }
 
+// --- RunConfig metadata in JSON ---
+
+func TestWrite_RunConfig_AppearsAtTopLevelInJSON(t *testing.T) {
+	report := analytics.Report{TradeCount: 5, SharpeRatio: 1.23}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+
+	rc := output.RunConfig{
+		Instrument:      "NSE:RELIANCE",
+		Timeframe:       "daily",
+		From:            "2018-01-01",
+		To:              "2024-01-01",
+		Strategy:        "sma-crossover",
+		CommissionModel: "zerodha_full",
+		Parameters:      map[string]string{"fast_period": "10", "slow_period": "50"},
+	}
+	cfg := output.Config{FilePath: path, RunConfig: rc}
+
+	if err := output.Write(report, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	// Parse into a generic map to verify top-level keys.
+	var got map[string]interface{}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal JSON: %v", err)
+	}
+
+	for _, wantKey := range []string{"instrument", "timeframe", "from", "to", "strategy", "commission_model", "parameters"} {
+		if _, ok := got[wantKey]; !ok {
+			t.Errorf("JSON missing top-level key %q; full JSON:\n%s", wantKey, data)
+		}
+	}
+	if got["instrument"] != "NSE:RELIANCE" {
+		t.Errorf("instrument = %q, want %q", got["instrument"], "NSE:RELIANCE")
+	}
+	if got["strategy"] != "sma-crossover" {
+		t.Errorf("strategy = %q, want %q", got["strategy"], "sma-crossover")
+	}
+}
+
+func TestWrite_RunConfig_ZeroValue_NoExtraKeys(t *testing.T) {
+	// When RunConfig is zero-valued, the JSON output must not contain metadata keys.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+
+	if err := output.Write(analytics.Report{TradeCount: 1}, output.Config{FilePath: path}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var got map[string]interface{}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal JSON: %v", err)
+	}
+
+	for _, key := range []string{"instrument", "timeframe", "from", "to", "strategy", "commission_model"} {
+		if _, ok := got[key]; ok {
+			t.Errorf("JSON should not contain key %q when RunConfig is zero; full JSON:\n%s", key, data)
+		}
+	}
+}
+
+func TestWrite_RunConfig_MetricsFieldsStillPresent(t *testing.T) {
+	// Existing metrics fields must remain accessible after RunConfig is added.
+	report := analytics.Report{TradeCount: 42, SharpeRatio: 0.75, TotalPnL: 12345.67}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+
+	rc := output.RunConfig{Instrument: "NSE:INFY", Timeframe: "daily", Strategy: "momentum"}
+	if err := output.Write(report, output.Config{FilePath: path, RunConfig: rc}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	// The report fields must still deserialize correctly.
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Unmarshal JSON: %v", err)
+	}
+	tradeCountRaw, ok := raw["TradeCount"]
+	if !ok {
+		t.Fatalf("JSON missing TradeCount field; keys: %v", keysOf(raw))
+	}
+	tradeCountF, ok := tradeCountRaw.(float64)
+	if !ok {
+		t.Fatalf("TradeCount is not a float64; got %T: %v", tradeCountRaw, tradeCountRaw)
+	}
+	if int(tradeCountF) != 42 {
+		t.Errorf("TradeCount = %d, want 42", int(tradeCountF))
+	}
+}
+
+func TestWrite_RunConfig_ParametersMap(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+
+	rc := output.RunConfig{
+		Strategy:   "rsi-mean-reversion",
+		Parameters: map[string]string{"rsi_period": "14", "oversold": "30", "overbought": "70"},
+	}
+	if err := output.Write(analytics.Report{}, output.Config{FilePath: path, RunConfig: rc}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var got map[string]interface{}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	params, ok := got["parameters"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("parameters field missing or not an object; full JSON:\n%s", data)
+	}
+	if params["rsi_period"] != "14" {
+		t.Errorf("parameters.rsi_period = %v, want %q", params["rsi_period"], "14")
+	}
+}
+
+// keysOf returns the keys of a map for diagnostic error messages.
+func keysOf(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // --- WriteSweep DSR section ---
 
 func TestWriteSweep_DSRSection(t *testing.T) {

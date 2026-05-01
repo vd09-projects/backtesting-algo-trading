@@ -134,8 +134,8 @@ func main() {
 		cmdutil.Fatalf("provider: %v", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Running %q across %d instruments  %s → %s\n",
-		*stratName, len(instruments), from.Format("2006-01-02"), to.Format("2006-01-02"))
+	fmt.Fprintf(os.Stderr, "Running %q across %d instruments  %s → %s  timeframe=%s commission=%s\n",
+		*stratName, len(instruments), from.Format("2006-01-02"), to.Format("2006-01-02"), *tfStr, *commissionStr)
 
 	cfg := universesweep.Config{
 		Instruments: instruments,

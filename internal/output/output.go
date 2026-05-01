@@ -16,6 +16,31 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
+// RunConfig holds the metadata describing a specific backtest run.
+// It is embedded at the top level of the JSON output alongside the performance metrics.
+//
+// All fields are plain strings rather than model.Timeframe or model.CommissionModel to
+// decouple the JSON shape from pkg/model type changes. The cmd layer converts typed values
+// to strings before constructing RunConfig.
+//
+// **Decision (RunConfig in internal/output — architecture: experimental)**
+// scope: internal/output, cmd/backtest, cmd/universe-sweep
+// tags: metadata, JSON, run-config, output
+// owner: priya
+//
+// RunConfig is a serialization DTO for the output layer. It belongs here rather than
+// pkg/model because it describes how a run is represented in serialized form — not a
+// domain primitive that other packages need to import.
+type RunConfig struct {
+	Instrument      string            `json:"instrument,omitempty"`
+	Timeframe       string            `json:"timeframe,omitempty"`
+	From            string            `json:"from,omitempty"`
+	To              string            `json:"to,omitempty"`
+	Strategy        string            `json:"strategy,omitempty"`
+	CommissionModel string            `json:"commission_model,omitempty"`
+	Parameters      map[string]string `json:"parameters,omitempty"`
+}
+
 // Config controls where backtest results are written.
 type Config struct {
 	FilePath       string                      // destination for JSON export; ignored if empty
@@ -29,6 +54,7 @@ type Config struct {
 	Bootstrap      *montecarlo.BootstrapResult // optional; when non-nil, bootstrap section printed
 	BootstrapSeed  int64                       // seed used in the bootstrap run; printed in header
 	BootstrapNSims int                         // simulation count; 0 displayed as 10000 (the montecarlo default)
+	RunConfig      RunConfig                   // optional run metadata embedded at top level of JSON output; zero value omits all metadata fields
 }
 
 // Write formats report as a human-readable summary and/or a JSON file.
@@ -50,7 +76,7 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 	}
 
 	if cfg.FilePath != "" {
-		if err := writeJSON(cfg.FilePath, report); err != nil {
+		if err := writeJSON(cfg.FilePath, report, cfg.RunConfig); err != nil {
 			return err
 		}
 	}
@@ -164,7 +190,7 @@ func printRegimeTable(w io.Writer, regimes []analytics.RegimeReport) error {
 // WriteSweep prints a ranked table of sweep results and, if present, the plateau
 // and DSR-corrected peak Sharpe to w. Results are expected to arrive pre-sorted
 // descending by Sharpe ratio.
-func WriteSweep(w io.Writer, report sweep.Report) error {
+func WriteSweep(w io.Writer, report sweep.Report) error { //nolint:gocritic // Report is a caller-constructed value type; pointer would leak internals
 	if _, err := fmt.Fprintf(w,
 		"=== Parameter Sweep: %s ===\n%-4s  %-10s  %-8s  %-12s  %-6s  %-8s\n",
 		report.ParameterName,
@@ -261,8 +287,27 @@ func formatCorr(v float64) string {
 	return fmt.Sprintf("%.4f", v)
 }
 
-func writeJSON(path string, r analytics.Report) error { //nolint:gocritic // value semantics intentional; r is read-only
-	data, err := json.MarshalIndent(r, "", "  ")
+// jsonResult merges RunConfig metadata fields with analytics.Report fields at the
+// JSON top level. Go's encoding/json promotes embedded struct fields to the top level,
+// so both RunConfig and analytics.Report fields appear as siblings in the output JSON.
+//
+// **Decision (jsonResult struct embedding for top-level JSON merge — convention: experimental)**
+// scope: internal/output
+// tags: JSON, embedding, serialization
+// owner: priya
+//
+// analytics.Report is embedded (anonymous field) so its exported fields are promoted
+// to the top level of the JSON object. RunConfig fields use omitempty so that a
+// zero-valued RunConfig produces no extra keys — existing callers that pass no RunConfig
+// get identical JSON output.
+type jsonResult struct {
+	RunConfig
+	analytics.Report
+}
+
+func writeJSON(path string, r analytics.Report, rc RunConfig) error { //nolint:gocritic // value semantics intentional; r and rc are read-only
+	result := jsonResult{RunConfig: rc, Report: r}
+	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return fmt.Errorf("output: marshal report: %w", err)
 	}

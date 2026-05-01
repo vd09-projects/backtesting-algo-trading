@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-01-default-out-auto-generates-filename
+    title: "Default --out auto-generates filename when flag is omitted"
+    date: 2026-05-01
+    status: experimental
+    category: convention
+    tags: [CLI, --out, default-filename, timeframe, cmd/backtest, TASK-0064]
+    path: convention/2026-05-01-default-out-auto-generates-filename.md
+    summary: "When --out is omitted, cmd/backtest auto-generates a canonical filename via cmdutil.DefaultOutPath ({strategy}-{instrument}-{timeframe}-{from}-{to}.json). Behavior change from prior default of no output; callers that need no file must pass --out=/dev/null."
+
+  - id: 2026-05-01-defaultoutpath-in-internal-cmdutil
+    title: "DefaultOutPath placed in internal/cmdutil"
+    date: 2026-05-01
+    status: experimental
+    category: architecture
+    tags: [filename, default-out, run-config, cmdutil, DefaultOutPath, TASK-0064]
+    path: architecture/2026-05-01-defaultoutpath-in-internal-cmdutil.md
+    summary: "DefaultOutPath(strategy, instrument, tf, from, to) placed in internal/cmdutil alongside ParseCommissionModel and BuildProvider — same character of cmd-layer plumbing. Instrument name sanitized for filesystem safety inside the helper; original preserved in RunConfig.Instrument."
+
+  - id: 2026-05-01-jsonresult-struct-embedding-top-level-json
+    title: "jsonResult struct embedding for top-level JSON merge"
+    date: 2026-05-01
+    status: experimental
+    category: convention
+    tags: [JSON, embedding, serialization, struct-embedding, omitempty, internal/output, TASK-0064]
+    path: convention/2026-05-01-jsonresult-struct-embedding-top-level-json.md
+    summary: "Unexported jsonResult struct embeds RunConfig and analytics.Report; Go field promotion merges both at the JSON top level without modifying either type. omitempty on RunConfig fields means zero-valued RunConfig emits no extra keys — backward compatible."
+
+  - id: 2026-05-01-runconfig-in-internal-output
+    title: "RunConfig placed in internal/output as serialization DTO"
+    date: 2026-05-01
+    status: experimental
+    category: architecture
+    tags: [metadata, JSON, run-config, output, serialization-dto, TASK-0064]
+    path: architecture/2026-05-01-runconfig-in-internal-output.md
+    summary: "RunConfig lives in internal/output, not pkg/model. It is a serialization DTO describing how a run appears in output form. All fields are plain strings to decouple JSON shape from pkg/model type changes. Promote to pkg/model only if a non-output package needs it."
+
   - id: 2026-05-01-task0051-signal-audit-routing-macd-proceeds-others-need-sensitivity
     title: "TASK-0051 routing: MACD proceeds on defaults; other 5 require parameter sensitivity pass first"
     date: 2026-05-01

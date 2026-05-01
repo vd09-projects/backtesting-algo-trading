@@ -152,6 +152,38 @@ func ParseCommissionModel(s string) (model.CommissionModel, error) {
 	}
 }
 
+// DefaultOutPath constructs a canonical output filename for a backtest run when
+// the caller does not supply an explicit --out path. The filename follows the
+// pattern: {strategy}-{instrument}-{timeframe}-{from}-{to}.json
+//
+// Colons and spaces in the instrument name are replaced with underscores to
+// produce a filesystem-safe filename on all platforms.
+//
+// **Decision (DefaultOutPath in internal/cmdutil — architecture: experimental)**
+// scope: internal/cmdutil, cmd/backtest
+// tags: filename, default-out, run-config, cmdutil
+// owner: priya
+//
+// Filename generation belongs alongside ParseCommissionModel and BuildProvider —
+// it is cmd-layer plumbing needed by cmd binaries that produce JSON output. The
+// JSON content retains the original instrument name with the colon.
+//
+// **Decision (default --out auto-generates filename — convention: experimental)**
+// scope: cmd/backtest
+// tags: CLI, --out, default-filename, timeframe
+// owner: priya
+//
+// cmd/backtest previously defaulted --out to "" (no JSON output). The AC requires
+// the default filename to include timeframe. The new behavior: when --out is
+// omitted, an auto-generated filename is used. Users who want no JSON output
+// must supply --out="" explicitly (or we can make it opt-in via a separate flag;
+// for now, auto-generate is the right default per the task AC).
+func DefaultOutPath(strategy, instrument, tf, from, to string) string {
+	// Sanitize instrument name for use in a filename: replace ':' and ' ' with '_'.
+	safe := strings.NewReplacer(":", "_", " ", "_").Replace(instrument)
+	return fmt.Sprintf("%s-%s-%s-%s-%s.json", strategy, safe, tf, from, to)
+}
+
 // LoginFlow runs the interactive Kite Connect browser login flow and returns
 // an access token. It prompts the user to open a URL and paste the
 // request_token from the redirect. The token is saved to tokenPath on success;

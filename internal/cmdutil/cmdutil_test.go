@@ -300,6 +300,68 @@ func TestLoginFlow_success_saveFails(t *testing.T) {
 	}
 }
 
+// ── DefaultOutPath ────────────────────────────────────────────────────────────
+
+func TestDefaultOutPath(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		strategy   string
+		instrument string
+		tf         string
+		from       string
+		to         string
+		want       string
+	}{
+		{
+			name:       "basic daily run",
+			strategy:   "sma-crossover",
+			instrument: "NSE:RELIANCE",
+			tf:         "daily",
+			from:       "2018-01-01",
+			to:         "2024-01-01",
+			want:       "sma-crossover-NSE_RELIANCE-daily-2018-01-01-2024-01-01.json",
+		},
+		{
+			name:       "instrument with space",
+			strategy:   "stub",
+			instrument: "NSE:NIFTY 50",
+			tf:         "daily",
+			from:       "2020-01-01",
+			to:         "2023-01-01",
+			want:       "stub-NSE_NIFTY_50-daily-2020-01-01-2023-01-01.json",
+		},
+		{
+			name:       "intraday timeframe",
+			strategy:   "momentum",
+			instrument: "NSE:INFY",
+			tf:         "15min",
+			from:       "2022-01-01",
+			to:         "2023-01-01",
+			want:       "momentum-NSE_INFY-15min-2022-01-01-2023-01-01.json",
+		},
+		{
+			name:       "instrument already safe",
+			strategy:   "donchian-breakout",
+			instrument: "INSTRUMENT",
+			tf:         "daily",
+			from:       "2021-01-01",
+			to:         "2022-01-01",
+			want:       "donchian-breakout-INSTRUMENT-daily-2021-01-01-2022-01-01.json",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := cmdutil.DefaultOutPath(tt.strategy, tt.instrument, tt.tf, tt.from, tt.to)
+			if got != tt.want {
+				t.Errorf("DefaultOutPath(%q, %q, %q, %q, %q) = %q, want %q",
+					tt.strategy, tt.instrument, tt.tf, tt.from, tt.to, got, tt.want)
+			}
+		})
+	}
+}
+
 // ── BuildProvider ─────────────────────────────────────────────────────────────
 
 // TestBuildProvider_MissingAPIKey verifies BuildProvider returns an error via Fatalf

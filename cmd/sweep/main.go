@@ -138,6 +138,8 @@ func main() {
 	fmt.Printf("Sweeping %s.%s [%.4g … %.4g step %.4g] on %s  %s → %s\n",
 		*stratName, *sweepParam, *minVal, *maxVal, *stepVal,
 		*instrument, from.Format("2006-01-02"), to.Format("2006-01-02"))
+	fmt.Printf("Run config: strategy=%s instrument=%s timeframe=%s from=%s to=%s commission=%s\n",
+		*stratName, *instrument, *tfStr, from.Format("2006-01-02"), to.Format("2006-01-02"), *commissionStr)
 
 	report, err := sweep.Run(ctx, cfg, p)
 	if err != nil {

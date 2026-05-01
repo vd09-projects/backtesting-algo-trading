@@ -1,0 +1,74 @@
+{
+  "session_date": "2026-05-01",
+  "workflow": "build",
+  "task_id": "TASK-0064",
+  "task_title": "Output — embed run metadata (instrument, timeframe, date range, params) in backtest result JSON and filename",
+  "step_completed": 5,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/convention/2026-04-09-io-writer-in-config-for-stdout-testability.md",
+        "decisions/convention/2026-04-09-error-wrapping-required-at-every-call-site.md",
+        "decisions/convention/2026-04-08-godoc-required-on-exported-types.md",
+        "decisions/convention/2026-04-09-no-type-name-stutter-project-wide.md",
+        "decisions/architecture/2026-04-22-buildprovider-extracted-to-cmdutil.md",
+        "decisions/convention/2026-04-29-parse-commission-model-extracted-to-cmdutil.md"
+      ],
+      "context_files": [
+        "decisions/tradeoff/2026-04-16-curve-data-wired-through-config-fields-rather.md",
+        "decisions/convention/2026-04-22-universe-sweep-csv-schema.md",
+        "decisions/architecture/2026-04-22-universe-sweep-runner-placement.md",
+        "decisions/architecture/2026-04-21-load-curve-csv-in-output-package.md"
+      ]
+    },
+    "marcus": "skipped — no methodology question",
+    "priya_plan": {
+      "plan_summary": "Add RunConfig metadata struct to internal/output, wire it into JSON output via struct embedding (jsonResult merges RunConfig fields and analytics.Report at the top level), add DefaultOutPath helper to internal/cmdutil, and update cmd/backtest (auto-generated default filename + RunConfig threading), cmd/sweep (run metadata printed as header), and cmd/universe-sweep (run metadata logged to stderr).",
+      "files_to_create": [],
+      "files_to_modify": [
+        "internal/output/output.go",
+        "internal/output/output_test.go",
+        "internal/cmdutil/cmdutil.go",
+        "internal/cmdutil/cmdutil_test.go",
+        "cmd/backtest/main.go",
+        "cmd/sweep/main.go",
+        "cmd/universe-sweep/main.go"
+      ],
+      "approach": "Define RunConfig as an exported struct in internal/output with string fields and omitempty JSON tags. Add RunConfig RunConfig to output.Config. An unexported jsonResult struct embeds analytics.Report and carries RunConfig fields. Add DefaultOutPath to internal/cmdutil. cmd/backtest computes default out path post-parse and passes RunConfig."
+    },
+    "build": {
+      "quality_gate": "PASS",
+      "files_modified": [
+        "internal/output/output.go",
+        "internal/output/output_test.go",
+        "internal/cmdutil/cmdutil.go",
+        "internal/cmdutil/cmdutil_test.go",
+        "cmd/backtest/main.go",
+        "cmd/sweep/main.go",
+        "cmd/universe-sweep/main.go"
+      ],
+      "test_summary": "All tests passing, 0 failing",
+      "lint_summary": "0 issues"
+    },
+    "quality_review": null
+  },
+  "quality_review_round": 0,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0064 \"Output — embed run metadata (instrument, timeframe, date range, params) in backtest result JSON and filename\" picked from Todo (Backlog).",
+    "[AUTO] Step 2 — Decision lookup: 6 standing orders, 4 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (no methodology question — task is output formatting only).",
+    "[AUTO] Step 4 — Plan: complete. Approach: Add RunConfig metadata to internal/output, wire into JSON via struct embedding, add DefaultOutPath to cmdutil, update all three cmd binaries.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: internal/output/output.go, internal/output/output_test.go, internal/cmdutil/cmdutil.go, internal/cmdutil/cmdutil_test.go, cmd/backtest/main.go, cmd/sweep/main.go, cmd/universe-sweep/main.go.",
+    "[DECISION] Priya [architecture]: RunConfig in internal/output as serialization DTO with string fields, not model types.",
+    "[DECISION] Priya [convention]: jsonResult struct embedding for top-level JSON merge via Go's field promotion.",
+    "[DECISION] Priya [architecture]: DefaultOutPath in internal/cmdutil alongside ParseCommissionModel and BuildProvider.",
+    "[DECISION] Priya [convention]: default --out auto-generates filename from run params when omitted."
+  ],
+  "decision_marks_pending": [
+    "**Decision (RunConfig in internal/output — architecture: experimental)**",
+    "**Decision (jsonResult struct embedding for top-level JSON merge — convention: experimental)**",
+    "**Decision (DefaultOutPath in internal/cmdutil — architecture: experimental)**",
+    "**Decision (default --out auto-generates filename — convention: experimental)**"
+  ],
+  "hard_stop_active": null
+}

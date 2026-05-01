@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-01 | **Open tasks:** 17 | **Next up:** TASK-0052
+**Last updated:** 2026-05-01 | **Open tasks:** 16 | **Next up:** TASK-0052
 
 ---
 
@@ -154,22 +154,6 @@
 ## Todo (Backlog)
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
-
-### [TASK-0064] Output — embed run metadata (instrument, timeframe, date range, params) in backtest result JSON and filename
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-05-01
-- **Source:** discovery
-- **Context:** Backtest output files (e.g., `rsi-reliance.json`) contain only metrics with no metadata — no instrument, timeframe, date range, strategy parameters, or commission model. Filenames also omit timeframe, so daily and intraday runs for the same strategy would produce identically named files with no way to distinguish them. Discovered when verifying TASK-0051 cache data.
-- **Acceptance criteria:**
-  - [ ] `internal/output` result type includes a `RunConfig` metadata block: `Instrument`, `Timeframe`, `From`, `To`, `Strategy`, `CommissionModel`, `Parameters` (map of key→value)
-  - [ ] `cmd/backtest` and `cmd/sweep` pass run config through to the output formatter
-  - [ ] JSON output embeds the metadata block at the top level (not nested under a sub-key)
-  - [ ] CLI `--out` flag default filename (when not overridden) includes timeframe: e.g., `{strategy}-{instrument}-{timeframe}-{from}-{to}.json`
-  - [ ] `cmd/universe-sweep` passes run config through to output formatter with the same metadata block
-  - [ ] Existing tests updated; no behavioral changes to metric calculations
-- **Notes:** Cache files already encode timeframe in the name (`daily_2018-01-01_2025-01-01.json`) — only the runs output is affected. `internal/output/` is the formatter to change.
 
 ### [TASK-0062] Tooling — NIFTY 50 TRI CSV loader for benchmark comparison
 
