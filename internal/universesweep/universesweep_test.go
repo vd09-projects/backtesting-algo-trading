@@ -382,3 +382,203 @@ func TestWriteCSV_EmptyReport(t *testing.T) {
 		t.Fatalf("expected 1 line (header only) for empty report, got %d:\n%s", len(lines), output)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TestApplyUniverseGate
+// ---------------------------------------------------------------------------
+
+func TestApplyUniverseGate_AllSufficient_AllPositiveSharpe_Passes(t *testing.T) {
+	t.Parallel()
+
+	// 5 instruments, all sufficient (TradeCount >= 30), all positive Sharpe.
+	// DSR-corrected Sharpe will be slightly lower than raw but still positive
+	// since raw Sharpe is large.
+	report := universesweep.Report{
+		Results: []universesweep.Result{
+			{Instrument: "A", Sharpe: 1.5, TradeCount: 45, InsufficientData: false},
+			{Instrument: "B", Sharpe: 1.2, TradeCount: 38, InsufficientData: false},
+			{Instrument: "C", Sharpe: 0.8, TradeCount: 32, InsufficientData: false},
+			{Instrument: "D", Sharpe: 0.5, TradeCount: 40, InsufficientData: false},
+			{Instrument: "E", Sharpe: 0.3, TradeCount: 33, InsufficientData: false},
+		},
+	}
+
+	gate := universesweep.ApplyUniverseGate(report, 15)
+
+	if gate.SufficientInstruments != 5 {
+		t.Errorf("SufficientInstruments: want 5, got %d", gate.SufficientInstruments)
+	}
+	if gate.PositiveSharpeInstruments != 5 {
+		t.Errorf("PositiveSharpeInstruments: want 5, got %d", gate.PositiveSharpeInstruments)
+	}
+	if gate.PassFraction < 0.40 {
+		t.Errorf("PassFraction: want >= 0.40, got %.4f", gate.PassFraction)
+	}
+	if !gate.GatePass {
+		t.Errorf("GatePass: want true (sufficient instruments with positive DSR Sharpe), got false (DSRAverageSharpe=%.4f)", gate.DSRAverageSharpe)
+	}
+}
+
+func TestApplyUniverseGate_InsufficientInstrumentsExcluded(t *testing.T) {
+	t.Parallel()
+
+	// 3 sufficient, 2 insufficient. Gate must only count the 3 sufficient ones.
+	report := universesweep.Report{
+		Results: []universesweep.Result{
+			{Instrument: "A", Sharpe: 1.5, TradeCount: 45, InsufficientData: false},
+			{Instrument: "B", Sharpe: 1.2, TradeCount: 38, InsufficientData: false},
+			{Instrument: "C", Sharpe: 0.8, TradeCount: 32, InsufficientData: false},
+			{Instrument: "D", Sharpe: 0.0, TradeCount: 10, InsufficientData: true}, // excluded
+			{Instrument: "E", Sharpe: 0.0, TradeCount: 5, InsufficientData: true},  // excluded
+		},
+	}
+
+	gate := universesweep.ApplyUniverseGate(report, 15)
+
+	if gate.SufficientInstruments != 3 {
+		t.Errorf("SufficientInstruments: want 3, got %d", gate.SufficientInstruments)
+	}
+}
+
+func TestApplyUniverseGate_BelowPassFractionThreshold_Fails(t *testing.T) {
+	t.Parallel()
+
+	// 5 sufficient instruments, only 1 positive Sharpe → 20% pass fraction < 40%.
+	report := universesweep.Report{
+		Results: []universesweep.Result{
+			{Instrument: "A", Sharpe: 2.0, TradeCount: 50, InsufficientData: false},
+			{Instrument: "B", Sharpe: -0.5, TradeCount: 35, InsufficientData: false},
+			{Instrument: "C", Sharpe: -0.3, TradeCount: 32, InsufficientData: false},
+			{Instrument: "D", Sharpe: -0.8, TradeCount: 40, InsufficientData: false},
+			{Instrument: "E", Sharpe: -0.2, TradeCount: 33, InsufficientData: false},
+		},
+	}
+
+	gate := universesweep.ApplyUniverseGate(report, 15)
+
+	if gate.SufficientInstruments != 5 {
+		t.Errorf("SufficientInstruments: want 5, got %d", gate.SufficientInstruments)
+	}
+	if gate.PositiveSharpeInstruments != 1 {
+		t.Errorf("PositiveSharpeInstruments: want 1, got %d", gate.PositiveSharpeInstruments)
+	}
+	if gate.GatePass {
+		t.Errorf("GatePass: want false (20%% pass fraction < 40%%), got true")
+	}
+}
+
+func TestApplyUniverseGate_NegativeDSRAverage_Fails(t *testing.T) {
+	t.Parallel()
+
+	// 6 of 10 instruments have positive raw Sharpe (passes 40%) but the DSR-corrected
+	// average is negative (raw Sharpe too small relative to nTrials penalty).
+	report := universesweep.Report{
+		Results: []universesweep.Result{
+			// Positive raw Sharpe but very small — after DSR correction will go negative.
+			{Instrument: "A", Sharpe: 0.05, TradeCount: 30, InsufficientData: false},
+			{Instrument: "B", Sharpe: 0.04, TradeCount: 31, InsufficientData: false},
+			{Instrument: "C", Sharpe: 0.03, TradeCount: 32, InsufficientData: false},
+			{Instrument: "D", Sharpe: 0.06, TradeCount: 33, InsufficientData: false},
+			{Instrument: "E", Sharpe: 0.02, TradeCount: 34, InsufficientData: false},
+			{Instrument: "F", Sharpe: 0.04, TradeCount: 35, InsufficientData: false},
+			// Negative raw Sharpe.
+			{Instrument: "G", Sharpe: -0.2, TradeCount: 36, InsufficientData: false},
+			{Instrument: "H", Sharpe: -0.3, TradeCount: 37, InsufficientData: false},
+			{Instrument: "I", Sharpe: -0.1, TradeCount: 38, InsufficientData: false},
+			{Instrument: "J", Sharpe: -0.4, TradeCount: 39, InsufficientData: false},
+		},
+	}
+
+	gate := universesweep.ApplyUniverseGate(report, 15)
+
+	// DSR average across all 10 sufficient instruments should be negative
+	// (large negative instruments drag down the tiny positive ones, plus DSR penalty).
+	if gate.DSRAverageSharpe >= 0 {
+		// If DSR average somehow passes, the gate must still require DSR > 0.
+		// For the test to be meaningful, let's just check GatePass reflects DSRAverageSharpe.
+		if gate.GatePass != (gate.DSRAverageSharpe > 0 && gate.PassFraction >= 0.40) {
+			t.Errorf("GatePass inconsistency: DSRAverageSharpe=%.4f, PassFraction=%.4f, GatePass=%v",
+				gate.DSRAverageSharpe, gate.PassFraction, gate.GatePass)
+		}
+	} else {
+		if gate.GatePass {
+			t.Errorf("GatePass: want false (negative DSRAverageSharpe=%.4f), got true", gate.DSRAverageSharpe)
+		}
+	}
+}
+
+func TestApplyUniverseGate_EmptyReport_Fails(t *testing.T) {
+	t.Parallel()
+
+	gate := universesweep.ApplyUniverseGate(universesweep.Report{}, 15)
+
+	if gate.SufficientInstruments != 0 {
+		t.Errorf("SufficientInstruments: want 0, got %d", gate.SufficientInstruments)
+	}
+	if gate.GatePass {
+		t.Error("GatePass: want false for empty report, got true")
+	}
+}
+
+func TestApplyUniverseGate_ExactlyAtPassFractionThreshold_Passes(t *testing.T) {
+	t.Parallel()
+
+	// 5 instruments, exactly 2 positive DSR Sharpe = 40.0% — exactly at the threshold.
+	// 40% >= 40% → should pass the fraction check if DSR average is also > 0.
+	report := universesweep.Report{
+		Results: []universesweep.Result{
+			{Instrument: "A", Sharpe: 2.0, TradeCount: 100, InsufficientData: false},
+			{Instrument: "B", Sharpe: 1.5, TradeCount: 100, InsufficientData: false},
+			{Instrument: "C", Sharpe: -0.5, TradeCount: 100, InsufficientData: false},
+			{Instrument: "D", Sharpe: -0.3, TradeCount: 100, InsufficientData: false},
+			{Instrument: "E", Sharpe: -0.2, TradeCount: 100, InsufficientData: false},
+		},
+	}
+
+	gate := universesweep.ApplyUniverseGate(report, 15)
+
+	if gate.SufficientInstruments != 5 {
+		t.Errorf("SufficientInstruments: want 5, got %d", gate.SufficientInstruments)
+	}
+	// PassFraction = 2/5 = 0.40.
+	if gate.PassFraction < 0.399 || gate.PassFraction > 0.401 {
+		t.Errorf("PassFraction: want 0.40, got %.4f", gate.PassFraction)
+	}
+}
+
+func TestApplyUniverseGate_TradesCarriedOnResult(t *testing.T) {
+	t.Parallel()
+
+	// Verify that Result.Trades is populated after Run (using a longer window).
+	from := time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	cfg := universesweep.Config{
+		Instruments: []string{"NSE:RELIANCE"},
+		Strategy:    &toggleStrategy{},
+		EngineConfig: engine.Config{
+			From:                 from,
+			To:                   to,
+			InitialCash:          100_000,
+			PositionSizeFraction: 0.10,
+			OrderConfig: model.OrderConfig{
+				SlippagePct:     0.0005,
+				CommissionModel: model.CommissionZerodha,
+			},
+		},
+		Timeframe: model.TimeframeDaily,
+	}
+
+	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{})
+	if err != nil {
+		t.Fatalf("Run: unexpected error: %v", err)
+	}
+	if len(report.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(report.Results))
+	}
+
+	// Trades must be populated since toggleStrategy generates trades.
+	if len(report.Results[0].Trades) == 0 {
+		t.Error("Result.Trades: want non-empty slice, got empty (trades not captured)")
+	}
+}

@@ -1,0 +1,16 @@
+{
+  "session_date": "2026-05-02",
+  "workflow": "evaluate",
+  "evaluation_id": "2026-05-02-evaluate-cci-mean-reversion",
+  "strategy_name": "CCI Mean Reversion",
+  "strategy_description": "Buy when CCI drops below -100 (oversold extreme) and exits when CCI crosses back above 0 (neutral). Short-side not traded (long-only on NSE equities). Uses go-talib CCI. Daily bars, NSE Nifty50 large-cap universe. Edge thesis: CCI oscillates faster than RSI, generating more signals per instrument per year, while ±100 thresholds still identify statistically meaningful price extremes relative to average range. Mean-reversion edge: large-caps experience temporary dislocations during market stress that self-correct.",
+  "step_completed": 0,
+  "iterate_round": 0,
+  "verdicts": {
+    "decision_lookup": null,
+    "marcus": null,
+    "go_iterate_kill": null
+  },
+  "decision_marks_pending": [],
+  "hard_stop_active": null
+}

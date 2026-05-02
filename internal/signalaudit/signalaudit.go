@@ -64,7 +64,8 @@ type Config struct {
 type Cell struct {
 	Instrument string
 	TradeCount int
-	Excluded   bool // true when TradeCount < MinTradesPerCell
+	Excluded   bool          // true when TradeCount < MinTradesPerCell
+	Trades     []model.Trade // all closed trades; populated so callers can compute time-windowed metrics
 }
 
 // Row holds the audit result for a single strategy across all instruments.
@@ -105,17 +106,21 @@ func Run(ctx context.Context, cfg *Config, p provider.DataProvider) (Report, err
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(runtime.GOMAXPROCS(0))
 
+	// Pre-allocate trade slices in parallel with counts.
+	trades := make([][]model.Trade, nStrats*nInst)
+
 	for si := range cfg.StrategyFactories {
 		for ii := range cfg.Instruments {
 			si, ii := si, ii // capture loop variables
 			g.Go(func() error {
-				tc, err := runPair(gctx, cfg, p, si, ii)
+				tc, ts, err := runPair(gctx, cfg, p, si, ii)
 				if err != nil {
 					return fmt.Errorf("signalaudit: strategy %q instrument %q: %w",
 						cfg.StrategyFactories[si].Name, cfg.Instruments[ii], err)
 				}
 				// Each goroutine writes to a unique (si, ii) index — no mutex needed.
 				counts[si*nInst+ii] = tc
+				trades[si*nInst+ii] = ts
 				return nil
 			})
 		}
@@ -125,7 +130,7 @@ func Run(ctx context.Context, cfg *Config, p provider.DataProvider) (Report, err
 		return Report{}, err
 	}
 
-	// Build Report from counts.
+	// Build Report from counts and trades.
 	rows := make([]Row, nStrats)
 	for si, sf := range cfg.StrategyFactories {
 		cells := make([]Cell, nInst)
@@ -137,6 +142,7 @@ func Run(ctx context.Context, cfg *Config, p provider.DataProvider) (Report, err
 				Instrument: inst,
 				TradeCount: tc,
 				Excluded:   tc < MinTradesPerCell,
+				Trades:     trades[si*nInst+ii],
 			}
 		}
 		rows[si] = Row{
@@ -154,19 +160,22 @@ func Run(ctx context.Context, cfg *Config, p provider.DataProvider) (Report, err
 }
 
 // runPair runs a single engine instance for cfg.StrategyFactories[si] on
-// cfg.Instruments[ii] and returns the number of closed trades.
-func runPair(ctx context.Context, cfg *Config, p provider.DataProvider, si, ii int) (int, error) {
+// cfg.Instruments[ii] and returns the closed trade count and the full trade slice.
+// The trade slice lets callers compute time-windowed metrics (e.g. COVID-window
+// clustering) without re-running the engine.
+func runPair(ctx context.Context, cfg *Config, p provider.DataProvider, si, ii int) (int, []model.Trade, error) {
 	engCfg := cfg.EngineConfig
 	engCfg.Instrument = cfg.Instruments[ii]
 
-	start := cfg.StrategyFactories[si].New()
+	stgy := cfg.StrategyFactories[si].New()
 
 	eng := engine.New(engCfg)
-	if err := eng.Run(ctx, p, start); err != nil {
-		return 0, fmt.Errorf("engine run: %w", err)
+	if err := eng.Run(ctx, p, stgy); err != nil {
+		return 0, nil, fmt.Errorf("engine run: %w", err)
 	}
 
-	return len(eng.Portfolio().ClosedTrades()), nil
+	closed := eng.Portfolio().ClosedTrades()
+	return len(closed), append([]model.Trade(nil), closed...), nil
 }
 
 // WriteCSV writes the audit report as a CSV matrix to w.

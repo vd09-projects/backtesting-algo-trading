@@ -41,7 +41,9 @@
       "Bash(tee runs/baseline-2026-05-01/sweep-macd-fast-period.txt)",
       "Bash(tee runs/baseline-2026-05-01/sweep-sma-slow-period.txt)",
       "Bash(tee runs/baseline-2026-05-01/sweep-bollinger-period.txt)",
-      "Bash(tee runs/baseline-2026-05-01/sweep-momentum-lookback.txt)"
+      "Bash(tee runs/baseline-2026-05-01/sweep-momentum-lookback.txt)",
+      "Bash(cat)",
+      "Read(//private/tmp/ccidebug/**)"
     ]
   },
   "hooks": {

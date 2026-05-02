@@ -444,3 +444,84 @@ func TestRun_InstrumentOrderPreserved(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Cell.Trades population
+// ---------------------------------------------------------------------------
+
+// TestRun_CellTradesMatchTradeCount verifies that Cell.Trades is populated and
+// len(Trades) matches TradeCount for every cell. The Trades slice lets callers
+// compute time-windowed clustering (e.g. COVID-window concentration) without
+// re-running the engine.
+func TestRun_CellTradesMatchTradeCount(t *testing.T) {
+	t.Parallel()
+
+	from := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	instruments := []string{"NSE:RELIANCE", "NSE:INFY"}
+
+	cfg := signalaudit.Config{
+		StrategyFactories: []signalaudit.StrategyFactory{
+			{Name: "toggle", New: func() signalaudit.Strategy { return &toggleStrategy{name: "toggle"} }},
+		},
+		Instruments:  instruments,
+		EngineConfig: baseEngineConfig(from, to),
+		Timeframe:    model.TimeframeDaily,
+	}
+
+	report, err := signalaudit.Run(context.Background(), &cfg, &staticProvider{})
+	if err != nil {
+		t.Fatalf("Run: unexpected error: %v", err)
+	}
+
+	for _, row := range report.Rows {
+		for _, cell := range row.Cells {
+			if len(cell.Trades) != cell.TradeCount {
+				t.Errorf(
+					"strategy=%q instrument=%q: len(Trades)=%d, want TradeCount=%d",
+					row.Strategy, cell.Instrument, len(cell.Trades), cell.TradeCount,
+				)
+			}
+			for i, tr := range cell.Trades {
+				if tr.Instrument == "" {
+					t.Errorf(
+						"strategy=%q instrument=%q: Trades[%d].Instrument is empty",
+						row.Strategy, cell.Instrument, i,
+					)
+				}
+			}
+		}
+	}
+}
+
+// TestRun_CellTradesEmptyWhenNoTrades verifies that Cell.Trades is nil (or empty)
+// when a holdStrategy produces no trades, and TradeCount==0.
+func TestRun_CellTradesEmptyWhenNoTrades(t *testing.T) {
+	t.Parallel()
+
+	from := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	cfg := signalaudit.Config{
+		StrategyFactories: []signalaudit.StrategyFactory{
+			{Name: "hold", New: func() signalaudit.Strategy { return &holdStrategy{name: "hold"} }},
+		},
+		Instruments:  []string{"NSE:RELIANCE"},
+		EngineConfig: baseEngineConfig(from, to),
+		Timeframe:    model.TimeframeDaily,
+	}
+
+	report, err := signalaudit.Run(context.Background(), &cfg, &staticProvider{})
+	if err != nil {
+		t.Fatalf("Run: unexpected error: %v", err)
+	}
+
+	cell := report.Rows[0].Cells[0]
+	if cell.TradeCount != 0 {
+		t.Fatalf("holdStrategy: expected TradeCount=0, got %d", cell.TradeCount)
+	}
+	if len(cell.Trades) != 0 {
+		t.Errorf("holdStrategy: expected empty Trades slice, got %d trades", len(cell.Trades))
+	}
+}

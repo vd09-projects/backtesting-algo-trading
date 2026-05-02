@@ -14,6 +14,13 @@
 // analytics.Report.TradeMetricsInsufficient and CurveMetricsInsufficient
 // directly. Either flag set means the result is marked InsufficientData=true
 // in the CSV output. No thresholds are re-implemented here.
+//
+// # Universe gate
+//
+// ApplyUniverseGate computes the DSR-corrected average Sharpe across sufficient
+// instruments and returns a GateResult. A strategy passes when DSRAverageSharpe > 0
+// AND >= 40% of sufficient instruments show positive DSR-corrected Sharpe.
+// See the 2026-04-25 decision file for the full gate specification.
 package universesweep
 
 import (
@@ -51,7 +58,28 @@ type Result struct {
 	TradeCount       int
 	TotalPnL         float64
 	MaxDrawdown      float64
-	InsufficientData bool // true if TradeMetricsInsufficient || CurveMetricsInsufficient
+	InsufficientData bool          // true if TradeMetricsInsufficient || CurveMetricsInsufficient
+	Trades           []model.Trade // closed trades; populated for regime gate computation
+}
+
+// GateResult holds the outcome of ApplyUniverseGate.
+type GateResult struct {
+	// DSRAverageSharpe is the average of DSR-corrected Sharpe across sufficient instruments.
+	// A sufficient instrument has InsufficientData=false and TradeCount >= analytics.MinTradesForMetrics.
+	// Zero when no sufficient instruments exist.
+	DSRAverageSharpe float64
+	// SufficientInstruments is the count of instruments with InsufficientData=false
+	// and TradeCount >= analytics.MinTradesForMetrics.
+	SufficientInstruments int
+	// PositiveSharpeInstruments is the count of sufficient instruments whose DSR-corrected
+	// Sharpe is strictly positive.
+	PositiveSharpeInstruments int
+	// PassFraction is PositiveSharpeInstruments / SufficientInstruments.
+	// Zero when SufficientInstruments is zero.
+	PassFraction float64
+	// GatePass is true when DSRAverageSharpe > 0 AND PassFraction >= 0.40.
+	// Both conditions must hold per the 2026-04-25 decision.
+	GatePass bool
 }
 
 // Report is the aggregate output sorted descending by Sharpe.
@@ -142,7 +170,6 @@ func Run(ctx context.Context, cfg *Config, p provider.DataProvider) (Report, err
 	g.SetLimit(runtime.GOMAXPROCS(0))
 
 	for i := range cfg.Instruments {
-		i := i // capture loop variable
 		g.Go(func() error {
 			result, err := runInstrument(gctx, cfg, p, cfg.Instruments[i])
 			if err != nil {
@@ -188,6 +215,7 @@ func runInstrument(ctx context.Context, cfg *Config, p provider.DataProvider, in
 		TotalPnL:         report.TotalPnL,
 		MaxDrawdown:      report.MaxDrawdown,
 		InsufficientData: report.TradeMetricsInsufficient || report.CurveMetricsInsufficient,
+		Trades:           trades,
 	}, nil
 }
 
@@ -222,4 +250,46 @@ func WriteCSV(w io.Writer, r Report) error {
 		return fmt.Errorf("universesweep: flush CSV: %w", err)
 	}
 	return nil
+}
+
+// ApplyUniverseGate computes the DSR-corrected average Sharpe across sufficient
+// instruments and returns a GateResult. nTrials is the number of instruments in
+// the universe (used as the multiple-testing correction in DSR).
+//
+// A result is "sufficient" when InsufficientData == false.
+// DSRAverageSharpe is the mean of analytics.DSR(sharpe, nTrials, tradeCount)
+// across sufficient results. PositiveSharpeInstruments counts sufficient results
+// with raw Sharpe > 0. GatePass requires DSRAverageSharpe > 0 AND PassFraction >= 0.40.
+func ApplyUniverseGate(report Report, nTrials int) GateResult {
+	var (
+		sufficient int
+		posRaw     int
+		dsrSum     float64
+	)
+
+	for _, r := range report.Results {
+		if r.InsufficientData {
+			continue
+		}
+		sufficient++
+		if r.Sharpe > 0 {
+			posRaw++
+		}
+		dsrSum += analytics.DSR(r.Sharpe, float64(nTrials), float64(r.TradeCount))
+	}
+
+	if sufficient == 0 {
+		return GateResult{}
+	}
+
+	dsrAvg := dsrSum / float64(sufficient)
+	passFrac := float64(posRaw) / float64(sufficient)
+
+	return GateResult{
+		DSRAverageSharpe:          dsrAvg,
+		SufficientInstruments:     sufficient,
+		PositiveSharpeInstruments: posRaw,
+		PassFraction:              passFrac,
+		GatePass:                  dsrAvg > 0 && passFrac >= 0.40,
+	}
 }

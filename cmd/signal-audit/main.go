@@ -1,6 +1,10 @@
-// cmd/signal-audit runs the signal-frequency audit across all 6 strategies and
+// cmd/signal-audit runs the signal-frequency audit across all strategies and
 // a universe of instruments. It verifies that each strategy generates at least
 // 30 trades on each instrument before committing to a full backtest pipeline.
+//
+// For the CCI mean-reversion strategy it additionally prints a distribution
+// report to stderr: average trades/instrument and COVID-window (Jan–Jun 2020)
+// trade concentration per instrument.
 //
 // Usage:
 //
@@ -37,11 +41,19 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/universesweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/ccimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/momentum"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
+)
+
+// covidWindowStart and covidWindowEnd define the Q1-Q2 2020 clustering window
+// per the Marcus audit specification (Jan 1 – Jun 30 2020 inclusive).
+var (
+	covidWindowStart = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	covidWindowEnd   = time.Date(2020, 7, 1, 0, 0, 0, 0, time.UTC) // exclusive upper bound
 )
 
 // cliFlags holds parsed command-line arguments.
@@ -153,8 +165,8 @@ func buildEngineConfig(flags *cliFlags) engine.Config {
 }
 
 // writeReport writes the audit CSV to outPath (or stdout if empty), then
-// prints the kill/excluded summary to stderr and exits 1 if any strategies
-// were killed.
+// prints the kill/excluded summary and CCI distribution report to stderr,
+// and exits 1 if any strategies were killed.
 func writeReport(report signalaudit.Report, outPath string, nInstruments int) {
 	out := os.Stdout
 	if outPath != "" {
@@ -177,6 +189,8 @@ func writeReport(report signalaudit.Report, outPath string, nInstruments int) {
 			cmdutil.Fatalf("close output file: %v", err)
 		}
 	}
+
+	printCCIDistributionReport(report)
 
 	killed, excluded := summariseReport(report)
 
@@ -208,7 +222,7 @@ func summariseReport(report signalaudit.Report) (killed, excluded int) {
 	return killed, excluded
 }
 
-// allStrategyFactories returns a StrategyFactory for each of the 6 strategies
+// allStrategyFactories returns a StrategyFactory for each of the 7 strategies
 // using their default parameters. Each call to New() produces a fresh instance.
 func allStrategyFactories(tf model.Timeframe) []signalaudit.StrategyFactory {
 	return []signalaudit.StrategyFactory{
@@ -275,5 +289,112 @@ func allStrategyFactories(tf model.Timeframe) []signalaudit.StrategyFactory {
 				return s
 			},
 		},
+		{
+			Name: "cci-mean-reversion",
+			New: func() signalaudit.Strategy {
+				// Standard CCI params: period=20, entry=-100 (oversold), exit=0 (neutral cross).
+				s, err := ccimeanrev.New(tf, 20, -100, 0)
+				if err != nil {
+					cmdutil.Fatalf("cci-mean-reversion: %v", err)
+				}
+				return s
+			},
+		},
 	}
+}
+
+// printCCICells prints one line per cell showing trade count and COVID-window
+// percentage, marks clustered instruments, and returns (totalTrades, covidViolations).
+func printCCICells(cells []signalaudit.Cell, maxCovidPct float64) (totalTrades, covidViolations int) {
+	for _, cell := range cells {
+		covidCount := countCovidTrades(cell)
+
+		var covidPct float64
+		if cell.TradeCount > 0 {
+			covidPct = float64(covidCount) / float64(cell.TradeCount) * 100
+		}
+
+		clusterFlag := ""
+		if covidPct > maxCovidPct {
+			clusterFlag = " [CLUSTERED]"
+			covidViolations++
+		}
+
+		fmt.Fprintf(os.Stderr, "  %-20s  trades=%3d  covid=%3d (%.1f%%)%s\n",
+			cell.Instrument, cell.TradeCount, covidCount, covidPct, clusterFlag)
+		totalTrades += cell.TradeCount
+	}
+	return totalTrades, covidViolations
+}
+
+// countCovidTrades returns the number of trades in cell whose ExitTime falls
+// within the COVID window [covidWindowStart, covidWindowEnd).
+func countCovidTrades(cell signalaudit.Cell) int {
+	n := 0
+	for _, tr := range cell.Trades {
+		if !tr.ExitTime.Before(covidWindowStart) && tr.ExitTime.Before(covidWindowEnd) {
+			n++
+		}
+	}
+	return n
+}
+
+// printCCIDistributionReport writes per-instrument trade counts and COVID-window
+// clustering percentages for the cci-mean-reversion strategy to stderr.
+//
+// COVID window: Jan 1 – Jun 30 2020 (covidWindowStart inclusive, covidWindowEnd exclusive).
+// Pass condition (per Marcus verdict): avg trades/instrument ≥ 25 AND no instrument >30%
+// of its trades in the COVID window.
+func printCCIDistributionReport(report signalaudit.Report) {
+	const cciStrategy = "cci-mean-reversion"
+	const minAvgTrades = 25
+	const maxCovidPct = 30.0
+
+	var cciRow *signalaudit.Row
+	for i := range report.Rows {
+		if report.Rows[i].Strategy == cciStrategy {
+			cciRow = &report.Rows[i]
+			break
+		}
+	}
+	if cciRow == nil {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "\n=== CCI Mean-Reversion Distribution Report ===\n")
+	fmt.Fprintf(os.Stderr, "COVID window: %s – %s\n",
+		covidWindowStart.Format("2006-01-02"),
+		covidWindowEnd.AddDate(0, 0, -1).Format("2006-01-02"),
+	)
+	fmt.Fprintf(os.Stderr, "Pass condition: avg ≥ %d trades/instrument AND no instrument >%.0f%% COVID\n\n",
+		minAvgTrades, maxCovidPct)
+
+	nInst := len(cciRow.Cells)
+	totalTrades, covidViolations := printCCICells(cciRow.Cells, maxCovidPct)
+
+	var avgTrades float64
+	if nInst > 0 {
+		avgTrades = float64(totalTrades) / float64(nInst)
+	}
+
+	fmt.Fprintf(os.Stderr, "\nAvg trades/instrument: %.1f  (pass threshold: ≥%d)\n", avgTrades, minAvgTrades)
+	fmt.Fprintf(os.Stderr, "COVID clustering violations: %d/%d instruments >%.0f%%\n",
+		covidViolations, nInst, maxCovidPct)
+
+	avgPass := avgTrades >= float64(minAvgTrades)
+	clusterPass := covidViolations == 0
+
+	fmt.Fprintf(os.Stderr, "\nVerdict: ")
+	switch {
+	case avgPass && clusterPass:
+		fmt.Fprintf(os.Stderr, "PROCEED — avg trades and clustering both pass\n")
+	case !avgPass && !clusterPass:
+		fmt.Fprintf(os.Stderr, "KILL — avg trades below threshold AND clustering violation\n")
+	case !avgPass:
+		fmt.Fprintf(os.Stderr, "KILL — avg trades below threshold (%.1f < %d)\n", avgTrades, minAvgTrades)
+	default:
+		fmt.Fprintf(os.Stderr, "KILL — COVID clustering violation (%d instruments >%.0f%%)\n",
+			covidViolations, maxCovidPct)
+	}
+	fmt.Fprintf(os.Stderr, "==============================================\n")
 }
