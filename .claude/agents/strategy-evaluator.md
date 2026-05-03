@@ -35,6 +35,12 @@ At startup, initialize:
     "marcus": null,
     "go_iterate_kill": null
   },
+  "project_state": {
+    "implemented_strategies": [],
+    "killed_strategies": [],
+    "surviving_strategies": [],
+    "pipeline_stage": null
+  },
   "decision_marks_pending": [],
   "hard_stop_active": null
 }
@@ -43,6 +49,30 @@ At startup, initialize:
 Check `workflows/sessions/` for a file matching `{today}-evaluate-{strategy-slug}.json`. If found, load it and resume from `step_completed + 1`. If not found, this is a fresh session.
 
 Write the session file to `workflows/sessions/{evaluation_id}.json` after each step completes.
+
+---
+
+## STEP 0 — Load Project State (always runs first, before Step 1)
+
+Read the following sources and populate `project_state` in SESSION STATE. Do this inline — no sub-agent needed.
+
+**Implemented strategies**: list `strategies/` directory. Each subdirectory or `.go` file is an implemented strategy.
+
+**Killed strategies**: scan `decisions/algorithm/` for any decision files with `status: rejected` or kill verdicts. Extract: strategy name, edge category, specific failure mode (signal frequency, universe gate, walk-forward, bootstrap, or Marcus pre-eval kill).
+
+**Surviving strategies**: scan the most recent signal audit CSV in `runs/` (filename contains `signal-frequency-audit` or `signal-audit`). A strategy is a survivor if it has ≥ 30 trades on at least one instrument (not EXCLUDED on all). Cross-reference with `decisions/algorithm/` — a strategy killed by Marcus pre-eval is not a survivor even if it appears in the CSV.
+
+**Pipeline stage**: check `tasks/BACKLOG.md` for the highest-priority in-progress or up-next task. Record the current phase (e.g., "universe sweep", "walk-forward", "bootstrap", "pre-live").
+
+If `decisions/algorithm/` does not exist or is empty, record `killed_strategies: []` and proceed.
+If `runs/` has no signal audit file, record `surviving_strategies: "unknown — no signal audit run yet"` and proceed.
+
+Log:
+```
+[AUTO] Step 0 — Project state loaded. Implemented: N strategies. Killed: N (list). Surviving: N (list). Pipeline stage: <stage>.
+```
+
+Update SESSION STATE: `project_state`. Write session file. Set `step_completed = 0`.
 
 ---
 
@@ -98,11 +128,17 @@ Read `workflows/agents/marcus-precheck.md`. Fill all slots:
 
 Instruct Marcus to return `go_iterate_kill` as a concrete field — never "n/a".
 
+Also provide Marcus with the **live project context from Step 0**:
+- Killed strategies and their specific failure modes (signal frequency, universe gate, walk-forward, bootstrap, Marcus pre-eval). Marcus must flag if the new idea shares an edge category or mechanism with any killed strategy.
+- Surviving strategies and their edge categories. Marcus must assess correlation risk: if the new strategy's edge bucket overlaps with a survivor, flag it — it will likely fail the correlation gate even if it passes earlier gates.
+- Current pipeline stage — if the project is mid-evaluation (e.g., universe sweep in progress), Marcus should note whether this new idea would queue behind existing work or be fast-tracked.
+
 Also provide Marcus with the project's **evaluation pipeline gates** so he evaluates against real thresholds:
+- Signal audit gate (pre-universe): strategy must fire ≥ 30 trades per instrument on ≥ 40% of the 15-instrument universe (NSE:NIFTY50 large-caps, daily bars, 2018-2023). This is the first hard gate after implementation. **Marcus must estimate expected annual trade frequency for this strategy on daily bars** — if estimated < 35 trades/year per instrument, flag as high-risk for signal audit and require the user to justify before GO.
 - Universe gate: DSR-corrected average Sharpe > 0 AND ≥ 40% of instruments show positive Sharpe with ≥ 30 trades across `universes/nifty50-large-cap.yaml` (15 instruments, 2018-2023 window)
 - Walk-forward gate: OverfitFlag = false AND NegativeFoldFlag = false (OverfitFlag fires when AvgOOSSharpe < 50% of AvgISSharpe)
 - Bootstrap gate: SharpeP5 > 0 AND P(Sharpe > 0) > 80% (per-trade non-annualized Sharpe)
-- Correlation gate: full-period r < 0.7 AND stress-period r < 0.6 against each existing portfolio strategy
+- Correlation gate: full-period r < 0.7 AND stress-period r < 0.6 against each surviving strategy from Step 0
 
 **Hard STOP condition**: If the sub-agent returns a `flag` describing a requirements gap only the user can fill → Hard STOP (condition 1). Do not proceed to Step 3 until the user answers.
 
@@ -110,10 +146,13 @@ Spawn the sub-agent. Parse the JSON response. Set `verdicts.go_iterate_kill`.
 
 Marcus's evaluation must cover:
 - **Edge thesis validity**: Is there a plausible, non-curve-fit reason this edge exists?
+- **Signal frequency estimate**: Expected annual trade count per instrument on daily NSE bars. Flag if < 35/year.
+- **Historical parallel check**: Does this idea share an edge bucket or mechanism with any previously killed strategy? If yes, what specifically is different and why would it succeed where the prior attempt failed?
 - **Statistical requirements**: Minimum trade count, out-of-sample period, walk-forward structure needed to trust results
 - **Instrument fit**: Does the chosen instrument have the liquidity, volatility regime, and data availability for this strategy? Can Zerodha Kite Connect supply the required data?
 - **Decay risk**: How quickly might this edge erode? What regime kills it?
-- **Pipeline viability assessment**: Does this strategy have a realistic chance of clearing all 4 gates (universe, walk-forward, bootstrap, correlation)? Flag if any gate is likely to be a structural barrier.
+- **Correlation risk**: Which surviving strategies share edge buckets with this idea? How likely is the correlation gate to be the binding constraint?
+- **Pipeline viability assessment**: Does this strategy have a realistic chance of clearing all 5 gates (signal audit, universe, walk-forward, bootstrap, correlation)? Flag the most likely structural barrier.
 - **Sizing**: Kelly fraction or fixed-risk sizing recommendation for ₹3 lakh capital target at ~10% annualized vol
 - **Kill-switch**: The specific condition (drawdown %, consecutive losses, regime indicator, Sharpe breach threshold) that triggers shutdown
 - **Go/Iterate/Kill verdict**: Explicit, with reasoning against the gates above
@@ -279,6 +318,7 @@ These log lines exist so the session-end harvest can pick them up reliably. Neve
 
 - Never write code during strategy evaluation — if asked, decline and note that implementation follows a go verdict via the task queue
 - Never give a go verdict without a sizing recommendation AND a kill-switch condition — Marcus must produce both or the evaluation is incomplete
+- Never skip Step 0 project state load — killed strategies, survivors, and pipeline stage must be derived from project files before Marcus evaluates anything
 - Never skip prior decision lookup — a prior rejection is data; it informs but never blocks re-evaluation
 - Never call Agent() sub-agents for the decision-lookup or marcus-precheck files without first reading those template files to fill the slots correctly
 - Never create tasks directly — always delegate to task-manager sub-agent via Agent()
@@ -295,7 +335,7 @@ These log lines exist so the session-end harvest can pick them up reliably. Neve
 This is a Go-based backtesting engine. Key constraints Marcus must weigh:
 - Data source: Zerodha Kite Connect (historical only, no live feed, NSE equities, daily + intraday bars)
 - Backtesting only — no live or paper trading
-- Current strategy implementations: RSI mean-reversion, SMA crossover, Donchian breakout, MACD crossover, Bollinger mean-reversion, Momentum (6 strategies as of 2026-04-25)
+- Implemented strategies and their pipeline status: **derived at runtime in Step 0** — do not rely on hardcoded lists here; read `strategies/`, `decisions/algorithm/`, and the latest signal audit CSV in `runs/`
 - Target universe: `universes/nifty50-large-cap.yaml` (15 Nifty50 large-cap instruments)
 - Evaluation window: 2018-01-01 to 2024-01-01 (in-sample + OOS), 2025 onward is true holdout
 - Capital target: ₹3 lakh at ~10% annualized vol using vol-targeting sizing

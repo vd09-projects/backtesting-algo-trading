@@ -8,6 +8,78 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-03-cci-mean-reversion-universe-gate-failed
+    title: "CCI mean-reversion fails universe gate — DSR-corrected average Sharpe negative"
+    date: 2026-05-03
+    status: rejected
+    category: algorithm
+    tags: [cci-mean-reversion, universe-gate, DSR, thin-sample, TASK-0052, kill]
+    path: algorithm/2026-05-03-cci-mean-reversion-universe-gate-failed.md
+    summary: "CCI mean-reversion (period=20) killed at universe gate: DSRAvg=-0.0960 (fails >0). 12 of 15 instruments sufficient, 9/12 positive raw Sharpe (PassFraction=0.750, passes), but DSR correction with nTrials=12 and thin sample (~31-36 trades/instrument) pushes corrected average negative. ITC and HDFCBANK cleared DSR individually but cherry-picked re-evaluation is not permitted under gate design. Does not advance to walk-forward."
+
+  - id: 2026-05-03-regime-gate-deferred-universe-sweep-csv
+    title: "Regime gate deferred from universe sweep — per-period trade log required"
+    date: 2026-05-03
+    status: experimental
+    category: algorithm
+    tags: [regime-gate, universe-sweep, CSV-limitation, deferred, TASK-0052, TASK-0055]
+    path: algorithm/2026-05-03-regime-gate-deferred-universe-sweep-csv.md
+    summary: "Regime gate (no regime >70% of Sharpe) cannot be applied from universe-sweep CSV — aggregate metrics only, no per-trade timestamps. Deferred to TASK-0055 (portfolio construction). Regime failures are flagged not killed, so deferral does not bypass a hard gate. Both survivors flagged RegimeConcentrated:deferred."
+
+  - id: 2026-05-03-sma-crossover-universe-gate-passed
+    title: "SMA crossover passes universe gate — advances to walk-forward"
+    date: 2026-05-03
+    status: accepted
+    category: algorithm
+    tags: [sma-crossover, universe-gate, DSR, walk-forward, TASK-0052, survivor]
+    path: algorithm/2026-05-03-sma-crossover-universe-gate-passed.md
+    summary: "SMA crossover (fast=10, slow=20) passes universe gate: DSRAvg=0.0969 (>0), PassFraction=12/14=85.7% (>=40%). 14 sufficient instruments (NSE:BAJFINANCE excluded, trade_count=29). Advances to walk-forward on 12 positive-Sharpe eligible instruments. Thin margin — walk-forward is the key validation."
+
+  - id: 2026-05-03-macd-crossover-universe-gate-passed
+    title: "MACD crossover passes universe gate — advances to walk-forward"
+    date: 2026-05-03
+    status: accepted
+    category: algorithm
+    tags: [macd-crossover, universe-gate, DSR, walk-forward, TASK-0052, survivor]
+    path: algorithm/2026-05-03-macd-crossover-universe-gate-passed.md
+    summary: "MACD crossover (fast=17, slow=26, signal=9) passes universe gate cleanly: DSRAvg=0.2715 (>0), PassFraction=14/15=93.3% (>=40%). All 15 instruments sufficient. Advances to walk-forward on 14 positive-Sharpe eligible instruments. Strongest universe sweep result of the six strategies."
+
+  - id: 2026-05-03-momentum-universe-gate-failed
+    title: "Momentum fails universe gate — zero sufficient instruments"
+    date: 2026-05-03
+    status: rejected
+    category: algorithm
+    tags: [momentum, universe-gate, insufficient-trades, zero-sufficient, TASK-0052, kill]
+    path: algorithm/2026-05-03-momentum-universe-gate-failed.md
+    summary: "Momentum (lookback=231, threshold=10%) killed at universe gate: 0 of 15 sufficient instruments (max trade_count=4). The 231-day skip-last-month lookback produces 1–4 trades per instrument over 6 years — far below the 30-trade statistical minimum. Does not advance to walk-forward."
+
+  - id: 2026-05-03-bollinger-mean-reversion-universe-gate-failed
+    title: "Bollinger mean-reversion fails universe gate — zero sufficient instruments"
+    date: 2026-05-03
+    status: rejected
+    category: algorithm
+    tags: [bollinger-mean-reversion, universe-gate, insufficient-trades, zero-sufficient, TASK-0052, kill]
+    path: algorithm/2026-05-03-bollinger-mean-reversion-universe-gate-failed.md
+    summary: "Bollinger mean-reversion (period=20, 2.0 std dev) killed at universe gate: 0 of 15 sufficient instruments (max trade_count=19). 2.0-sigma bands too wide for daily Nifty50 data — strategy spends most of the period in hold state. Does not advance to walk-forward."
+
+  - id: 2026-05-03-rsi-mean-reversion-universe-gate-failed
+    title: "RSI mean-reversion fails universe gate — zero sufficient instruments"
+    date: 2026-05-03
+    status: rejected
+    category: algorithm
+    tags: [rsi-mean-reversion, universe-gate, insufficient-trades, zero-sufficient, TASK-0052, kill]
+    path: algorithm/2026-05-03-rsi-mean-reversion-universe-gate-failed.md
+    summary: "RSI mean-reversion (period=14, 30/70 bands) killed at universe gate: 0 of 15 sufficient instruments (max trade_count=9). RSI (14, 30/70) on daily Nifty50 large-caps rarely touches the extreme bands — the grinding 2021–2023 uptrend generates almost no signals. Does not advance to walk-forward."
+
+  - id: 2026-05-03-donchian-breakout-universe-gate-failed
+    title: "Donchian breakout fails universe gate — DSR-corrected average Sharpe negative"
+    date: 2026-05-03
+    status: rejected
+    category: algorithm
+    tags: [donchian-breakout, universe-gate, DSR, insufficient-trades, TASK-0052, kill]
+    path: algorithm/2026-05-03-donchian-breakout-universe-gate-failed.md
+    summary: "Donchian-breakout (period=10) killed at universe gate: DSRAvg=-0.1194 (fails >0). Only 7 of 15 instruments sufficient (>=30 trades); 8 excluded due to insufficient trades at period=10. Three sufficient instruments have negative Sharpe, dragging average below zero. PassFraction=4/7=57% passed but DSRAvg condition failed."
+
   - id: 2026-05-01-default-out-auto-generates-filename
     title: "Default --out auto-generates filename when flag is omitted"
     date: 2026-05-01

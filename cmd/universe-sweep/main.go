@@ -46,6 +46,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
+	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/ccimeanrev"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/momentum"
@@ -78,6 +79,9 @@ func main() {
 	bbNumStdDev := flag.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: number of standard deviations")
 	momentumLookback := flag.Int("momentum-lookback", 231, "momentum: ROC lookback period (default 231 = 252-21, skip-last-month convention)")
 	momentumThreshold := flag.Float64("momentum-threshold", 10.0, "momentum: ROC threshold in percent (buy above, sell below negative)")
+	cciPeriod := flag.Int("cci-period", 20, "cci-mean-reversion: CCI period")
+	cciEntry := flag.Int("cci-entry", -100, "cci-mean-reversion: entry threshold (buy when CCI < this)")
+	cciExit := flag.Int("cci-exit", 0, "cci-mean-reversion: exit threshold (sell when CCI crosses above this)")
 
 	flag.Parse()
 
@@ -120,6 +124,9 @@ func main() {
 		bbNumStdDev:       *bbNumStdDev,
 		momentumLookback:  *momentumLookback,
 		momentumThreshold: *momentumThreshold,
+		cciPeriod:         *cciPeriod,
+		cciEntry:          *cciEntry,
+		cciExit:           *cciExit,
 	})
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
@@ -202,6 +209,9 @@ type strategyParams struct {
 	bbNumStdDev       float64
 	momentumLookback  int
 	momentumThreshold float64
+	cciPeriod         int
+	cciEntry          int
+	cciExit           int
 }
 
 func strategyRegistry(name string, tf model.Timeframe, p *strategyParams) (strategy.Strategy, error) {
@@ -218,7 +228,9 @@ func strategyRegistry(name string, tf model.Timeframe, p *strategyParams) (strat
 		return bollinger.New(tf, p.bbPeriod, p.bbNumStdDev)
 	case "momentum":
 		return momentum.New(tf, p.momentumLookback, p.momentumThreshold)
+	case "cci-mean-reversion":
+		return ccimeanrev.New(tf, p.cciPeriod, p.cciEntry, p.cciExit)
 	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum", name)
+		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum, cci-mean-reversion", name)
 	}
 }

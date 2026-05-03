@@ -1,0 +1,125 @@
+{
+  "session_date": "2026-05-03",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0052",
+  "task_title": "Evaluation — universe sweep (cross-instrument primary gate)",
+  "step_completed": 6,
+  "gates": [
+    {
+      "name": "universe gate",
+      "criteria": "DSR-corrected average Sharpe > 0 AND >= 40% of instruments (>=6 of 15) show positive Sharpe with >= 30 trades"
+    },
+    {
+      "name": "regime gate",
+      "criteria": "max(contribution[i]) < 0.70 — no single regime accounts for >= 70% of total Sharpe (abs(S[i])/sum(abs(S[j]))). Strategies failing regime gate are flagged (half-weight) but NOT killed."
+    }
+  ],
+  "command_run": "go run ./cmd/universe-sweep --universe universes/nifty50-large-cap.yaml --strategy {strategy} --from 2018-01-01 --to 2024-01-01 --timeframe daily --cash 300000 --commission zerodha_full [strategy-specific params] — run 7 times for: macd-crossover(fast=17,slow=26,signal=9), sma-crossover(fast=10,slow=20), donchian-breakout(period=10), rsi-mean-reversion(period=14,30/70), bollinger-mean-reversion(period=20,2.0std), momentum(lookback=231,threshold=10.0), cci-mean-reversion(period=20,entry=-100,exit=0) [CCI added post-hoc 2026-05-03]",
+  "results_file": "runs/universe-sweep-2026-05-03.csv",
+  "results_row_count": 106,
+  "results_completeness_verified": true,
+  "project_state": {
+    "killed_strategies": [
+      {"strategy": "donchian-breakout", "gate": "universe gate", "date": "2026-05-03"},
+      {"strategy": "rsi-mean-reversion", "gate": "universe gate", "date": "2026-05-03"},
+      {"strategy": "bollinger-mean-reversion", "gate": "universe gate", "date": "2026-05-03"},
+      {"strategy": "momentum", "gate": "universe gate", "date": "2026-05-03"},
+      {"strategy": "cci-mean-reversion", "gate": "universe gate", "date": "2026-05-03"}
+    ],
+    "prior_gate_survivors": [
+      "sma-crossover",
+      "rsi-mean-reversion",
+      "donchian-breakout",
+      "macd-crossover",
+      "bollinger-mean-reversion",
+      "momentum"
+    ],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-04-10-sharpe-sample-variance.md",
+        "decisions/algorithm/2026-04-13-benchmark-cagr-from-elapsed-time.md",
+        "decisions/algorithm/2026-04-13-vol-targeting-algorithm-choices.md",
+        "decisions/algorithm/2026-04-15-baseline-backtest-period-2018-2024.md",
+        "decisions/algorithm/2026-04-15-instrument-declared-before-first-run.md",
+        "decisions/algorithm/2026-04-21-kill-switch-derivation-methodology.md",
+        "decisions/algorithm/2026-04-20-bootstrap-sharpe-non-annualized-per-trade.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md",
+        "decisions/algorithm/2026-04-27-regime-gate.md",
+        "decisions/algorithm/2026-04-29-plateau-procedure-trade-count-constrained.md",
+        "decisions/algorithm/2026-04-29-fallback-to-defaults-no-valid-plateau.md",
+        "decisions/algorithm/2026-05-01-task0051-signal-audit-routing-macd-proceeds-others-need-sensitivity.md"
+      ]
+    },
+    "marcus": "completed — see session file step 5 verdict"
+  },
+  "survivors": [
+    {"strategy": "macd-crossover", "instrument": "all"},
+    {"strategy": "sma-crossover", "instrument": "all"}
+  ],
+  "survivor_metrics": {
+    "macd-crossover|all": {
+      "AvgDSRCorrectedSharpe": "0.2715",
+      "SufficientInstrumentCount": "15",
+      "PassingInstrumentCount": "14",
+      "PassFraction": "0.933",
+      "EligibleForWalkForward": "NSE:TCS,NSE:SBIN,NSE:BAJFINANCE,NSE:TITAN,NSE:LT,NSE:ICICIBANK,NSE:INFY,NSE:RELIANCE,NSE:HINDUNILVR,NSE:WIPRO,NSE:AXISBANK,NSE:ITC,NSE:KOTAKBANK,NSE:HDFCBANK",
+      "RegimeConcentrated": "deferred"
+    },
+    "sma-crossover|all": {
+      "AvgDSRCorrectedSharpe": "0.0969",
+      "SufficientInstrumentCount": "14",
+      "PassingInstrumentCount": "12",
+      "PassFraction": "0.857",
+      "ExcludedInsufficientData": "NSE:BAJFINANCE (trade_count=29)",
+      "EligibleForWalkForward": "NSE:LT,NSE:RELIANCE,NSE:TITAN,NSE:INFY,NSE:HINDUNILVR,NSE:ICICIBANK,NSE:SBIN,NSE:WIPRO,NSE:TCS,NSE:AXISBANK,NSE:ITC,NSE:KOTAKBANK",
+      "RegimeConcentrated": "deferred"
+    }
+  },
+  "survivor_correlation_flags": [],
+  "killed": [
+    {"strategy": "donchian-breakout", "instrument": "all"},
+    {"strategy": "rsi-mean-reversion", "instrument": "all"},
+    {"strategy": "bollinger-mean-reversion", "instrument": "all"},
+    {"strategy": "momentum", "instrument": "all"},
+    {"strategy": "cci-mean-reversion", "instrument": "all"}
+  ],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [
+    "**Decision (universe gate applied — MACD and SMA advance to walk-forward) — algorithm: experimental**",
+    "**Decision (donchian-breakout killed — DSRAvg negative on 7-instrument sufficient set) — algorithm: experimental**",
+    "**Decision (RSI, Bollinger, Momentum killed — zero sufficient instruments at 30-trade floor) — algorithm: experimental**",
+    "**Decision (regime gate deferred — per-period trade log required, not available in universe sweep CSV) — algorithm: experimental**"
+  ],
+  "kill_records_written": [
+    "decisions/algorithm/2026-05-03-donchian-breakout-universe-gate-failed.md",
+    "decisions/algorithm/2026-05-03-rsi-mean-reversion-universe-gate-failed.md",
+    "decisions/algorithm/2026-05-03-bollinger-mean-reversion-universe-gate-failed.md",
+    "decisions/algorithm/2026-05-03-momentum-universe-gate-failed.md",
+    "decisions/algorithm/2026-05-03-cci-mean-reversion-universe-gate-failed.md"
+  ],
+  "survivor_metric_records_written": [
+    "decisions/algorithm/2026-05-03-macd-crossover-universe-gate-passed.md",
+    "decisions/algorithm/2026-05-03-sma-crossover-universe-gate-passed.md"
+  ],
+  "hard_stop_active": null,
+  "data_freshness_verified": true,
+  "notes": {
+    "plateau_params": {
+      "macd-crossover": {"macd-fast-period": 17, "macd-slow-period": 26, "macd-signal-period": 9},
+      "sma-crossover": {"fast-period": 10, "slow-period": 20},
+      "donchian-breakout": {"donchian-period": 10},
+      "rsi-mean-reversion": {"rsi-period": 14, "sensitivity_concern": true},
+      "bollinger-mean-reversion": {"bb-period": 20, "bb-num-std-dev": 2.0, "sensitivity_concern": true},
+      "momentum": {"momentum-lookback": 231, "momentum-threshold": 10.0, "sensitivity_concern": true},
+      "cci-mean-reversion": {"cci-period": 20, "cci-entry": -100, "cci-exit": 0}
+    },
+    "cci_gap": "RESOLVED 2026-05-03. CCI added to cmd/universe-sweep strategyRegistry post-hoc. Sweep run and gate applied. Kill: DSRAvg=-0.0960 (fails >0). SufficientInstrumentCount=12, PassFraction=0.750 — both passed. Raw AvgSharpe=+0.1996 but DSR correction with nTrials=12 and ~33 trades/instrument pushed negative. TASK-0052 now complete with all 7 strategies.",
+    "cache_coverage": "All 15 instruments have daily_2018-01-01_2024-01-01.json in .cache/zerodha/ (Apr 29 2026). Data freshness: 4 days old, within 30-day threshold.",
+    "token_status": "Zerodha token expires 2026-05-03T00:30:00Z. Data served from cache — no live API calls needed."
+  }
+}

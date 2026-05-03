@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-02 | **Open tasks:** 16 | **Next up:** TASK-0052
+**Last updated:** 2026-05-03 | **Open tasks:** 15 | **Next up:** TASK-0053
 
 ---
 
@@ -14,44 +14,55 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0052] Evaluation — universe sweep (cross-instrument primary gate)
+### [TASK-0053] Evaluation — walk-forward validation on universe sweep survivors
 
 - **Status:** todo
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Context:** The primary validation gate for all six strategy families. A real edge should work on more than one instrument. Strategies that pass on RELIANCE only are not robust — they passed the wrong test. This run determines which strategies and instruments survive into walk-forward.
-- **Acceptance criteria:**
-  - [ ] Run `cmd/universe-sweep` for all 6 strategies using plateau-midpoint parameters from TASK-0051, across all 15 instruments in `universes/nifty50-large-cap.yaml`, 2018-01-01 to 2024-01-01
-  - [ ] Apply universe gate (from TASK-0049): DSR-corrected average Sharpe > 0 AND ≥ 40% of instruments show positive Sharpe with ≥ 30 trades
-  - [ ] Strategies that fail the gate are killed — record kill decision in `decisions/algorithm/`
-  - [ ] Produce explicit survivor matrix: strategy × instrument (pass/fail per cell)
-  - [ ] Apply regime gate (from TASK-0049): no single regime accounts for > 70% of total Sharpe; strategies failing the regime gate are flagged even if they pass the universe gate
-  - [ ] Results saved to `runs/universe-sweep-YYYY-MM-DD.csv`
-- **Notes:** Unblocked by TASK-0051 (done 2026-05-01). Plateau-midpoint params to use: MACD fast=17/slow=26/signal=9; SMA fast=10/slow=20; Donchian period=10; RSI period=14 (sensitivity concern — all 15 cells excluded in signal audit); Bollinger period=20 (sensitivity concern); Momentum lookback=231 (sensitivity concern). Signal audit preview: RSI/Bollinger/Momentum likely fail universe gate (all instrument cells excluded at ≥30-trade threshold). This replaces the single-instrument proliferation gate (2026-04-10 decision, formally superseded in TASK-0049). Marcus signed off on the supersession 2026-04-25. TASK-0060 (`--commission` flag for `cmd/universe-sweep`) should be completed first or in parallel. Owner: Marcus (algo-trading-veteran).
-
-## Blocked
-
-<!-- Waiting on something. Each task must state what it's blocked by. -->
-
----
-
----
-
-### [TASK-0053] Evaluation — walk-forward validation on universe sweep survivors
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** TASK-0052
 - **Context:** Walk-forward tests whether fixed parameters remain stable across time periods not used for parameter selection. A strategy that survives the universe sweep but fails walk-forward on most of its passing instruments is overfitting to the historical regime, not capturing a transferable edge. Parameters are fixed — no reoptimization per fold.
 - **Acceptance criteria:**
   - [ ] Run walk-forward for each surviving strategy × instrument pair from TASK-0052, 2018-01-01 to 2024-12-31, 2yr IS / 1yr OOS / 1yr step
   - [ ] Apply walk-forward gate (from TASK-0049): OverfitFlag = false AND NegativeFoldFlag = false
   - [ ] A strategy must pass walk-forward on at least as many instruments as it passed the universe gate — if it passes universe on 8 instruments but walk-forward on only 3, the strategy is killed
   - [ ] Record surviving strategy × instrument pairs with: AvgInSampleSharpe, AvgOutOfSampleSharpe, OOS/IS ratio, NegativeFoldCount
-- **Notes:** Walk-forward window per 2026-04-22 decision: 2yr IS / 1yr OOS / 1yr step. OverfitFlag fires when AvgOOSSharpe < 50% of AvgISSharpe — both flags must be false. OOS Sharpe that is positive but below the 50% floor still fails the OverfitFlag gate. Owner: Marcus (algo-trading-veteran).
+- **Notes:** Walk-forward window per 2026-04-22 decision: 2yr IS / 1yr OOS / 1yr step. OverfitFlag fires when AvgOOSSharpe < 50% of AvgISSharpe — both flags must be false. OOS Sharpe that is positive but below the 50% floor still fails the OverfitFlag gate. Owner: Marcus (algo-trading-veteran). Unblocked by TASK-0052 (done 2026-05-03). Walk-forward should be run on the EligibleForWalkForward instruments listed in the survivor handoff below (14 for MACD, 12 for SMA). NSE:MARUTI excluded from MACD walk-forward (negative Sharpe). NSE:BAJFINANCE excluded from SMA walk-forward (insufficient data). NSE:HDFCBANK and NSE:MARUTI excluded from SMA walk-forward (negative Sharpe). Regime gate from TASK-0052 is deferred — per-period trade logs were not available in the universe sweep CSV. Regime gate applies at portfolio construction stage (TASK-0055); failing strategies receive half-weight, not a kill.
+
+```json
+{
+  "survivor_input_from": "TASK-0052",
+  "results_file": "runs/universe-sweep-2026-05-03.csv",
+  "survivors": [
+    {
+      "strategy": "macd-crossover",
+      "instrument": "all",
+      "metrics": {
+        "AvgDSRCorrectedSharpe": "0.2715",
+        "SufficientInstrumentCount": "15",
+        "PassingInstrumentCount": "14",
+        "PassFraction": "0.933",
+        "EligibleForWalkForward": "NSE:TCS,NSE:SBIN,NSE:BAJFINANCE,NSE:TITAN,NSE:LT,NSE:ICICIBANK,NSE:INFY,NSE:RELIANCE,NSE:HINDUNILVR,NSE:WIPRO,NSE:AXISBANK,NSE:ITC,NSE:KOTAKBANK,NSE:HDFCBANK"
+      }
+    },
+    {
+      "strategy": "sma-crossover",
+      "instrument": "all",
+      "metrics": {
+        "AvgDSRCorrectedSharpe": "0.0969",
+        "SufficientInstrumentCount": "14",
+        "PassingInstrumentCount": "12",
+        "PassFraction": "0.857",
+        "ExcludedInsufficientData": "NSE:BAJFINANCE (trade_count=29)",
+        "EligibleForWalkForward": "NSE:LT,NSE:RELIANCE,NSE:TITAN,NSE:INFY,NSE:HINDUNILVR,NSE:ICICIBANK,NSE:SBIN,NSE:WIPRO,NSE:TCS,NSE:AXISBANK,NSE:ITC,NSE:KOTAKBANK"
+      }
+    }
+  ]
+}
+```
+
+## Blocked
+
+<!-- Waiting on something. Each task must state what it's blocked by. -->
 
 ---
 
