@@ -122,7 +122,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	outPath := fs.String("out", "", "Optional path for fold-level CSV output (default: no CSV)")
 
 	// Strategy-specific parameters — same set as cmd/sweep and cmd/universe-sweep.
-	fastPeriod := fs.Int("fast-period", 10, "sma-crossover: fast SMA period")
+	fastPeriod := fs.Int("fast-period", 20, "sma-crossover: fast SMA period")
 	slowPeriod := fs.Int("slow-period", 50, "sma-crossover: slow SMA period")
 	rsiPeriod := fs.Int("rsi-period", 14, "rsi-mean-reversion: RSI period")
 	oversold := fs.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold")

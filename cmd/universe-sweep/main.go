@@ -66,7 +66,7 @@ func main() {
 	commissionStr := flag.String("commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
 
 	// Strategy-specific parameters.
-	fastPeriod := flag.Int("fast-period", 10, "sma-crossover: fast SMA period")
+	fastPeriod := flag.Int("fast-period", 20, "sma-crossover: fast SMA period")
 	slowPeriod := flag.Int("slow-period", 50, "sma-crossover: slow SMA period")
 	rsiPeriod := flag.Int("rsi-period", 14, "rsi-mean-reversion: RSI period")
 	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold")

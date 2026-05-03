@@ -1,0 +1,67 @@
+{
+  "session_date": "2026-05-04",
+  "workflow": "build",
+  "task_id": "TASK-0067",
+  "task_title": "Evaluation — re-run universe sweep and walk-forward with tuned SMA and MACD parameters",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-04-22-walk-forward-oos-is-sharpe-threshold.md",
+        "decisions/algorithm/2026-04-22-walk-forward-window-sizing-default.md",
+        "decisions/algorithm/2026-04-10-sharpe-sample-variance.md",
+        "decisions/algorithm/2026-04-15-baseline-backtest-period-2018-2024.md",
+        "decisions/algorithm/2026-04-15-instrument-declared-before-first-run.md",
+        "decisions/algorithm/2026-04-20-bootstrap-sharpe-non-annualized-per-trade.md",
+        "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md",
+        "decisions/algorithm/2026-05-04-macd-crossover-walk-forward-instrument-count-gate.md",
+        "decisions/algorithm/2026-05-04-sma-crossover-walk-forward-instrument-count-gate.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-22-walk-forward-purpose-stateless-strategies.md",
+        "decisions/algorithm/2026-04-25-2025-live-data-as-true-holdout.md",
+        "decisions/tradeoff/2026-04-22-walkforward-all-degenerate-no-flags.md",
+        "decisions/algorithm/2026-05-03-macd-crossover-universe-gate-passed.md",
+        "decisions/algorithm/2026-05-03-sma-crossover-universe-gate-passed.md",
+        "decisions/algorithm/2026-04-29-plateau-procedure-trade-count-constrained.md",
+        "decisions/algorithm/2026-04-29-fallback-to-defaults-no-valid-plateau.md",
+        "decisions/algorithm/2026-05-03-regime-gate-deferred-universe-sweep-csv.md"
+      ]
+    },
+    "marcus": {
+      "summary": "SMA re-test at fast=20/slow=50 is methodologically clean because the revisit trigger was pre-committed before WF results were analyzed; the universe sweep resets cleanly and the WF instrument-count threshold resets to the new universe gate count. MACD parameters should stay at 17/26/9: changing to 12/26/9 post-WF failure constitutes implicit tuning against the fold structure of the 5 failing instruments. MACD's instrument-count gate failure is a gate-design question (100% retention required), not a parameter question.",
+      "go_iterate_kill": "n/a"
+    },
+    "priya_plan": {
+      "plan_summary": "Change SMA --fast-period default from 10 to 20 in both cmd files. MACD CLI defaults stay at 12; MACD runs with --macd-fast-period 17 passed explicitly. MACD universe sweep re-run skipped (TASK-0052 results definitive). Evaluation: SMA universe sweep at fast=20/slow=50, apply universe gate, walk-forward if passes. MACD escalated to gate-design reconsideration.",
+      "files_to_create": [],
+      "files_to_modify": ["cmd/universe-sweep/main.go", "cmd/walk-forward/main.go"],
+      "approach": "Flag-default change only: --fast-period in cmd/universe-sweep/main.go and cmd/walk-forward/main.go from 10 to 20."
+    },
+    "build": {
+      "build_summary": "Changed --fast-period default from 10 to 20 in cmd/universe-sweep/main.go and cmd/walk-forward/main.go. --slow-period was already 50 in both — no change. MACD defaults untouched. main_test.go defaultStrategyParams() uses fastPeriod:10 as a valid test param (not a flag-default assertion) — no update needed.",
+      "files_modified": ["cmd/universe-sweep/main.go", "cmd/walk-forward/main.go"],
+      "tests_written": [],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "quality_gate": "PASS",
+      "blocker_count": 0,
+      "warning_count": 0,
+      "suggestion_count": 0
+    }
+  },
+  "quality_review_round": 0,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0067 'Evaluation — re-run universe sweep and walk-forward with tuned SMA and MACD parameters' created from user request. Backlog had no In Progress or Up Next items — created new task from context provided.",
+    "[AUTO] Step 2 — Decision lookup: 9 standing orders, 8 context files.",
+    "[AUTO] Step 3 — Marcus: new call made. SMA re-test clean (pre-committed trigger). MACD stays at 17/26/9 (changing post-WF = implicit fold-structure tuning).",
+    "[AUTO] Step 4 — Plan: complete. Approach: Change fast-period default from 10 to 20 in both cmd/universe-sweep and cmd/walk-forward; run SMA universe sweep and walk-forward; MACD stays at 17/26/9 with existing results standing; escalate MACD instrument-count gate as gate-design question.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: cmd/universe-sweep/main.go, cmd/walk-forward/main.go.",
+    "[AUTO] Step 6 — Verify and Close: AC 1 (SMA default updated) [x]. AC 2 (MACD investigated, stays at 17/26/9) [x]. AC 3–6 (evaluation runs) require Zerodha token — moved to TASK-0068.",
+    "[AUTO] Session end: 2 tasks created (TASK-0068, TASK-0069). 2 decisions written. Commit message generated."
+  ],
+  "decision_marks_pending": [],
+  "hard_stop_active": null
+}

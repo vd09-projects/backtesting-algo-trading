@@ -179,3 +179,9 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-03 | TASK-0053 | status → blocked | blocked by TASK-0066 (cmd/walk-forward CLI does not exist); moved from Up Next to Blocked | |
 | 2026-05-03 | TASK-0066 | status → done | cmd/walk-forward CLI complete. Factory dispatch table, run() extraction, 73.4% cmd coverage, 88% walkforward coverage. Quality gate PASS. | archived to 2026-05.md |
 | 2026-05-03 | TASK-0053 | status → todo (unblocked) | TASK-0066 complete; moved from Blocked to Up Next |
+| 2026-05-04 | TASK-0053 | status → done | Walk-forward ran on 26 instrument×strategy pairs (14 MACD, 12 SMA). Both strategies killed at instrument-count gate: MACD 9/14, SMA 4/12. 0 survivors. Kill records in decisions/algorithm/. | archived to 2026-05.md |
+| 2026-05-04 | TASK-0054 | notes updated | Pipeline terminated — 0 survivors from TASK-0053. Remains blocked pending user decision: (A) relax instrument-count gate, (B) revisit parameters, or (C) start fresh. Handoff JSON appended to Notes. | |
+| 2026-05-04 | TASK-0067 | created | priority: high, source: session | Update SMA --fast-period default 10→20 in cmd/universe-sweep + cmd/walk-forward; prepare evaluation re-run pipeline. Quality gate PASS. |
+| 2026-05-04 | TASK-0068 | created | priority: high, source: session | Run SMA universe sweep + walk-forward at fast=20/slow=50; blocked only on Zerodha token |
+| 2026-05-04 | TASK-0069 | created | priority: high, source: session | Reconsider MACD instrument-count gate threshold (100% retention too strict?); blocked by TASK-0068 |
+| 2026-05-04 | TASK-0054 | notes updated | Blocker note updated: TASK-0068 (SMA re-run) and TASK-0069 (MACD gate review) are active remediation paths | |

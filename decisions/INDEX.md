@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-04-macd-parameters-unchanged-17-26-9
+    title: "MACD parameters unchanged at 17/26/9 for this evaluation cycle"
+    date: 2026-05-04
+    status: experimental
+    category: algorithm
+    tags: [macd-crossover, parameter-selection, macd-fast-period, post-hoc-risk, instrument-count-gate, TASK-0067]
+    path: algorithm/2026-05-04-macd-parameters-unchanged-17-26-9.md
+    summary: "MACD stays at fast=17/slow=26/signal=9. Changing to 12/26/9 post-WF failure constitutes post-hoc parameter selection against the fold structure of the 5 failing instruments. fast=17 produced DSRAvg=0.2715 across 14/15 instruments — not RELIANCE-specific. MACD's 9/14 pass rate is a gate-design question (100% retention), not a parameter question. Escalated to TASK-0069."
+
+  - id: 2026-05-04-sma-retune-methodology-pre-committed-trigger
+    title: "SMA re-test after walk-forward kill: pre-committed revisit trigger is methodologically clean"
+    date: 2026-05-04
+    status: experimental
+    category: algorithm
+    tags: [sma-crossover, parameter-retune, walk-forward-kill, revisit-trigger, methodology-hygiene, TASK-0067]
+    path: algorithm/2026-05-04-sma-retune-methodology-pre-committed-trigger.md
+    summary: "Re-testing sma-crossover at fast=20/slow=50 is clean because the revisit trigger was pre-committed before WF results were analyzed, the parameter change is structurally motivated (reducing noise on daily bars), and it does not use per-instrument WF failure patterns to select parameters. Universe sweep resets cleanly; WF instrument-count threshold resets to new gate count."
+
+  - id: 2026-05-04-sma-crossover-walk-forward-instrument-count-gate
+    title: "SMA crossover fails walk-forward instrument-count gate — 4 of 12 eligible instruments pass"
+    date: 2026-05-04
+    status: rejected
+    category: algorithm
+    tags: [sma-crossover, walk-forward, instrument-count-gate, TASK-0053, kill]
+    path: algorithm/2026-05-04-sma-crossover-walk-forward-instrument-count-gate.md
+    summary: "SMA crossover (fast=10, slow=20) killed at instrument-count gate: 4 of 12 eligible instruments pass walk-forward (needed 12). Revisit trigger from universe gate fired: <6 instruments passed. 8 failures dominated by simultaneous OverfitFlag+NegFoldFlag — strategy lacks cross-instrument regime stability at these parameters."
+
+  - id: 2026-05-04-macd-crossover-walk-forward-instrument-count-gate
+    title: "MACD crossover fails walk-forward instrument-count gate — 9 of 14 eligible instruments pass"
+    date: 2026-05-04
+    status: rejected
+    category: algorithm
+    tags: [macd-crossover, walk-forward, instrument-count-gate, TASK-0053, kill]
+    path: algorithm/2026-05-04-macd-crossover-walk-forward-instrument-count-gate.md
+    summary: "MACD crossover (fast=17, slow=26, signal=9) killed at instrument-count gate: 9 of 14 eligible instruments pass walk-forward (needed 14). 5 failures: RELIANCE/HINDUNILVR/WIPRO via OverfitFlag (OOSISRatio 0.34–0.48), TCS/HDFCBANK via NegFoldFlag. Passing 9 show solid OOS Sharpe (0.062–0.472). Kill stands under 100%-retention gate; revisit if gate threshold is relaxed."
+
   - id: 2026-05-03-run-extraction-for-testability-in-cmd-walk-forward
     title: "run() extraction for testability in cmd/walk-forward"
     date: 2026-05-03
