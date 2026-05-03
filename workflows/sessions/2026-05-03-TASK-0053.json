@@ -1,0 +1,61 @@
+{
+  "session_date": "2026-05-03",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0053",
+  "task_title": "Evaluation — walk-forward validation on universe sweep survivors",
+  "step_completed": null,
+  "gates": [
+    {
+      "name": "walk-forward gate",
+      "criteria": "OverfitFlag = false AND NegativeFoldFlag = false. OverfitFlag fires when AvgOOSSharpe < 50% of AvgISSharpe. NegativeFoldFlag fires when 2+ non-degenerate folds have OOS Sharpe < 0. A strategy must pass walk-forward on at least as many instruments as it passed the universe gate."
+    }
+  ],
+  "command_run": null,
+  "results_file": null,
+  "results_row_count": null,
+  "project_state": {
+    "killed_strategies": [],
+    "prior_gate_survivors": [
+      {"strategy": "macd-crossover", "instrument": "NSE:TCS"},
+      {"strategy": "macd-crossover", "instrument": "NSE:SBIN"},
+      {"strategy": "macd-crossover", "instrument": "NSE:BAJFINANCE"},
+      {"strategy": "macd-crossover", "instrument": "NSE:TITAN"},
+      {"strategy": "macd-crossover", "instrument": "NSE:LT"},
+      {"strategy": "macd-crossover", "instrument": "NSE:ICICIBANK"},
+      {"strategy": "macd-crossover", "instrument": "NSE:INFY"},
+      {"strategy": "macd-crossover", "instrument": "NSE:RELIANCE"},
+      {"strategy": "macd-crossover", "instrument": "NSE:HINDUNILVR"},
+      {"strategy": "macd-crossover", "instrument": "NSE:WIPRO"},
+      {"strategy": "macd-crossover", "instrument": "NSE:AXISBANK"},
+      {"strategy": "macd-crossover", "instrument": "NSE:ITC"},
+      {"strategy": "macd-crossover", "instrument": "NSE:KOTAKBANK"},
+      {"strategy": "macd-crossover", "instrument": "NSE:HDFCBANK"},
+      {"strategy": "sma-crossover", "instrument": "NSE:LT"},
+      {"strategy": "sma-crossover", "instrument": "NSE:RELIANCE"},
+      {"strategy": "sma-crossover", "instrument": "NSE:TITAN"},
+      {"strategy": "sma-crossover", "instrument": "NSE:INFY"},
+      {"strategy": "sma-crossover", "instrument": "NSE:HINDUNILVR"},
+      {"strategy": "sma-crossover", "instrument": "NSE:ICICIBANK"},
+      {"strategy": "sma-crossover", "instrument": "NSE:SBIN"},
+      {"strategy": "sma-crossover", "instrument": "NSE:WIPRO"},
+      {"strategy": "sma-crossover", "instrument": "NSE:TCS"},
+      {"strategy": "sma-crossover", "instrument": "NSE:AXISBANK"},
+      {"strategy": "sma-crossover", "instrument": "NSE:ITC"},
+      {"strategy": "sma-crossover", "instrument": "NSE:KOTAKBANK"}
+    ],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": null,
+    "marcus": null
+  },
+  "survivors": [],
+  "survivor_metrics": {},
+  "survivor_correlation_flags": [],
+  "killed": [],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [],
+  "hard_stop_active": "NO_WALKFORWARD_CLI: internal/walkforward package exists and is tested, but no cmd/walk-forward CLI entrypoint exists. TASK-0053 requires running walk-forward on 26 strategy×instrument pairs (14 macd-crossover + 12 sma-crossover). No existing CLI command (cmd/backtest, cmd/universe-sweep) exposes walk-forward flags. A build task must create cmd/walk-forward before this evaluation task can run.",
+  "data_freshness_verified": null,
+  "results_completeness_verified": null
+}
