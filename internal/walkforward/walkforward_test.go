@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 )
 
 // ---------------------------------------------------------------------------
@@ -291,7 +292,7 @@ func TestRun_ProducesCorrectFoldCount(t *testing.T) {
 	}
 	baseCfg := baseEngineConfig()
 
-	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, &toggleStrategy{})
+	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, func() strategy.Strategy { return &toggleStrategy{} })
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -312,7 +313,7 @@ func TestRun_AllDegenerateWindowsNoFlags(t *testing.T) {
 	}
 	baseCfg := baseEngineConfig()
 
-	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, &neverTradeStrategy{})
+	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, func() strategy.Strategy { return &neverTradeStrategy{} })
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -346,7 +347,7 @@ func TestRun_DegenerateWindowsExcludedFromNegativeFoldCount(t *testing.T) {
 	}
 	baseCfg := baseEngineConfig()
 
-	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, &neverTradeStrategy{})
+	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, func() strategy.Strategy { return &neverTradeStrategy{} })
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -440,7 +441,7 @@ func TestRun_WindowResultHasBothPeriods(t *testing.T) {
 	}
 	baseCfg := baseEngineConfig()
 
-	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, &toggleStrategy{})
+	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, func() strategy.Strategy { return &toggleStrategy{} })
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -473,7 +474,7 @@ func TestRun_TradeCountIsOOSTradeCount(t *testing.T) {
 	}
 	baseCfg := baseEngineConfig()
 
-	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, &toggleStrategy{})
+	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, func() strategy.Strategy { return &toggleStrategy{} })
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

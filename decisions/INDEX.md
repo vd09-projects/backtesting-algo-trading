@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-03-run-extraction-for-testability-in-cmd-walk-forward
+    title: "run() extraction for testability in cmd/walk-forward"
+    date: 2026-05-03
+    status: experimental
+    category: convention
+    tags: [testability, cmd/walk-forward, run-function, flag-newFlagSet, exitCodeError, TASK-0066]
+    path: convention/2026-05-03-run-extraction-for-testability-in-cmd-walk-forward.md
+    summary: "main() wiring extracted to run(args []string, stdout, stderr io.Writer) error using flag.NewFlagSet with ContinueOnError. exitCodeError typed sentinel for os.Exit(1) path. Coverage raised from 47.2% to 73.4% on cmd/walk-forward."
+
+  - id: 2026-05-03-strategyfactory-table-dispatch-replaces-flat
+    title: "strategyFactory dispatch table replaces flat switch in cmd/walk-forward"
+    date: 2026-05-03
+    status: experimental
+    category: architecture
+    tags: [factory, dispatch-table, panic-free, cyclop, error-handling, cmd/walk-forward, TASK-0066]
+    path: architecture/2026-05-03-strategyfactory-table-dispatch-replaces-flat.md
+    summary: "map[string]strategyBuilder dispatch table replaces flat switch. Each builder validates params eagerly at startup and returns a clean closure. Closures cannot panic at fold-execution time. Cyclomatic complexity drops from 16 to ~2."
+
   - id: 2026-05-03-cci-mean-reversion-universe-gate-failed
     title: "CCI mean-reversion fails universe gate — DSR-corrected average Sharpe negative"
     date: 2026-05-03

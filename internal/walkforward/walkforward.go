@@ -1,6 +1,6 @@
 // Package walkforward implements a fixed rolling walk-forward validation harness.
 //
-// Walk-forward is a regime-stability test for stateless fixed-parameter strategies:
+// Walk-forward is a regime-stability test for fixed-parameter strategies:
 // it checks whether a strategy's OOS Sharpe degrades significantly versus its IS Sharpe
 // across multiple folds — a signal of overfitting to a specific regime rather than
 // robust edge. It is NOT a parameter-optimisation test.
@@ -124,28 +124,29 @@ type Report struct {
 // engine calls in parallel (via errgroup), assembles WindowResults, and scores
 // the full set via scoreFolds.
 //
-// The strategy and provider are called concurrently across folds; callers must
-// ensure that the provided implementations are safe for concurrent use, or pass
-// distinct instances per fold. The fakes in walkforward_test.go are stateless
-// (staticProvider, neverTradeStrategy) or have only fold-local state. If a
-// strategy carries mutable state between Next() calls (e.g., a history buffer)
-// the caller is responsible for providing a fresh instance — or wrapping in a
-// factory. For now the API takes a single instance; if stateful strategies become
-// common, the signature should change to accept a factory func.
+// factory is called once per fold to produce a fresh strategy instance. This
+// guarantees that stateful strategies (e.g. TimedExit, which tracks entryBar and
+// inPosition between Next() calls) start each fold with clean state. Stateless
+// strategies simply return a shared or newly constructed instance.
 //
-// **Decision (strategy concurrency — single instance vs factory) — tradeoff: experimental**
+// **Decision (strategy factory replaces single instance) — architecture: experimental**
 // scope: internal/walkforward
-// tags: strategy, concurrency, API
-// Taking a single strategy.Strategy instance keeps the API simple for the current
-// all-stateless-strategy set. The approved plan specified a single instance. Revisit
-// if mutable-state strategies are added; at that point the signature changes to
-// func() strategy.Strategy (factory) so each fold gets a fresh copy.
+// tags: strategy, factory, stateful-strategies, API-change
+// supersedes: (prior single-instance tradeoff decision below)
+// owner: priya
+//
+// TASK-0059 documents TimedExit as the first stateful Strategy implementation.
+// The original single-instance API carried a godoc caveat "if stateful strategies
+// are added, the signature changes to func() strategy.Strategy" — that revisit
+// trigger has now fired. factory() per fold eliminates silent cross-fold state
+// corruption without changing the ergonomics for stateless callers (they just wrap
+// their instance in a closure).
 func Run( //nolint:gocritic // WalkForwardConfig and EngineConfigTemplate are config structs; pointer would complicate the call site for no hot-loop benefit
 	ctx context.Context,
 	cfg WalkForwardConfig, //nolint:gocritic // config struct; pointer API would be awkward for a one-shot call
 	baseCfg EngineConfigTemplate,
 	p provider.DataProvider,
-	s strategy.Strategy,
+	factory func() strategy.Strategy,
 ) (Report, error) {
 	if cfg.Instrument == "" {
 		return Report{}, fmt.Errorf("walkforward: instrument must not be empty")
@@ -184,9 +185,8 @@ func Run( //nolint:gocritic // WalkForwardConfig and EngineConfigTemplate are co
 	g.SetLimit(runtime.GOMAXPROCS(0))
 
 	for i := range windows {
-		i := i // capture loop variable
 		g.Go(func() error {
-			wr, err := runFold(gctx, windows[i], cfg.Instrument, baseCfg, p, s)
+			wr, err := runFold(gctx, windows[i], cfg.Instrument, baseCfg, p, factory)
 			if err != nil {
 				return fmt.Errorf("walkforward: fold %d: %w", i, err)
 			}
@@ -229,6 +229,10 @@ func generateWindows(cfg *WalkForwardConfig) []WindowResult { //nolint:gocritic 
 // "sequential inside, parallel across" — within a fold the two runs are ordered
 // work units, not independent sub-runs that need separate goroutines.
 //
+// factory is called twice per fold — once for the IS run and once for the OOS run —
+// ensuring each engine run starts with a fresh strategy instance regardless of
+// whether the strategy carries inter-bar state.
+//
 // **Decision (IS and OOS within a fold: sequential not parallel) — convention: experimental**
 // scope: internal/walkforward/runFold
 // tags: concurrency, fold-internal-sequencing
@@ -243,7 +247,7 @@ func runFold( //nolint:gocritic // WindowResult and EngineConfigTemplate pass by
 	instrument string,
 	baseCfg EngineConfigTemplate,
 	p provider.DataProvider,
-	s strategy.Strategy,
+	factory func() strategy.Strategy,
 ) (WindowResult, error) {
 	isCfg := engine.Config{
 		Instrument:           instrument,
@@ -267,14 +271,14 @@ func runFold( //nolint:gocritic // WindowResult and EngineConfigTemplate pass by
 	}
 
 	isEngine := engine.New(isCfg)
-	if err := isEngine.Run(ctx, p, s); err != nil {
+	if err := isEngine.Run(ctx, p, factory()); err != nil {
 		return WindowResult{}, fmt.Errorf("IS run: %w", err)
 	}
 	isTrades := isEngine.Portfolio().ClosedTrades()
 	isSharpe := perTradeSharpe(isTrades)
 
 	oosEngine := engine.New(oosCfg)
-	if err := oosEngine.Run(ctx, p, s); err != nil {
+	if err := oosEngine.Run(ctx, p, factory()); err != nil {
 		return WindowResult{}, fmt.Errorf("OOS run: %w", err)
 	}
 	oosTrades := oosEngine.Portfolio().ClosedTrades()

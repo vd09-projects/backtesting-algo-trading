@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-03 | **Open tasks:** 16 | **Next up:** TASK-0066
+**Last updated:** 2026-05-03 | **Open tasks:** 15 | **Next up:** TASK-0053
 
 ---
 
@@ -14,36 +14,12 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0066] Tooling — build `cmd/walk-forward` CLI entrypoint
+### [TASK-0053] Evaluation — walk-forward validation on universe sweep survivors
 
 - **Status:** todo
 - **Priority:** high
-- **Created:** 2026-05-03
-- **Source:** session
-- **Context:** `internal/walkforward/` is fully implemented with 17 tests but no CLI exposes it. TASK-0053 (walk-forward validation on 26 strategy×instrument pairs) cannot run without a binary. This task wires the library to a runnable command.
-- **Acceptance criteria:**
-  - [ ] `cmd/walk-forward/main.go` created accepting: `--strategy`, `--instrument`, `--from`, `--to`, `--is-years`, `--oos-years`, `--step-years`, `--commission`, and strategy-specific params
-  - [ ] Calls `internal/walkforward.Run()` with a strategy factory (`func() strategy.Strategy` — not a shared instance, per TASK-0059 intent)
-  - [ ] Outputs per-fold results (fold index, IS Sharpe, OOS Sharpe, OOS/IS ratio) and aggregate Report (OverfitFlag, NegativeFoldFlag, AvgISSharpe, AvgOOSSharpe, NegativeFoldCount) as JSON to stdout; optional CSV via `--out`
-  - [ ] Non-zero exit code when OverfitFlag or NegativeFoldFlag is set (enables scripting)
-  - [ ] Tests written before implementation (TDD)
-  - [ ] `golangci-lint run ./cmd/walk-forward/...` passes
-  - [ ] `go1.25.0 test -race ./...` passes
-- **Notes:** Unblocks TASK-0053. If TASK-0059 (factory API refactor) is not yet done, implement the factory pattern in this task's scope — stateful strategies used across fold boundaries will silently corrupt results without it.
-
-## Blocked
-
-<!-- Waiting on something. Each task must state what it's blocked by. -->
-
----
-
-### [TASK-0053] Evaluation — walk-forward validation on universe sweep survivors
-
-- **Status:** blocked
-- **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Blocked by:** TASK-0066 (cmd/walk-forward CLI does not exist)
 - **Context:** Walk-forward tests whether fixed parameters remain stable across time periods not used for parameter selection. A strategy that survives the universe sweep but fails walk-forward on most of its passing instruments is overfitting to the historical regime, not capturing a transferable edge. Parameters are fixed — no reoptimization per fold.
 - **Acceptance criteria:**
   - [ ] Run walk-forward for each surviving strategy × instrument pair from TASK-0052, 2018-01-01 to 2024-12-31, 2yr IS / 1yr OOS / 1yr step
@@ -83,6 +59,12 @@
   ]
 }
 ```
+
+---
+
+## Blocked
+
+<!-- Waiting on something. Each task must state what it's blocked by. -->
 
 ---
 
