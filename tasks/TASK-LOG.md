@@ -187,3 +187,24 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-04 | TASK-0054 | notes updated | Blocker note updated: TASK-0068 (SMA re-run) and TASK-0069 (MACD gate review) are active remediation paths | |
 | 2026-05-04 | TASK-0068 | status → done | Universe gate failed: all 15 instruments InsufficientData=true (trade_count 12–20 < 30 minimum). fast=20/slow=50 generates ~2–3 trades/year — statistically infeasible. SMA crossover killed definitively. Kill decision: decisions/algorithm/2026-05-04-sma-crossover-fast20-slow50-universe-gate-failed.md. Results: runs/universe-sweep-sma-20-50-2026-05-04.csv. | archived to 2026-05.md |
 | 2026-05-04 | TASK-0069 | status → todo (unblocked) | TASK-0068 complete; blocker removed. Moved from Blocked to Up Next. No SMA survivors to affect gate-design precedent — MACD gate-design review proceeds independently. | |
+| 2026-05-04 | TASK-0070 | created | priority: high, source: session | cmd/fetch-history CLI — bulk intraday historical data fetcher; leverages existing chunking; incremental delta fetch; writes to CachedProvider disk cache | owner: Priya |
+| 2026-05-04 | TASK-0071 | created | priority: high, source: session | Verify overnight gap handling for intraday CNC backtests — golden tests for P&L and stop-loss fill across 17hr session gap | owner: Priya; blocker for all intraday backtest validity |
+| 2026-05-04 | TASK-0072 | created | priority: high, source: session | Nifty Midcap 150 universe YAML — 20-30 instruments, continuous history from 2018, Marcus reviews list | owner: Priya builds, Marcus reviews |
+| 2026-05-04 | TASK-0073 | created | priority: medium, source: session | cmd/evaluate — end-to-end automated evaluation pipeline (sweep → walk-forward → bootstrap); DSR-enforced param search on training window only | owner: Priya |
+| 2026-05-04 | TASK-0074 | created | priority: medium, source: session | Opening Range Breakout strategy (5-min, CNC overnight hold) | blocked: Marcus must define entry/exit rules |
+| 2026-05-04 | TASK-0075 | created | priority: medium, source: session | Gap-and-go strategy (5-min, CNC overnight hold) | blocked: Marcus must define entry/exit rules |
+| 2026-05-04 | TASK-0076 | created | priority: low, source: session | Add Timeframe30Min + Timeframe60Min to model and Zerodha provider | owner: Priya |
+| 2026-05-04 | TASK-0077 | created | priority: low, source: session | cmd/param-search — parameter optimization with DSR correction; training window only, OOS untouched | blocked: TASK-0073; owner: Priya |
+| 2026-05-04 | TASK-0059 | reprioritized | medium → high | All planned intraday strategies use TimedExit wrapper — factory API is now a blocker for intraday walk-forward | |
+| 2026-05-04 | TASK-0046 | blocker updated | Phase 2 sequencing → MIS-only blocker; CNC 2-3 day intraday focus does not require forced session close; TASK-0046 deferred until MIS strategy work begins | |
+| 2026-05-04 | TASK-0062 | duplicate removed | First TASK-0062 entry ("TRI CSV loader") removed from backlog — superseded by the second, more detailed TASK-0062 entry ("TRI benchmark + StaticCSVProvider") | |
+| 2026-05-05 | TASK-0059 | duplicate removed | Stale medium-priority copy in Todo (Backlog) removed; canonical high-priority entry remains in Up Next | |
+| 2026-05-05 | TASK-0077 | moved | Todo (Backlog) → Blocked section; status was blocked but placed in wrong section | |
+| 2026-05-05 | TASK-0070 | AC patched | Added: auth flags / env vars; partial-failure manifest recovery; incremental mode depends on TASK-0080 | Priya review |
+| 2026-05-05 | TASK-0071 | AC patched | Stop-loss golden test replaced with correct criterion: engine fill at gap-down open, not signal price | Priya review |
+| 2026-05-05 | TASK-0073 | AC patched | Removed --param-sweep flag (belongs in TASK-0077); added zero-survivor halt criterion | Priya review |
+| 2026-05-05 | TASK-0074 | AC patched | Added Marcus long-only/bidirectional ruling as pre-implementation gate; ORB session detection now references TASK-0078 | Priya review |
+| 2026-05-05 | TASK-0076 | AC patched | Added chunk_test.go update criterion for 30-min and 60-min cases | Priya review |
+| 2026-05-05 | TASK-0078 | created | priority: high, source: session | Session-boundary utilities (IsSessionOpen, PreviousSessionClose) in pkg/strategy/; unblocks TASK-0074 + TASK-0075 | owner: Priya |
+| 2026-05-05 | TASK-0079 | created | priority: medium, source: discovery | Tech debt: centralized strategy registry in internal/cmdutil; eliminates 4+ CLI manual registrations per new strategy | owner: Priya |
+| 2026-05-05 | TASK-0080 | created | priority: medium, source: discovery | Tech debt: CachedProvider incremental manifest (LastCachedTime, RecordFetch, atomic writes); unblocks TASK-0070 incremental mode | owner: Priya |
