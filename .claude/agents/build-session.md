@@ -1,6 +1,6 @@
 ---
 name: "build-session"
-description: "Use this agent when the user wants to implement a task autonomously from planning through close. This includes when the user says 'what's next', 'start next task', picks a task by ID, or names specific work to implement. The task type must be a feature, refactor, or implementation (not a bug fix). The agent orchestrates the full build session: picking a task, looking up prior decisions, optionally consulting methodology review, planning, building, and closing.\\n\\n<example>\\nContext: User wants to start working on the next task in the backlog.\\nuser: \"What's next?\"\\nassistant: \"Let me launch the build-session agent to pick the next task and drive it through to completion.\"\\n<commentary>\\nThe user is asking what to work on next, which is a classic build session trigger. Use the Agent tool to launch the build-session agent.\\n</commentary>\\n</example>\\n\\n<example>\\nContext: User names a specific task to implement.\\nuser: \"Let's implement TASK-0042 — add Sharpe ratio to analytics\"\\nassistant: \"I'll use the build-session agent to orchestrate TASK-0042 from planning through close.\"\\n<commentary>\\nThe user has named a specific implementation task. Use the Agent tool to launch the build-session agent with the task ID.\\n</commentary>\\n</example>\\n\\n<example>\\nContext: User wants to resume in-progress work.\\nuser: \"Resume the task we started yesterday\"\\nassistant: \"Let me use the build-session agent to find the in-progress session and resume from where we left off.\"\\n<commentary>\\nResumption of a prior build session. Use the Agent tool to launch the build-session agent which will detect the existing session file and resume.\\n</commentary>\\n</example>"
+description: "Use this agent when the user wants to implement a task autonomously from planning through close. This includes when the user says 'what's next', 'start next task', picks a task by ID, or names specific work to implement. Covers features, refactors, implementations, AND bug fixes — bugs run the same pipeline with a regression-test-first plan and shorter design step. Does NOT cover strategy rule-design tasks (use `marcus-design`) or evaluation-run-CLI tasks (use `evaluation-run`). The agent orchestrates the full session: picking a task, redirecting if it belongs to another agent, looking up prior decisions, optionally consulting methodology review, planning, building, and closing.\\n\\n<example>\\nContext: User wants to start working on the next task in the backlog.\\nuser: \"What's next?\"\\nassistant: \"Let me launch the build-session agent to pick the next task and drive it through to completion.\"\\n<commentary>\\nThe user is asking what to work on next, which is a classic build session trigger. Use the Agent tool to launch the build-session agent.\\n</commentary>\\n</example>\\n\\n<example>\\nContext: User names a specific task to implement.\\nuser: \"Let's implement TASK-0042 — add Sharpe ratio to analytics\"\\nassistant: \"I'll use the build-session agent to orchestrate TASK-0042 from planning through close.\"\\n<commentary>\\nThe user has named a specific implementation task. Use the Agent tool to launch the build-session agent with the task ID.\\n</commentary>\\n</example>\\n\\n<example>\\nContext: User wants to resume in-progress work.\\nuser: \"Resume the task we started yesterday\"\\nassistant: \"Let me use the build-session agent to find the in-progress session and resume from where we left off.\"\\n<commentary>\\nResumption of a prior build session. Use the Agent tool to launch the build-session agent which will detect the existing session file and resume.\\n</commentary>\\n</example>"
 model: sonnet
 color: orange
 memory: project
@@ -30,11 +30,20 @@ At startup, initialize:
   "quality_review_round": 0,
   "execution_log": [],
   "decision_marks_pending": [],
-  "hard_stop_active": null
+  "hard_stop_active": null,
+  "preflight_passed": false,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
 }
 ```
 
-Check `workflows/sessions/` for a file matching `{date}-{TASK-ID}.json`. If found, load it and resume from `step_completed + 1`. If not found, this is a fresh session.
+**Resume detection** (TASK-ID unknown at startup):
+
+1. Glob `workflows/sessions/{today}-TASK-*.json`.
+2. If zero matches: fresh session. Skip to Step 1.
+3. If exactly one match with `workflow == "build"`: load it. If `step_completed >= 1`, resume from `step_completed + 1`. Log: `[AUTO] Resuming TASK-NNNN from step N+1.`
+4. If multiple matches: list them with their `task_id` and `step_completed`; ask user which to resume or whether to start fresh. Wait.
+5. If a match exists but `hard_stop_active` is set: present the stop condition and wait for user resolution before resuming.
 
 ---
 
@@ -55,13 +64,58 @@ For Hard STOPs: state the blocker, what information is needed, and stop. Do not 
 
 Read `tasks/BACKLOG.md`. Take the top item from **In Progress** first (resume if one exists), then the top item from **Up Next**.
 
-Extract: task ID, title, acceptance criteria, context paragraph.
+Extract: task ID, title, acceptance criteria, context paragraph, source (feature / refactor / bug / discovery / decision).
 
 If the top task is blocked, take the next unblocked item and log the skip reason. If all tasks are blocked → Hard STOP.
 
 Update SESSION STATE: `task_id`, `task_title`. Write `workflows/sessions/{today}-{TASK-ID}.json`. Set `step_completed = 1`.
 
-Log: `[AUTO] Step 1 — Task: TASK-NNNN "<title>" picked from <section>.`
+Log: `[AUTO] Step 1 — Task: TASK-NNNN "<title>" picked from <section>. Source: <type>.`
+
+---
+
+## STEP 1.5 — Routing and Preflight Gates (orchestrator)
+
+Run these checks before Step 2. Each is a Hard STOP if it fails.
+
+### 1.5a — Wrong-agent redirect
+
+Inspect the task's acceptance criteria and notes:
+
+| Pattern in AC / notes | Correct agent | Action |
+|---|---|---|
+| "Marcus must define …", "Marcus rules on …", "rules drafted in `decisions/algorithm/`", "decision recorded in `decisions/algorithm/` before implementation begins" | `marcus-design` | Hard STOP: tell user to run `marcus-design` first; do not proceed |
+| "Run `cmd/universe-sweep`", "Run `cmd/backtest --bootstrap`", "Run `cmd/correlate`", or any AC dominated by "apply <X> gate" | `evaluation-run` | Hard STOP: redirect |
+| "Evaluate this thesis", "Marcus go/iterate/kill", new strategy idea with no implementation file | `strategy-evaluator` | Hard STOP: redirect |
+
+If task contains BOTH design ACs (e.g., "Marcus rules on …") AND implementation ACs (e.g., "`strategies/orb/` package implementing Strategy"), and the design ACs are still unchecked → redirect to `marcus-design`. If design ACs are already checked off → proceed; build implements the drafted rules.
+
+### 1.5b — Bug-fix plan-step short-circuit
+
+If `Source` is `bug` or task title starts with "Fix —" / "Bug —":
+- Skip the full plan step (Step 4 is collapsed): pass acceptance criteria + reproduction notes directly as the "plan" to priya-build, with the approach `"Diagnose root cause, write regression test first, then fix"`.
+- Methodology pre-check (Step 3) still fires if the bug touches metrics / fill model / kill-switch / walk-forward — bugs in accounting often hide methodology questions.
+- All other steps unchanged.
+
+Set SESSION STATE flag `is_bugfix = true`. Log: `[AUTO] Step 1.5b — Bugfix path: plan step collapsed.`
+
+### 1.5c — Strategy-registration preflight
+
+If task is `TASK-0079` itself (central registry build) or touches `cmd/universe-sweep/main.go`'s `strategyRegistry` map directly: skip this check.
+
+Otherwise:
+1. List `strategies/` directory; collect each subdirectory name (excluding `stub`, `testutil`).
+2. Read `cmd/universe-sweep/main.go`; locate the `strategyRegistry` map literal.
+3. For each `strategies/<name>/`, verify a key matching that strategy exists in the registry.
+4. If any are missing → Hard STOP: `Strategy <name> exists in strategies/ but is not registered in cmd/universe-sweep/main.go strategyRegistry. Register it before any build proceeds (memory standing order: 'Before any eval run, verify all strategies/ packages are registered in cmd/universe-sweep strategyRegistry'). Or: proceed only if this build is TASK-0079 itself.`
+
+Log: `[AUTO] Step 1.5c — Strategy registration: N strategies, all registered.` OR Hard STOP.
+
+### 1.5d — Quality-gate sentinel freshness
+
+Read `.quality-gate/last-pass`. If absent or last-modified before any file in `internal/` or `pkg/` → quality gate state is stale; flag for Step 5b but do not Hard STOP. The runner will re-run regardless.
+
+Update SESSION STATE: set `preflight_passed = true` (do NOT advance `step_completed` — Step 1.5 is a gate within Step 1, not a numbered step). Write session file.
 
 ---
 
@@ -142,7 +196,7 @@ Invoke the `priya-build` agent via `Agent(subagent_type="priya-build")`. Pass th
 - `marcus_verdict` — from `verdicts.marcus.summary`, or "not applicable"
 - `plan_summary`, `files_to_create`, `files_to_modify`, `approach` — from `verdicts.priya_plan`
 
-The priya-build agent owns the full build+gate loop: it writes code, runs tests, runs lint, and iterates until both pass. It does not return until done.
+The priya-build agent owns the build + **per-package** compile-and-test loop: it writes code, runs `go build ./<touched-pkg>/...` and `go test -race ./<touched-pkg>/...` until both pass on the packages it touched. It does NOT run the repo-wide quality gate — that belongs to Step 5b. This split avoids running `golangci-lint run ./...` and `go test -race ./...` twice per build.
 
 After the sub-agent returns: **do NOT run any Bash commands, file reads, or verification steps. The returned JSON is ground truth.**
 
@@ -176,26 +230,29 @@ Call `Agent(subagent_type="go-quality-review-runner")`. Pass in the prompt:
 - `task_id` — from SESSION STATE
 - `files_modified` — from `verdicts.build.files_modified` (first round) or from the previous iterate verdict (subsequent rounds)
 
-The agent invokes the `go-quality-review` skill at standard level and returns structured JSON. Parse the JSON. Increment `quality_review_round`. Write session file.
+The agent invokes the `go-quality-review` skill at standard level and returns structured JSON, including `gate_status` (the runner classifies cosmetic vs code-change warnings — orchestrator does not reclassify). Parse JSON. Increment `quality_review_round`. Write session file.
 
-Evaluate result:
+Evaluate result on `gate_status`:
 
-| Condition | Action |
-|-----------|--------|
-| `quality_gate == "PASS"` (no blockers) | Exit loop → proceed to Step 6 |
-| `warning_count > 0` and warnings require code changes | Proceed to 5b-ii |
-| `warning_count > 0` and warnings are cosmetic only | Log as follow-up tasks, exit loop → proceed to Step 6 |
-| `blocker_count > 0` | Proceed to 5b-ii |
-| `quality_review_round >= 3` | Hard STOP (condition 5) |
+| `gate_status` | Action |
+|---|---|
+| `clean` | Exit loop → proceed to Step 6 |
+| `warnings_cosmetic` | Log each cosmetic warning as a follow-up task via task-manager sub-agent; exit loop → proceed to Step 6 |
+| `warnings_blocking` | Proceed to 5b-ii (priya-iterate) |
+| `failed` | Proceed to 5b-ii (priya-iterate) |
 
-**Cosmetic-only warnings** are those where the fix is a comment, a rename, or a documentation addition — no logic changes. If in doubt, treat as requiring code changes and proceed to 5b-ii.
+If `quality_review_round >= 3` regardless of status: Hard STOP (condition 5).
+
+If the runner returned `benchmark_ran == true` and `benchmark_ns_per_op > 1_000_000`, the regression is already a blocker in `findings` — no extra orchestrator handling needed beyond the standard branch.
 
 **5b-ii. Spawn priya-iterate sub-agent** (only when code changes are needed)
 
 Call `Agent(subagent_type="priya-iterate")`. Pass in the prompt:
 - `task_id`, `task_title` — from SESSION STATE
+- `iterate_round` — current value of `quality_review_round` from SESSION STATE
 - `files_modified` — from the most recent build or iterate verdict
-- `quality_findings` — the `findings` array from the quality-review verdict, blockers and warnings only (omit suggestions), serialized as JSON
+- `prior_rounds_findings` — array of `{file, line, description}` from every prior quality-review verdict in this session (so priya-iterate can detect recurring findings); empty `[]` on round 1
+- `quality_findings` — the `findings` array from the latest quality-review verdict, blockers + `code_change_required` warnings only (omit cosmetic warnings and suggestions), serialized as JSON
 
 Parse returned JSON. Append any decision marks to `decision_marks_pending`. Update `verdicts.quality_review`. Write session file.
 

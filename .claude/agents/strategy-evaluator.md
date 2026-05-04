@@ -64,12 +64,14 @@ Read the following sources and populate `project_state` in SESSION STATE. Do thi
 
 **Pipeline stage**: check `tasks/BACKLOG.md` for the highest-priority in-progress or up-next task. Record the current phase (e.g., "universe sweep", "walk-forward", "bootstrap", "pre-live").
 
+**Available helpers**: list `pkg/strategy/*.go` (excluding `*_test.go`). Each file is a reusable utility Marcus may compose into a rule set (e.g., `timed_exit.go` — `TimedExit` wrapper; `session.go` — session-boundary helpers). Record file → exported-symbol pairs. Pass to Marcus in Step 2 so his viability assessment cites real building blocks rather than imagined ones. If a helper is referenced by a planned strategy but does not yet exist (e.g., session-boundary helpers blocked behind TASK-0078), record as `helper_gap`.
+
 If `decisions/algorithm/` does not exist or is empty, record `killed_strategies: []` and proceed.
 If `runs/` has no signal audit file, record `surviving_strategies: "unknown — no signal audit run yet"` and proceed.
 
 Log:
 ```
-[AUTO] Step 0 — Project state loaded. Implemented: N strategies. Killed: N (list). Surviving: N (list). Pipeline stage: <stage>.
+[AUTO] Step 0 — Project state loaded. Implemented: N strategies. Killed: N (list). Surviving: N (list). Pipeline stage: <stage>. Helpers: <list of pkg/strategy files>.
 ```
 
 Update SESSION STATE: `project_state`. Write session file. Set `step_completed = 0`.
@@ -175,32 +177,39 @@ Marcus has signed off. The strategy has a plausible edge and realistic pipeline 
 
 **You MUST call Agent() here to create tasks. Do not create tasks directly.**
 
-Invoke the task-manager skill via Agent() to create the full evaluation pipeline:
+Invoke the task-manager skill via Agent() to create the full evaluation pipeline. **Task 1 (rule design) is the predecessor of Task 2 (implement) and must block it.**
 
-1. `Implement [strategy name] — [edge category]` — high priority, source: decision
-   - Context: Marcus-approved implementation. Strategy must implement `pkg/strategy/Strategy` interface; use `go-talib` for all indicators.
+1. `Marcus design rules — [strategy name]` — high priority, source: decision
+   - Context: Marcus-approved thesis from this evaluation session. Owner: Marcus (algo-trading-veteran) via the `marcus-design` agent. Output: `decisions/algorithm/YYYY-MM-DD-<strategy>-rules.md` with concrete entry/exit/sizing/kill-switch and required-helper list. Until this is done and the decision file lands, the implement task in #2 is blocked.
+   - Acceptance criteria:
+     - [ ] `marcus-design` agent run; rules file written to `decisions/algorithm/`
+     - [ ] Required helpers listed; if any are missing (`pkg/strategy/...` not yet built), referenced TASK-XXXX deps are linked
+     - [ ] Sizing rule + kill-switch condition explicit (no "TBD")
 
-2. `Evaluation — signal frequency audit — [strategy name] on 15 instruments` — high priority, source: decision
+2. `Implement [strategy name] — [edge category]` — high priority, source: decision, **blocked by:** task #1 above
+   - Context: Marcus-approved implementation. Strategy must implement `pkg/strategy/Strategy` interface; use `go-talib` for all indicators. Rules file from task #1 is the build's input.
+
+3. `Evaluation — signal frequency audit — [strategy name] on 15 instruments` — high priority, source: decision, **blocked by:** task #2
    - Context: Audit trade count per instrument (2018-2023 window). Any instrument with < 30 trades is EXCLUDED from further analysis. If fewer than 30 trades across ALL 15 instruments combined, kill before full backtest.
 
-3. `Evaluation — in-sample baseline and parameter sensitivity — [strategy name] on RELIANCE` — high priority, source: decision
+4. `Evaluation — in-sample baseline and parameter sensitivity — [strategy name] on RELIANCE` — high priority, source: decision
    - Context: Orientation run + 1D parameter sweep on RELIANCE 2018-2023. Identify plateau range (within 80% of peak Sharpe) and select plateau-midpoint parameter for universe sweep.
 
-4. `Evaluation — universe sweep — [strategy name] across Nifty50 large-cap` — high priority, source: decision
+5. `Evaluation — universe sweep — [strategy name] across Nifty50 large-cap` — high priority, source: decision
    - Context: Run across all 15 instruments using plateau-midpoint parameter. Apply universe gate: DSR-corrected avg Sharpe > 0 AND ≥ 40% instruments positive with ≥ 30 trades. Kills failing strategies.
 
-5. `Evaluation — walk-forward validation — [strategy name]` — high priority, source: decision
+6. `Evaluation — walk-forward validation — [strategy name]` — high priority, source: decision
    - Context: 2yr IS / 1yr OOS / 1yr step on universe-gate survivors, 2018-2024. Gate: OverfitFlag = false AND NegativeFoldFlag = false on ≥ as many instruments as passed universe gate.
 
-6. `Evaluation — Monte Carlo bootstrap — [strategy name]` — high priority, source: decision
+7. `Evaluation — Monte Carlo bootstrap — [strategy name]` — high priority, source: decision
    - Context: 10,000 simulations on walk-forward survivors. Gate: SharpeP5 > 0 AND P(Sharpe > 0) > 80%. SharpeP5 becomes the live kill-switch Sharpe threshold.
 
-7. `Evaluation — pre-live brief — [strategy name]: kill-switch thresholds and go/no-go sign-off` — medium priority, source: decision
+8. `Evaluation — pre-live brief — [strategy name]: kill-switch thresholds and go/no-go sign-off` — medium priority, source: decision
    - Context: Final checkpoint. Document kill-switch thresholds (SharpeP5, MaxDrawdownPct 1.5× in-sample worst, MaxDDDuration 2× in-sample worst), capital allocation, and explicit APPROVED/NOT APPROVED verdict per strategy.
 
 Log each task created:
 ```
-[AUTO] Step 3 — Go verdict. Created evaluation pipeline: 7 tasks [list IDs].
+[AUTO] Step 3 — Go verdict. Created evaluation pipeline: 8 tasks [list IDs]. Task #1 (Marcus design rules) blocks task #2 (implement).
 ```
 
 Proceed to Step 4.
@@ -271,7 +280,8 @@ Final summary output format:
 - Sizing recommendation: <Kelly fraction or fixed-risk rule>
 - Kill-switch condition: <specific threshold>
 - Pipeline risk flags: <any gates Marcus expects to be tight>
-- Evaluation pipeline tasks created: <list task IDs — 7 tasks>
+- Evaluation pipeline tasks created: <list task IDs — 8 tasks; first task is `Marcus design rules` predecessor>
+- Next agent: `marcus-design` on task #1 to draft concrete rules before build
 - Decisions recorded: <count>
 ```
 

@@ -28,21 +28,36 @@ Invoke the `go-quality-review` skill at **standard level** for the provided task
    - Coverage thresholds
    - Repo-specific rule enforcement (Strategy interface adherence, DataProvider interface adherence, go-talib usage, no global state, typed errors, instrument IDs on Candle/Trade/Position, no hot-loop allocations, etc.)
 
-2. **Wait for full completion**: Do not interrupt the skill mid-execution. Let it run all checks to completion.
+2. **Run benchmark gate (conditional)**: If any file in `files_modified` is under `internal/engine/`, additionally run:
+   - `go1.25.0 test -bench=BenchmarkEngineRun -benchtime=3x ./internal/engine/`
+   - Parse `ns/op` from output. If > 1,000,000 (1ms/op budget per `decisions/algorithm/`), record a **blocker**: `"Engine hot loop benchmark regressed: <ns/op> ns/op exceeds 1ms/op budget"`. If `BenchmarkEngineRun` is missing, record a **warning**: `"Benchmark missing for hot-loop change"`.
 
-3. **Parse findings**: Extract all blockers, warnings, and suggestions from the skill's output.
+3. **Wait for full completion**: Do not interrupt the skill mid-execution. Let it run all checks to completion.
 
-4. **Emit ONLY the following JSON** — no preamble, no explanation, no trailing text:
+4. **Parse findings**: Extract all blockers, warnings, and suggestions from the skill's output.
+
+5. **Classify each warning** as `cosmetic` or `code_change_required`:
+   - `cosmetic`: doc-comment wording, naming style suggestions, minor formatting that does not change semantics, missing trailing periods in comments
+   - `code_change_required`: anything else — coverage gap, unhandled error, missing test on public function, suboptimal but functional pattern, interface compliance question
+   - When uncertain, default to `code_change_required` (safer to fix than to defer).
+
+6. **Emit ONLY the following JSON** — no preamble, no explanation, no trailing text:
 
 ```json
 {
+  "gate_status": "clean" | "warnings_cosmetic" | "warnings_blocking" | "failed",
   "quality_gate": "PASS" | "FAIL",
   "blocker_count": N,
   "warning_count": N,
+  "warning_cosmetic_count": N,
+  "warning_code_change_count": N,
   "suggestion_count": N,
+  "benchmark_ran": true | false,
+  "benchmark_ns_per_op": <int or null>,
   "findings": [
     {
       "severity": "blocker" | "warning" | "suggestion",
+      "warning_class": "cosmetic" | "code_change_required" | null,
       "file": "path/to/file.go",
       "line": 42,
       "description": "what was found",
@@ -54,12 +69,24 @@ Invoke the `go-quality-review` skill at **standard level** for the provided task
 }
 ```
 
-## Quality gate determination rules
+`warning_class` is `null` for blockers and suggestions; populated for warnings only.
 
-- `quality_gate` is `"PASS"` **if and only if** `blocker_count == 0` AND `warning_count == 0`
-- `quality_gate` is `"FAIL"` if there is at least one blocker or warning
-- Suggestions alone do not cause a FAIL
-- `sentinel_written` reflects whether the skill successfully wrote `.quality-gate/last-pass`; it must be `true` for the gate to be considered current
+## Gate classification rules
+
+The orchestrator branches on `gate_status`:
+
+| `gate_status` | Condition | Orchestrator action |
+|---|---|---|
+| `clean` | `blocker_count == 0 AND warning_code_change_count == 0` (cosmetic warnings allowed) | Exit gate loop. Cosmetic warnings → log as follow-up tasks. |
+| `warnings_cosmetic` | Same as `clean` but `warning_cosmetic_count > 0` | Same as clean (orchestrator decides task creation). |
+| `warnings_blocking` | `blocker_count == 0 AND warning_code_change_count > 0` | Spawn `priya-iterate`. |
+| `failed` | `blocker_count > 0` | Spawn `priya-iterate`. |
+
+Legacy compatibility:
+- `quality_gate = "PASS"` ⟺ `gate_status ∈ {clean, warnings_cosmetic}`
+- `quality_gate = "FAIL"` ⟺ `gate_status ∈ {warnings_blocking, failed}`
+
+`sentinel_written` reflects whether the skill successfully wrote `.quality-gate/last-pass`; it must be `true` for the gate to be considered current.
 
 ## Severity classification
 

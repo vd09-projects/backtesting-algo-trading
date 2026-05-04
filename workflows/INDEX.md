@@ -1,5 +1,28 @@
 # Workflow Index
 
+## Status — 2026-05-05
+
+**Routing files deprecated.** `build.md`, `bugfix.md`, `code-review.md`, `evaluate.md`, `review.md`
+no longer route sessions. Entry-point agents in `.claude/agents/` are the routers (`build-session`,
+`evaluation-run`, `strategy-evaluator`, `marcus-design`). They embed routing logic directly.
+
+**Still load-bearing:**
+- `workflows/agents/*.md` — step-agent prompt templates (`decision-lookup.md`,
+  `marcus-precheck.md`, `priya-plan.md`, `priya-build.md`, `session-end.md`). Entry agents fill
+  slots and pass these as `Agent()` prompts.
+- `workflows/session-end.md` — closing-ritual procedure that every entry agent runs at end.
+- `workflows/sessions/*.json` — per-task session state checkpoints written by entry agents.
+- `workflows/handoffs/schema.md` — JSON contract for sub-agent verdicts.
+
+**Deprecated (kept for reference, not read by any agent):**
+- `workflows/build.md`, `workflows/bugfix.md`, `workflows/code-review.md`, `workflows/evaluate.md`,
+  `workflows/review.md` — replaced by entry-agent routing.
+
+The taxonomy below (Hard STOP / Soft STOP / Auto-routing) still describes the model but is
+duplicated inside individual entry agents; treat the agents as authoritative if they diverge.
+
+---
+
 ## Orchestration model
 
 Every non-trivial workflow step runs inside a sub-agent with a fresh context window.

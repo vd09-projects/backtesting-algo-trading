@@ -13,7 +13,7 @@ Written to `workflows/sessions/{today}-{TASK-ID}.json` after every completed ste
 ```json
 {
   "session_date": "YYYY-MM-DD",
-  "workflow": "build | evaluate | code-review | bugfix | review",
+  "workflow": "build | evaluate | evaluation-run | design | code-review | bugfix | review",
   "task_id": "TASK-NNNN",
   "task_title": "...",
   "step_completed": 0,
@@ -26,15 +26,23 @@ Written to `workflows/sessions/{today}-{TASK-ID}.json` after every completed ste
   },
   "execution_log": [],
   "decision_marks_pending": [],
-  "hard_stop_active": null
+  "hard_stop_active": null,
+  "preflight_passed": false,
+  "is_bugfix": false,
+  "quality_review_round": 0,
+  "prior_rounds_findings": []
 }
 ```
 
 Field notes:
-- `step_completed` — 0 = session started, no steps done yet; N = last fully completed step
+- `step_completed` — 0 = session started, no steps done yet; N = last fully completed step. Sub-step preflight gates (build-session Step 1.5) do NOT advance this — they set `preflight_passed` instead.
 - `verdicts.*` — null until the step runs; set to the sub-agent's verdict payload on completion
 - `decision_marks_pending` — `**Decision (...)**` marks collected across all steps; consumed by session-end
 - `hard_stop_active` — null during normal operation; set to a string if a Hard STOP fired
+- `preflight_passed` — build-session Step 1.5 gates (wrong-agent redirect, bugfix detection, strategy registration, sentinel freshness) all passed
+- `is_bugfix` — task source is bug; build-session collapses the plan step
+- `quality_review_round` — incremented each time `go-quality-review-runner` is spawned
+- `prior_rounds_findings` — accumulated `[{file, line, description}]` from every prior quality-review verdict in this session; passed to priya-iterate so it can detect recurring findings
 
 ---
 
@@ -103,6 +111,56 @@ the call and logging it.
   "quality_findings": []
 }
 ```
+`quality_gate` here = per-package `go build ./<pkg>/...` + `go test -race ./<pkg>/...` only. Repo-wide
+`golangci-lint run ./...` runs in Step 5b via `go-quality-review-runner`, not here. Keep field name
+for backward compatibility; semantics narrowed.
+
+### go-quality-review-runner
+```json
+{
+  "gate_status": "clean | warnings_cosmetic | warnings_blocking | failed",
+  "quality_gate": "PASS | FAIL",
+  "blocker_count": 0,
+  "warning_count": 0,
+  "warning_cosmetic_count": 0,
+  "warning_code_change_count": 0,
+  "suggestion_count": 0,
+  "benchmark_ran": false,
+  "benchmark_ns_per_op": null,
+  "findings": [
+    {
+      "severity": "blocker | warning | suggestion",
+      "warning_class": "cosmetic | code_change_required | null",
+      "file": "...",
+      "line": 0,
+      "description": "...",
+      "why": "...",
+      "fix": "..."
+    }
+  ],
+  "sentinel_written": true
+}
+```
+Orchestrator branches on `gate_status` (see go-quality-review-runner.md). `quality_gate` retained
+as legacy field: PASS ⟺ `gate_status ∈ {clean, warnings_cosmetic}`. `benchmark_ran` is true for
+changes touching `internal/engine/`; `benchmark_ns_per_op > 1_000_000` is recorded as a blocker.
+
+### priya-iterate
+```json
+{
+  "status": "RESOLVED | PARTIAL | BLOCKED",
+  "files_modified": ["..."],
+  "resolved_findings": ["..."],
+  "unresolved_findings": ["..."],
+  "recurring_findings": ["..."],
+  "blocker_count_remaining": 0,
+  "follow_up_suggestions": ["..."],
+  "decision_marks": ["..."]
+}
+```
+`recurring_findings` populated when `iterate_round >= 2` and a finding's `file:line` matches a
+prior round. Non-empty `recurring_findings` forces `status = "BLOCKED"` regardless of
+`blocker_count_remaining` — prevents ping-pong.
 
 ### session-end
 ```json
