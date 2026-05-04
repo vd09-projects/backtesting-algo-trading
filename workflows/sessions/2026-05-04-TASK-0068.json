@@ -1,0 +1,69 @@
+{
+  "session_date": "2026-05-04",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0068",
+  "task_title": "Evaluation — run SMA universe sweep and walk-forward at fast=20/slow=50",
+  "step_completed": 6,
+  "gates": [
+    {
+      "name": "universe gate",
+      "criteria": "DSR-corrected avg Sharpe > 0 AND PassFraction >= 0.40 (>=40% of instruments with positive Sharpe and >=30 trades)"
+    },
+    {
+      "name": "walk-forward gate",
+      "criteria": "Per-instrument: OverfitFlag=False (OOSISRatio >= 0.50) AND NegFoldFlag=False (NegFoldCount < 2)"
+    },
+    {
+      "name": "instrument-count gate",
+      "criteria": "Walk-forward passes >= number of instruments that passed the universe gate (resets to new universe gate count, not prior 12)"
+    }
+  ],
+  "command_run": "go run ./cmd/universe-sweep --universe universes/nifty50-large-cap.yaml --strategy sma-crossover --from 2018-01-01 --to 2024-01-01 --commission zerodha_full",
+  "results_file": "runs/universe-sweep-sma-20-50-2026-05-04.csv",
+  "results_row_count": 15,
+  "project_state": {
+    "killed_strategies": [],
+    "prior_gate_survivors": ["sma-crossover"],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": null,
+    "marcus": {
+      "summary": "SMA crossover at fast=20/slow=50 fails universe gate. All 15 instruments have InsufficientData=true (trade_count 12-20, minimum required is 30). The ApplyUniverseGate function skips all insufficient-data instruments, leaving 0 sufficient instruments. DSRAverageSharpe is undefined. Gate cannot pass with zero sufficient instruments.",
+      "strategy_verdicts": [
+        {
+          "strategy": "sma-crossover",
+          "instrument": "all",
+          "verdict": "kill",
+          "gate_failed": "universe gate",
+          "metric_value": "sufficient_instruments=0 (all 15 have trade_count < 30; max=20, min=12)",
+          "gates_passed_before_kill": {},
+          "survivor_metrics": {}
+        }
+      ],
+      "correlation_flags": [],
+      "correlation_note": "strategy killed at universe gate — no survivors to correlate",
+      "portfolio_decisions": []
+    }
+  },
+  "survivors": [],
+  "survivor_metrics": {},
+  "survivor_correlation_flags": [],
+  "killed": [
+    {
+      "strategy": "sma-crossover",
+      "instrument": "all",
+      "verdict": "kill",
+      "gate_failed": "universe gate",
+      "metric_value": "sufficient_instruments=0 (all 15 have trade_count < 30; max=20, min=12)",
+      "gates_passed_before_kill": {}
+    }
+  ],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [
+    "**Decision (sma-crossover fast=20/slow=50 universe gate) — algorithm: rejected** — zero sufficient instruments (all 15 have trade_count < 30 at slower parameters; fast=20/slow=50 generates only 12-20 trades over 6 years on daily bars)"
+  ],
+  "hard_stop_active": null,
+  "data_freshness_verified": true,
+  "results_completeness_verified": true
+}

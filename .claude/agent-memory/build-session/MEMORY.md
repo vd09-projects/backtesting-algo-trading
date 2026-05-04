@@ -2,3 +2,5 @@
 - [AC arithmetic errors pattern](feedback_ac_arithmetic_errors.md) — cost savings figures have been transposed as cost figures in task ACs; verify band arithmetic before building
 - [Session file naming convention](project_session_files.md) — session files live in workflows/sessions/{YYYY-MM-DD}-{TASK-ID}.json; one file per task run
 - [cmd/ entrypoint pattern](project_cmd_entrypoint_pattern.md) — flags struct + factoryRegistry + parseAndValidateFlags + cmdutil.BuildProvider; reference: cmd/sweep/main.go
+- [Walk-forward retune methodology](feedback_walk_forward_retune_methodology.md) — parameter retune after WF kill is clean only if revisit trigger was pre-committed before WF results analyzed
+- [Evaluation pipeline status (2026-05-04)](project_eval_pipeline_status.md) — TASK-0068 (SMA eval run) is Up Next; TASK-0069 (MACD gate review) blocked; both strategies killed at WF gate

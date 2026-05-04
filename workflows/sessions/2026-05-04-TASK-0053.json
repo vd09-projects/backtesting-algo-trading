@@ -1,0 +1,126 @@
+{
+  "session_date": "2026-05-04",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0053",
+  "task_title": "Evaluation — walk-forward validation on universe sweep survivors",
+  "step_completed": 7,
+  "gates": [
+    {
+      "name": "walk-forward gate",
+      "criteria": "OverfitFlag = false AND NegativeFoldFlag = false (OverfitFlag fires when AvgOOSSharpe < 50% of AvgISSharpe; NegativeFoldFlag fires when 2+ non-degenerate folds have negative OOS Sharpe)"
+    },
+    {
+      "name": "instrument-count gate",
+      "criteria": "A strategy must pass walk-forward on at least as many instruments as it passed the universe gate — macd-crossover must pass on >=14 instruments, sma-crossover must pass on >=12 instruments"
+    }
+  ],
+  "command_run": "go run ./cmd/walk-forward --instrument {NSE:X} --from 2018-01-01 --to 2024-01-01 --strategy {macd-crossover|sma-crossover} [--macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9 | --fast-period 10 --slow-period 20] --commission zerodha_full -- run 26 times (14 MACD + 12 SMA instruments)",
+  "results_file": "runs/walk-forward-2026-05-04.csv",
+  "results_row_count": 26,
+  "results_completeness_verified": true,
+  "project_state": {
+    "killed_strategies": [],
+    "prior_gate_survivors": [
+      "macd-crossover",
+      "sma-crossover"
+    ],
+    "strategy_prior_context": {
+      "macd-crossover": [
+        {
+          "status": "accepted",
+          "gate": "universe gate (DSR-corrected cross-instrument)",
+          "metric": "AvgDSRCorrectedSharpe",
+          "value": "0.2715",
+          "date": "2026-05-03",
+          "notes": "Passes cleanly: 14/15 instruments positive Sharpe, DSRAvg=0.2715 (>0), PassFraction=0.933. Advances to walk-forward on 14 instruments."
+        }
+      ],
+      "sma-crossover": [
+        {
+          "status": "accepted",
+          "gate": "universe gate (DSR-corrected cross-instrument)",
+          "metric": "AvgDSRCorrectedSharpe",
+          "value": "0.0969",
+          "date": "2026-05-03",
+          "notes": "Thin margin: 12/14 sufficient, DSRAvg=0.0969. Walk-forward is key validation. Revisit trigger: if <6 instruments pass walk-forward, reconsider portfolio inclusion."
+        }
+      ]
+    }
+  },
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-04-22-walk-forward-oos-is-sharpe-threshold.md",
+        "decisions/algorithm/2026-04-22-walk-forward-window-sizing-default.md",
+        "decisions/algorithm/2026-04-10-sharpe-sample-variance.md",
+        "decisions/algorithm/2026-04-15-baseline-backtest-period-2018-2024.md",
+        "decisions/algorithm/2026-04-15-instrument-declared-before-first-run.md",
+        "decisions/algorithm/2026-04-20-bootstrap-sharpe-non-annualized-per-trade.md",
+        "decisions/algorithm/2026-05-03-macd-crossover-universe-gate-passed.md",
+        "decisions/algorithm/2026-05-03-sma-crossover-universe-gate-passed.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-22-walk-forward-purpose-stateless-strategies.md",
+        "decisions/algorithm/2026-04-25-2025-live-data-as-true-holdout.md",
+        "decisions/tradeoff/2026-04-22-walkforward-all-degenerate-no-flags.md",
+        "decisions/algorithm/2026-05-03-regime-gate-deferred-universe-sweep-csv.md",
+        "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md"
+      ]
+    },
+    "marcus": "completed — both strategies killed at instrument-count gate. MACD: 9/14 instruments pass WF gate (needs 14). SMA: 4/12 pass (needs 12). See strategy_verdicts for per-instrument detail."
+  },
+  "survivors": [],
+  "survivor_metrics": {},
+  "survivor_correlation_flags": [],
+  "killed": [
+    {
+      "strategy": "macd-crossover",
+      "instrument": "all"
+    },
+    {
+      "strategy": "sma-crossover",
+      "instrument": "all"
+    }
+  ],
+  "killed_per_instrument": {
+    "macd-crossover": {
+      "passed_wf": ["NSE:SBIN","NSE:BAJFINANCE","NSE:TITAN","NSE:LT","NSE:ICICIBANK","NSE:INFY","NSE:AXISBANK","NSE:ITC","NSE:KOTAKBANK"],
+      "failed_wf": [
+        {"instrument": "NSE:TCS", "reason": "NegFoldFlag=True, NegFoldCount=2"},
+        {"instrument": "NSE:RELIANCE", "reason": "OverfitFlag=True, OOSISRatio=0.4822"},
+        {"instrument": "NSE:HINDUNILVR", "reason": "OverfitFlag=True, OOSISRatio=0.3416"},
+        {"instrument": "NSE:WIPRO", "reason": "OverfitFlag=True, OOSISRatio=0.4331"},
+        {"instrument": "NSE:HDFCBANK", "reason": "NegFoldFlag=True, NegFoldCount=2"}
+      ],
+      "pass_count": 9,
+      "required": 14,
+      "gate_failed": "instrument-count gate"
+    },
+    "sma-crossover": {
+      "passed_wf": ["NSE:LT","NSE:RELIANCE","NSE:TITAN","NSE:AXISBANK"],
+      "failed_wf": [
+        {"instrument": "NSE:INFY", "reason": "OverfitFlag=True (OOSISRatio=0.3887), NegFoldFlag=True (NegFoldCount=3), majority-negative triggered"},
+        {"instrument": "NSE:HINDUNILVR", "reason": "OverfitFlag=True (OOSISRatio=0.3437), NegFoldFlag=True (NegFoldCount=2)"},
+        {"instrument": "NSE:ICICIBANK", "reason": "NegFoldFlag=True (NegFoldCount=2)"},
+        {"instrument": "NSE:SBIN", "reason": "OverfitFlag=True (OOSISRatio=0.2828), NegFoldFlag=True (NegFoldCount=2)"},
+        {"instrument": "NSE:WIPRO", "reason": "OverfitFlag=True (OOSISRatio=-0.1737), NegFoldFlag=True (NegFoldCount=2), AvgOOSSharpe=-0.017435"},
+        {"instrument": "NSE:TCS", "reason": "OverfitFlag=True (OOSISRatio=0.3138)"},
+        {"instrument": "NSE:ITC", "reason": "OverfitFlag=True, NegFoldFlag=True (NegFoldCount=2), AvgOOSSharpe=-0.245697"},
+        {"instrument": "NSE:KOTAKBANK", "reason": "OverfitFlag=True, NegFoldFlag=True (NegFoldCount=4), majority-negative triggered, AvgOOSSharpe=-0.685197"}
+      ],
+      "pass_count": 4,
+      "required": 12,
+      "gate_failed": "instrument-count gate"
+    }
+  },
+  "portfolio_decisions": [],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "data_freshness_verified": true,
+  "notes": {
+    "data_freshness": "Cache files under .cache/zerodha/ last modified 2026-04-29. All fold-range windows served from cache. No live API calls required.",
+    "instrument_count_gate_note": "The instrument-count gate requires 100% retention — strategy must pass WF on as many instruments as it passed universe gate. This is strict: MACD universe gate passed 14 instruments, WF must also pass 14. MACD passed 9/14 (64%). SMA passed 4/12 (33%). Both killed.",
+    "regime_note": "Regime gate deferred to TASK-0055 as per 2026-05-03 decision. Does not apply here.",
+    "next_steps_note": "Both strategies killed. Pipeline from TASK-0052 ends here. TASK-0054 (bootstrap), TASK-0055 (portfolio), TASK-0056 (pre-live brief) should be re-examined. Options: (1) revisit instrument count gate criteria — the 100% retention requirement may be overly strict; (2) investigate whether relaxing instrument eligibility (e.g., MACD advances on 9 survivors); (3) go back to strategy design. This requires user decision before proceeding."
+  }
+}

@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-04 | **Open tasks:** 16 | **Next up:** TASK-0068
+**Last updated:** 2026-05-04 | **Open tasks:** 14 | **Next up:** TASK-0069
 
 ---
 
@@ -14,37 +14,12 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0068] Evaluation — run SMA universe sweep and walk-forward at fast=20/slow=50
+### [TASK-0069] Evaluation — reconsider instrument-count gate threshold for MACD at 17/26/9
 
 - **Status:** todo
 - **Priority:** high
 - **Created:** 2026-05-04
 - **Source:** session
-- **Context:** TASK-0067 changed the --fast-period CLI default from 10 to 20. The evaluation run itself (universe sweep → universe gate → walk-forward per-instrument) still needs to happen with a live Zerodha token. SMA fast=20/slow=50 is the re-test sanctioned by Marcus via pre-committed revisit trigger in the TASK-0053 kill decision. The instrument-count gate requirement resets to however many instruments pass the new universe gate (not the prior 12).
-- **Acceptance criteria:**
-  - [ ] Run: `go run ./cmd/universe-sweep --universe universes/nifty50-large-cap.yaml --strategy sma-crossover --from 2018-01-01 --to 2024-01-01 --commission zerodha_full > runs/universe-sweep-sma-20-50-2026-05-04.csv` (uses new fast=20, slow=50 defaults)
-  - [ ] Apply universe gate: DSR-corrected avg Sharpe > 0 AND ≥40% positive-Sharpe instruments with ≥30 trades
-  - [ ] Record universe gate outcome in `decisions/algorithm/YYYY-MM-DD-sma-crossover-20-50-universe-gate-[passed|failed].md`
-  - [ ] If universe gate fails: record kill decision and stop
-  - [ ] If universe gate passes: run walk-forward per-instrument with `--fast-period 20 --slow-period 50 --commission zerodha_full --from 2018-01-01 --to 2024-01-01`; instrument-count gate = number of instruments that passed the new universe gate (not 12)
-  - [ ] Record walk-forward gate outcome in `decisions/algorithm/`
-- **Notes:** Requires valid Zerodha API token. Cache files under .cache/zerodha/ from 2026-04-29 — verify freshness before running; may serve from cache without API calls. MACD re-run is NOT needed (TASK-0052 results at 17/26/9 are definitive; MACD escalation is handled in TASK-0069).
-
----
-
-## Blocked
-
-<!-- Waiting on something. Each task must state what it's blocked by. -->
-
----
-
-### [TASK-0069] Evaluation — reconsider instrument-count gate threshold for MACD at 17/26/9
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-05-04
-- **Source:** session
-- **Blocked by:** TASK-0068 (need SMA re-run results before escalating gate-design question)
 - **Context:** MACD crossover (fast=17, slow=26, signal=9) passed 9/14 instruments at walk-forward — 64% retention. The instrument-count gate requires 100% retention (same count as universe gate pass). Marcus ruled that this is a gate-design question, not a parameter question: the 9 passing instruments show solid OOS Sharpe (0.062–0.472 range), and the failures cluster in two structural patterns (OverfitFlag on large-cap defensives: RELIANCE, HINDUNILVR, WIPRO; NegFoldFlag on higher-vol names: TCS, HDFCBANK). The 100% retention requirement may be too strict for a useful portfolio strategy.
 - **Acceptance criteria:**
   - [ ] Marcus (algo-trading-veteran) reviews MACD's 9/14 WF pass pattern and rules on whether 60–70% instrument retention is a defensible threshold for this strategy
@@ -52,7 +27,13 @@
   - [ ] If gate is relaxed and MACD advances: run bootstrap (TASK-0054 logic) for the 9 passing instrument pairs
   - [ ] Record decision with revisit trigger: if relaxed threshold allows strategies with fewer passing instruments, apply consistent standard to future strategies
   - [ ] If gate is NOT relaxed: record decision and mark MACD as killed permanently under current methodology
-- **Notes:** MACD WF results: passes = SBIN, BAJFINANCE, TITAN, LT, ICICIBANK, INFY, AXISBANK, ITC, KOTAKBANK (9 instruments). Failures = TCS (NegFoldFlag), RELIANCE (OverfitFlag 0.48), HINDUNILVR (OverfitFlag 0.34), WIPRO (OverfitFlag 0.43), HDFCBANK (NegFoldFlag). Marcus standing order (2026-05-04): "the parameter is not the issue; the gate threshold is the question." Owner: Marcus (algo-trading-veteran).
+- **Notes:** MACD WF results: passes = SBIN, BAJFINANCE, TITAN, LT, ICICIBANK, INFY, AXISBANK, ITC, KOTAKBANK (9 instruments). Failures = TCS (NegFoldFlag), RELIANCE (OverfitFlag 0.48), HINDUNILVR (OverfitFlag 0.34), WIPRO (OverfitFlag 0.43), HDFCBANK (NegFoldFlag). Marcus standing order (2026-05-04): "the parameter is not the issue; the gate threshold is the question." Owner: Marcus (algo-trading-veteran). Unblocked 2026-05-04: TASK-0068 complete — SMA crossover killed at universe gate (zero sufficient instruments), no SMA survivors to affect gate-design precedent.
+
+---
+
+## Blocked
+
+<!-- Waiting on something. Each task must state what it's blocked by. -->
 
 ---
 

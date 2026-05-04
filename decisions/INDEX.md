@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-04-sma-crossover-fast20-slow50-universe-gate-failed
+    title: "SMA crossover (fast=20, slow=50) fails universe gate — zero sufficient instruments"
+    date: 2026-05-04
+    status: rejected
+    category: algorithm
+    tags: [sma-crossover, universe-gate, insufficient-trades, zero-sufficient, fast-20, slow-50, TASK-0068, kill]
+    path: algorithm/2026-05-04-sma-crossover-fast20-slow50-universe-gate-failed.md
+    summary: "SMA crossover (fast=20, slow=50) killed at universe gate: 0 of 15 instruments have sufficient data (trade_count 12-20, below MinTradesForMetrics=30). ApplyUniverseGate skips all insufficient instruments; DSRAverageSharpe is undefined. fast=20/slow=50 on daily bars generates ~2-3 trades/year — statistically infeasible. Second kill for sma-crossover (first was instrument-count gate at fast=10/slow=20)."
+
   - id: 2026-05-04-macd-parameters-unchanged-17-26-9
     title: "MACD parameters unchanged at 17/26/9 for this evaluation cycle"
     date: 2026-05-04
