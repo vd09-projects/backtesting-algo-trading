@@ -289,6 +289,7 @@ Final summary output:
 - Files modified: <list>
 - Decisions recorded: <count>
 - Follow-up tasks created: <list or none>
+- Next agent (if applicable): <evaluation-run for new strategy implementations awaiting signal-frequency-audit, marcus-design for strategies whose rules were partially drafted, or "none — task closed cleanly">
 ```
 
 ---

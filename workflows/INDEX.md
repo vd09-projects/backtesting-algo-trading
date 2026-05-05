@@ -6,6 +6,11 @@
 no longer route sessions. Entry-point agents in `.claude/agents/` are the routers (`build-session`,
 `evaluation-run`, `strategy-evaluator`, `marcus-design`). They embed routing logic directly.
 
+**Default dispatcher.** `.claude/agents/coordinator.md` is a lightweight haiku-model agent that
+routes ambiguous user intent (task ID without specified agent, "what's next", "help me with X")
+to the correct entry agent. It does no work — pure dispatcher, one classification, one spawn.
+When the user names an entry agent explicitly, native dispatch wins and coordinator is bypassed.
+
 **Still load-bearing:**
 - `workflows/agents/*.md` — step-agent prompt templates (`decision-lookup.md`,
   `marcus-precheck.md`, `priya-plan.md`, `priya-build.md`, `session-end.md`). Entry agents fill

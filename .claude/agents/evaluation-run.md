@@ -430,6 +430,7 @@ Execution log:
 Decisions recorded: N
 Next task notes updated: TASK-NNNN (survivor list annotated)
 Next up: TASK-NNNN — <title> (unblocked)
+Next agent (if applicable): <evaluation-run for the next pipeline gate, portfolio-finalize when bootstrap survivors are complete, or "none — pipeline pause">
 ═════════════════════════════════════
 ```
 
