@@ -1,20 +1,21 @@
 ---
-name: Evaluation pipeline status after TASK-0053
-description: Current state of the 6-strategy evaluation pipeline after walk-forward kills both survivors
+name: Evaluation pipeline status after TASK-0069
+description: Current state of the 6-strategy evaluation pipeline after MACD bootstrap gate passed with 4 survivors
 type: project
 ---
 
-As of 2026-05-04, the evaluation pipeline (TASK-0049–0056) is in remediation:
+As of 2026-05-06, the evaluation pipeline (TASK-0049–0056) has advanced to portfolio construction:
 
-- TASK-0052 (universe sweep): DONE. Survivors: MACD (DSRAvg=0.2715, 14 instruments), SMA (DSRAvg=0.0969, 12 instruments). Killed: donchian, RSI, bollinger, momentum.
-- TASK-0053 (walk-forward): DONE. Both survivors killed: MACD 9/14, SMA 4/12 at instrument-count gate (100% retention required).
-- TASK-0054 (bootstrap): BLOCKED pending survivors.
+- TASK-0052 (universe sweep): DONE. Survivors: MACD (DSRAvg=0.2715), SMA (DSRAvg=0.0969 — later killed). 
+- TASK-0053 (walk-forward): DONE. Both strategies killed under 100% retention gate; MACD relaxed gate (60%) applied.
+- TASK-0054 (bootstrap): DONE. 4 MACD survivors: SBIN (P5=0.0719, Prob=98.0%), BAJFINANCE (P5=0.0467, Prob=97.3%), TITAN (P5=0.0854, Prob=98.7%), ICICIBANK (P5=0.0229, Prob=96.2%).
+- TASK-0069: DONE. Bootstrap gate run; 5 killed (LT, INFY, AXISBANK, ITC, KOTAKBANK).
+- SMA crossover: definitively killed at fast=20/slow=50 universe gate (0 sufficient instruments). No further SMA remediation.
 
-Active remediation:
-- TASK-0067: DONE. Changed SMA --fast-period default from 10 → 20 in cmd/universe-sweep and cmd/walk-forward.
-- TASK-0068: UP NEXT. Run SMA universe sweep at fast=20/slow=50; apply gate; walk-forward per-instrument. Requires Zerodha token. Data may be served from cache (.cache/zerodha/ last modified 2026-04-29).
-- TASK-0069: BLOCKED (by TASK-0068). Marcus to reconsider MACD instrument-count gate threshold — 9/14 (64%) passing with solid OOS Sharpe may be sufficient under a relaxed gate.
+Current Up Next:
+- TASK-0055 (portfolio construction): TOP PRIORITY. Run cmd/correlate for 4 MACD survivors; apply correlation gate (r < 0.7 full-period, r < 0.6 stress); select 2-4 uncorrelated instruments; define vol-targeting sizing at ₹3 lakh. SBIN/ICICIBANK pair flagged as likely correlated (both banking). Owner: Marcus (marcus-design agent).
+- TASK-0072 (midcap universe YAML): high priority alongside portfolio construction.
 
-**Why:** Walk-forward killed both strategies at 100% retention gate. User chose Option B (parameter retune) for SMA and Option A (gate-design review) for MACD.
+**Why:** Pipeline complete through bootstrap; correlation screening is the final gate before live deployment.
 
-**How to apply:** When starting next session, TASK-0068 is the top of Up Next. It's purely an evaluation run (no code changes needed) — load .env credentials, run the CLI commands, apply the gate, record decisions.
+**How to apply:** Next evaluation session should use evaluation-run agent for TASK-0055 cmd/correlate run. No code needed for correlation — data already in runs/bootstrap-macd-2026-05-05/. Results in JSON output now include bootstrap.* fields (TASK-0082 done).

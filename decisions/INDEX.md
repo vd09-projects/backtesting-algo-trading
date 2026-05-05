@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-06-bootstrap-stats-json-placement
+    title: "Bootstrap stats nested under 'bootstrap' key in output JSON"
+    date: 2026-05-06
+    status: experimental
+    category: convention
+    tags: [JSON, bootstrap, omitempty, serialization, internal/output, BootstrapStats, TASK-0082]
+    path: convention/2026-05-06-bootstrap-stats-json-placement.md
+    summary: "Bootstrap distribution stats placed under named 'bootstrap' nested key in jsonResult using *BootstrapStats pointer with omitempty. Top-level float64 fields with omitempty rejected: SharpeP5==0.0 is a valid outcome that omitempty would suppress. Pointer-to-struct makes absent vs zero-result unambiguous without a sentinel bool field."
+
   - id: 2026-05-05-fetch-candles-completeness-threshold-90-pct
     title: "FetchCandles chunk-merge completeness threshold set at 90% of weekday estimate"
     date: 2026-05-05

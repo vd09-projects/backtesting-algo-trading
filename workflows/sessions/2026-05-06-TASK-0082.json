@@ -1,0 +1,57 @@
+{
+  "session_date": "2026-05-06",
+  "workflow": "build",
+  "task_id": "TASK-0082",
+  "task_title": "Tech debt — cmd/backtest --bootstrap output JSON missing distribution stats",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/convention/2026-05-01-jsonresult-struct-embedding-top-level-json.md",
+        "decisions/architecture/2026-05-01-runconfig-in-internal-output.md"
+      ],
+      "context_files": [
+        "decisions/convention/2026-05-01-default-out-auto-generates-filename.md",
+        "decisions/architecture/2026-05-01-defaultoutpath-in-internal-cmdutil.md"
+      ]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Add a BootstrapStats serialization DTO to internal/output and embed it as a named omitempty pointer field ('bootstrap') in jsonResult. Extend writeJSON to accept and populate BootstrapStats from Config.Bootstrap, Config.BootstrapSeed, and Config.BootstrapNSims when present. No changes to cmd/backtest — it already passes bootstrap data into output.Config. Stdout summary path unchanged.",
+      "files_to_create": [],
+      "files_to_modify": ["internal/output/output.go", "internal/output/output_test.go"],
+      "approach": "Add BootstrapStats struct to internal/output with JSON snake_case tags. Add *BootstrapStats with json:'bootstrap,omitempty' to jsonResult as a named pointer field. Extend writeJSON to accept *montecarlo.BootstrapResult plus seed/nSims; populate BootstrapStats when non-nil. Update Write() to pass bootstrap data through. Write failing tests first (TDD)."
+    },
+    "build": {
+      "build_summary": "Added BootstrapStats serialization DTO to internal/output with 7 fields and JSON snake_case tags. Added *BootstrapStats pointer field 'bootstrap,omitempty' to jsonResult. Extended writeJSON to accept *montecarlo.BootstrapResult, seed, nSims. Updated Write() to pass bootstrap data through. TDD order honored.",
+      "files_modified": ["internal/output/output.go", "internal/output/output_test.go"],
+      "tests_written": ["TestWrite_Bootstrap_FieldsInJSON", "TestWrite_Bootstrap_AbsentFromJSONWhenNil", "TestWrite_Bootstrap_NDefaultsTo10000", "TestWrite_Bootstrap_ZeroSharpeP5NotSuppressed", "TestWrite_Bootstrap_ExistingMetricsUnchanged"],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "blocker_count": 0,
+      "warning_count": 0,
+      "suggestion_count": 0,
+      "findings": [],
+      "coverage_pct": 85.8,
+      "sentinel_written": true
+    }
+  },
+  "quality_review_round": 0,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0082 'Tech debt — cmd/backtest --bootstrap output JSON missing distribution stats' picked from Todo (Backlog). Source: session.",
+    "[AUTO] Step 1.5a — Routing: no design-only ACs, no evaluation-run ACs. Build path confirmed.",
+    "[AUTO] Step 1.5b — Source is session/tech-debt, not bug. Normal plan path.",
+    "[AUTO] Step 1.5c — Strategy registration: 7 strategies in strategies/ (excluding stub, testutil), all registered in cmd/universe-sweep strategyRegistry.",
+    "[AUTO] Step 1.5d — Quality gate sentinel stale (pkg/provider/zerodha files newer than last-pass). Flagged for Step 5b re-run."
+  ],
+  "decision_marks_pending": [
+    "**Decision (bootstrap stats JSON placement — convention: experimental)** Bootstrap fields placed under named 'bootstrap' nested key in JSON output using *BootstrapStats with omitempty. Float64 zero-value ambiguity (0.0 SharpeP5 is a valid result) makes top-level promotion with omitempty semantically broken. Pointer-to-struct makes absent vs zero-result unambiguous."
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

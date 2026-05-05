@@ -76,7 +76,7 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 	}
 
 	if cfg.FilePath != "" {
-		if err := writeJSON(cfg.FilePath, report, cfg.RunConfig); err != nil {
+		if err := writeJSON(cfg.FilePath, report, cfg.RunConfig, cfg.Bootstrap, cfg.BootstrapSeed, cfg.BootstrapNSims); err != nil {
 			return err
 		}
 	}
@@ -287,6 +287,30 @@ func formatCorr(v float64) string {
 	return fmt.Sprintf("%.4f", v)
 }
 
+// BootstrapStats holds the bootstrap distribution statistics for JSON serialization.
+// It is written to the "bootstrap" key in the output JSON when a bootstrap run was
+// performed; the key is absent entirely when no bootstrap was run.
+//
+// **Decision (bootstrap stats JSON placement — convention: experimental)**
+// scope: internal/output
+// tags: JSON, bootstrap, omitempty, serialization
+// owner: priya
+//
+// Fields are placed under a named "bootstrap" nested key (not promoted to the top level)
+// using a *BootstrapStats pointer with omitempty. Top-level promotion with omitempty would
+// suppress valid zero results (e.g. SharpeP5 == 0.0 is a legitimate bootstrap outcome).
+// A pointer-to-struct means the block is either fully present or fully absent — no
+// zero-value ambiguity.
+type BootstrapStats struct {
+	SharpeP5           float64 `json:"sharpe_p5"`
+	SharpeP50          float64 `json:"sharpe_p50"`
+	SharpeP95          float64 `json:"sharpe_p95"`
+	ProbPositiveSharpe float64 `json:"prob_positive_sharpe"`
+	WorstDrawdownP95   float64 `json:"worst_drawdown_p95"`
+	N                  int     `json:"n"`
+	Seed               int64   `json:"seed"`
+}
+
 // jsonResult merges RunConfig metadata fields with analytics.Report fields at the
 // JSON top level. Go's encoding/json promotes embedded struct fields to the top level,
 // so both RunConfig and analytics.Report fields appear as siblings in the output JSON.
@@ -300,13 +324,32 @@ func formatCorr(v float64) string {
 // to the top level of the JSON object. RunConfig fields use omitempty so that a
 // zero-valued RunConfig produces no extra keys — existing callers that pass no RunConfig
 // get identical JSON output.
+//
+// Bootstrap is a named pointer field (not embedded) so it appears under a "bootstrap"
+// sub-key. The omitempty tag means the key is absent entirely when no bootstrap was run.
 type jsonResult struct {
 	RunConfig
 	analytics.Report
+	Bootstrap *BootstrapStats `json:"bootstrap,omitempty"`
 }
 
-func writeJSON(path string, r analytics.Report, rc RunConfig) error { //nolint:gocritic // value semantics intentional; r and rc are read-only
+func writeJSON(path string, r analytics.Report, rc RunConfig, br *montecarlo.BootstrapResult, seed int64, nSims int) error { //nolint:gocritic // value semantics intentional; r and rc are read-only
 	result := jsonResult{RunConfig: rc, Report: r}
+	if br != nil {
+		n := nSims
+		if n <= 0 {
+			n = 10_000
+		}
+		result.Bootstrap = &BootstrapStats{
+			SharpeP5:           br.SharpeP5,
+			SharpeP50:          br.SharpeP50,
+			SharpeP95:          br.SharpeP95,
+			ProbPositiveSharpe: br.ProbPositiveSharpe,
+			WorstDrawdownP95:   br.WorstDrawdownP95,
+			N:                  n,
+			Seed:               seed,
+		}
+	}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return fmt.Errorf("output: marshal report: %w", err)

@@ -780,7 +780,7 @@ func TestWrite_RunConfig_AppearsAtTopLevelInJSON(t *testing.T) {
 	}
 
 	// Parse into a generic map to verify top-level keys.
-	var got map[string]interface{}
+	var got map[string]any
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("Unmarshal JSON: %v", err)
 	}
@@ -812,7 +812,7 @@ func TestWrite_RunConfig_ZeroValue_NoExtraKeys(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 
-	var got map[string]interface{}
+	var got map[string]any
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("Unmarshal JSON: %v", err)
 	}
@@ -841,7 +841,7 @@ func TestWrite_RunConfig_MetricsFieldsStillPresent(t *testing.T) {
 	}
 
 	// The report fields must still deserialize correctly.
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		t.Fatalf("Unmarshal JSON: %v", err)
 	}
@@ -875,11 +875,11 @@ func TestWrite_RunConfig_ParametersMap(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 
-	var got map[string]interface{}
+	var got map[string]any
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	params, ok := got["parameters"].(map[string]interface{})
+	params, ok := got["parameters"].(map[string]any)
 	if !ok {
 		t.Fatalf("parameters field missing or not an object; full JSON:\n%s", data)
 	}
@@ -888,8 +888,248 @@ func TestWrite_RunConfig_ParametersMap(t *testing.T) {
 	}
 }
 
+// --- Bootstrap JSON serialization tests (TASK-0082) ---
+
+// TestWrite_Bootstrap_FieldsInJSON verifies that when Bootstrap is non-nil, the JSON
+// output contains a "bootstrap" nested object with all 7 required fields.
+func TestWrite_Bootstrap_FieldsInJSON(t *testing.T) {
+	result := &montecarlo.BootstrapResult{
+		SharpeP5:           0.0719,
+		SharpeP50:          0.3195,
+		SharpeP95:          0.5551,
+		ProbPositiveSharpe: 0.980,
+		WorstDrawdownP95:   18.42,
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+	cfg := output.Config{
+		FilePath:       path,
+		Bootstrap:      result,
+		BootstrapSeed:  42,
+		BootstrapNSims: 10_000,
+	}
+
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	bsRaw, ok := raw["bootstrap"]
+	if !ok {
+		t.Fatalf("JSON missing 'bootstrap' key; full JSON:\n%s", data)
+	}
+	bs, ok := bsRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("'bootstrap' is not an object; got %T", bsRaw)
+	}
+
+	for _, wantKey := range []string{
+		"sharpe_p5", "sharpe_p50", "sharpe_p95",
+		"prob_positive_sharpe", "worst_drawdown_p95",
+		"n", "seed",
+	} {
+		if _, ok := bs[wantKey]; !ok {
+			t.Errorf("bootstrap object missing key %q; keys present: %v", wantKey, keysOf(bs))
+		}
+	}
+
+	assertFloat64 := func(key string, want float64) {
+		t.Helper()
+		v, ok := bs[key].(float64)
+		if !ok {
+			t.Errorf("bootstrap[%q] is not float64; got %T", key, bs[key])
+			return
+		}
+		if v != want {
+			t.Errorf("bootstrap[%q] = %v, want %v", key, v, want)
+		}
+	}
+	assertFloat64("sharpe_p5", result.SharpeP5)
+	assertFloat64("sharpe_p50", result.SharpeP50)
+	assertFloat64("sharpe_p95", result.SharpeP95)
+	assertFloat64("prob_positive_sharpe", result.ProbPositiveSharpe)
+	assertFloat64("worst_drawdown_p95", result.WorstDrawdownP95)
+
+	seedRaw, ok := bs["seed"].(float64)
+	if !ok {
+		t.Fatalf("bootstrap.seed is not float64; got %T", bs["seed"])
+	}
+	if int64(seedRaw) != 42 {
+		t.Errorf("seed = %d, want 42", int64(seedRaw))
+	}
+
+	nRaw, ok := bs["n"].(float64)
+	if !ok {
+		t.Fatalf("bootstrap.n is not float64; got %T", bs["n"])
+	}
+	if int(nRaw) != 10_000 {
+		t.Errorf("n = %d, want 10000", int(nRaw))
+	}
+}
+
+// TestWrite_Bootstrap_AbsentFromJSONWhenNil verifies that when Bootstrap is nil,
+// the JSON output has no "bootstrap" key — existing consumers must not be broken.
+func TestWrite_Bootstrap_AbsentFromJSONWhenNil(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+
+	if err := output.Write(analytics.Report{TradeCount: 5}, output.Config{FilePath: path}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if _, ok := raw["bootstrap"]; ok {
+		t.Errorf("JSON must not contain 'bootstrap' key when Bootstrap is nil; full JSON:\n%s", data)
+	}
+}
+
+// TestWrite_Bootstrap_NDefaultsTo10000 verifies that when BootstrapNSims is 0,
+// the JSON bootstrap.n is written as 10000 (the montecarlo default).
+func TestWrite_Bootstrap_NDefaultsTo10000(t *testing.T) {
+	result := &montecarlo.BootstrapResult{ProbPositiveSharpe: 0.5}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+	cfg := output.Config{
+		FilePath:       path,
+		Bootstrap:      result,
+		BootstrapSeed:  7,
+		BootstrapNSims: 0, // should default to 10000
+	}
+
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	bsRaw2, ok := raw["bootstrap"]
+	if !ok {
+		t.Fatalf("JSON missing 'bootstrap' key; full JSON:\n%s", data)
+	}
+	bs, ok := bsRaw2.(map[string]any)
+	if !ok {
+		t.Fatalf("'bootstrap' is not an object; got %T", bsRaw2)
+	}
+	nRaw, ok := bs["n"].(float64)
+	if !ok {
+		t.Fatalf("bootstrap.n is not float64; got %T", bs["n"])
+	}
+	if int(nRaw) != 10_000 {
+		t.Errorf("bootstrap.n = %d, want 10000 when BootstrapNSims is 0", int(nRaw))
+	}
+}
+
+// TestWrite_Bootstrap_ZeroSharpeP5NotSuppressed verifies that a bootstrap result
+// where SharpeP5 == 0.0 is still serialized (pointer-to-struct prevents omitempty
+// from suppressing a valid zero result).
+func TestWrite_Bootstrap_ZeroSharpeP5NotSuppressed(t *testing.T) {
+	result := &montecarlo.BootstrapResult{
+		SharpeP5:           0.0, // valid zero result — must not be omitted
+		ProbPositiveSharpe: 0.5,
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+	cfg := output.Config{
+		FilePath:       path,
+		Bootstrap:      result,
+		BootstrapSeed:  1,
+		BootstrapNSims: 1000,
+	}
+
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	bs, ok := raw["bootstrap"].(map[string]any)
+	if !ok {
+		t.Fatalf("'bootstrap' missing from JSON; full JSON:\n%s", data)
+	}
+	if _, ok := bs["sharpe_p5"]; !ok {
+		t.Errorf("sharpe_p5 missing even though value is 0.0 — omitempty must not suppress valid zero")
+	}
+}
+
+// TestWrite_Bootstrap_ExistingMetricsUnchanged verifies that adding bootstrap fields
+// does not affect existing analytics.Report fields in the JSON output.
+func TestWrite_Bootstrap_ExistingMetricsUnchanged(t *testing.T) {
+	report := analytics.Report{TradeCount: 42, SharpeRatio: 1.23, TotalPnL: 9999.50}
+	result := &montecarlo.BootstrapResult{SharpeP5: 0.15, ProbPositiveSharpe: 0.95}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+
+	if err := output.Write(report, output.Config{
+		FilePath:       path,
+		Bootstrap:      result,
+		BootstrapSeed:  42,
+		BootstrapNSims: 5000,
+	}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	tcRaw, ok := raw["TradeCount"].(float64)
+	if !ok {
+		t.Fatalf("TradeCount missing or not float64; keys: %v", keysOf(raw))
+	}
+	if int(tcRaw) != 42 {
+		t.Errorf("TradeCount = %d, want 42 after bootstrap fields added", int(tcRaw))
+	}
+	srRaw, ok := raw["SharpeRatio"].(float64)
+	if !ok {
+		t.Fatalf("SharpeRatio missing or not float64; keys: %v", keysOf(raw))
+	}
+	if srRaw != 1.23 {
+		t.Errorf("SharpeRatio = %v, want 1.23 after bootstrap fields added", srRaw)
+	}
+}
+
 // keysOf returns the keys of a map for diagnostic error messages.
-func keysOf(m map[string]interface{}) []string {
+func keysOf(m map[string]any) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

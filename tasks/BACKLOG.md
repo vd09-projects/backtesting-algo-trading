@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-05 | **Open tasks:** 22 | **Next up:** TASK-0055
+**Last updated:** 2026-05-06 | **Open tasks:** 22 | **Next up:** TASK-0055
 
 ---
 
@@ -281,24 +281,6 @@
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
 
-### [TASK-0082] Tech debt — `cmd/backtest --bootstrap` output JSON missing distribution stats
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-05-05
-- **Source:** session
-- **Context:** `cmd/backtest --bootstrap` prints bootstrap distribution stats (SharpeP5, SharpeP50, SharpeP95, ProbPositiveSharpe, WorstDrawdownP95) to stdout only. The output JSON written to `--out` contains only standard backtest metrics. The evaluation-run pipeline agent had to parse stdout to capture these stats during TASK-0069 — fragile, breaks if stdout format changes, and prevents machine-readable audit trails. These fields belong in the JSON output alongside standard metrics.
-- **Acceptance criteria:**
-  - [ ] `internal/output/` result struct extended with bootstrap fields: `BootstrapSharpeP5`, `BootstrapSharpeP50`, `BootstrapSharpeP95`, `BootstrapProbPositiveSharpe`, `BootstrapWorstDrawdownP95`, `BootstrapN`, `BootstrapSeed` — zero-valued when bootstrap not run
-  - [ ] `cmd/backtest --bootstrap` populates these fields and writes them to the `--out` JSON
-  - [ ] Existing non-bootstrap JSON output unchanged (zero-value fields are omitted with `omitempty`)
-  - [ ] Stdout summary output unchanged — still printed as today
-  - [ ] `golangci-lint run ./...` and `go1.25.0 test -race ./...` pass
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Zero-value bootstrap fields must use `omitempty` so existing consumers of non-bootstrap JSON are not broken. `BootstrapN` and `BootstrapSeed` are required for reproducibility — without seed, the JSON result cannot be independently verified.
-
----
-
 ### [TASK-0058] Tooling — fix cyclomatic complexity in `cmd/rsi-diagnostic/main.go`
 
 - **Status:** todo
@@ -458,6 +440,21 @@
   - [ ] `notebooks/requirements.txt` with pyarrow, pandas, matplotlib pinned
   - [ ] At least one working notebook: `notebooks/equity-curve.ipynb` reads `runs/<name>-curve.csv` and plots equity curve with regime shading
 - **Notes:** Depends on TASK-0029 (equity curve CSV output) for the first working notebook. The file contract in README.md is the formal boundary — Python never feeds back into Go inputs.
+
+---
+
+### [TASK-0084] Tooling — update evaluation-run agent to read bootstrap stats from JSON output
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-06
+- **Source:** session
+- **Context:** The evaluation-run pipeline agent (used in TASK-0069) parsed bootstrap distribution stats from stdout because the `--out` JSON did not contain them. TASK-0082 added bootstrap stats to the JSON output under a `"bootstrap"` key. The agent's stdout parsing is now redundant and fragile — it should be updated to read `bootstrap.sharpe_p5`, `bootstrap.prob_positive_sharpe`, etc. directly from the JSON file instead.
+- **Acceptance criteria:**
+  - [ ] Evaluation-run pipeline agent updated to read bootstrap stats from `--out` JSON (`bootstrap.sharpe_p5`, `bootstrap.sharpe_p50`, `bootstrap.sharpe_p95`, `bootstrap.prob_positive_sharpe`, `bootstrap.worst_drawdown_p95`, `bootstrap.n`, `bootstrap.seed`) instead of parsing stdout
+  - [ ] Stdout parsing of bootstrap block removed from agent logic
+  - [ ] Agent still works correctly when `bootstrap` key is absent (non-bootstrap runs)
+- **Notes:** TASK-0082 is the prerequisite — it added the bootstrap fields to the JSON. The agent file to update is in `.claude/agents/` (evaluation-run agent). Low priority: stdout parsing still works; this is a fragility reduction.
 
 ---
 
