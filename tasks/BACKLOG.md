@@ -117,25 +117,6 @@
 
 ---
 
-### [TASK-0081] Bug — `zerodha.NewProvider` requires live token even when all candle data is cached
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-05
-- **Source:** session
-- **Context:** `zerodha.NewProvider` unconditionally downloads the instruments CSV via `kite.Instruments()` at construction time, requiring a valid Zerodha access token even when all requested candle data is already in the local disk cache. This blocked the TASK-0069 bootstrap session mid-run after token expiry — all 9 instruments' candle data was cached but the provider refused to construct. Every automated evaluation run is exposed to this: a token expiry halts the entire pipeline even for fully-cached datasets.
-- **Acceptance criteria:**
-  - [ ] Instruments CSV is cached locally (e.g. `.cache/zerodha/instruments.csv`) alongside candle data; cache is considered fresh if file age < 24h
-  - [ ] `zerodha.NewProvider`: if a fresh cached instruments CSV exists, load from disk and skip the `kite.Instruments()` network call entirely — no valid token required for cached runs
-  - [ ] If the cached CSV is absent or stale (>24h), fetch from Kite as today (token required); write result to cache before returning
-  - [ ] **Chunk completeness validation**: when `FetchCandles` issues multiple chunked requests to cover a long date range, validate after merge that the returned candle count is consistent with expected trading days for that range (±5% tolerance for holidays/gaps); if count is below threshold, return a typed error `ErrIncompleteData{instrument, from, to, expected, got}` rather than silently returning a short slice
-  - [ ] Existing `CachedProvider` path unchanged — cache-hit still bypasses all network calls
-  - [ ] `golangci-lint run ./pkg/provider/...` and `go1.25.0 test -race ./pkg/provider/...` pass
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). `ErrIncompleteData` must be a typed error so callers can distinguish "no data" from "partial data". Expected candle count: `(to - from).TradingDays() * candlesPerDay` using simple weekday count (±5% covers NSE holidays).
-
----
-
 ### [TASK-0070] Tooling — `cmd/fetch-history` CLI for bulk intraday historical data
 
 - **Status:** todo
@@ -491,6 +472,23 @@
   - [ ] `cmd/backtest/main.go` package doc comment "Available strategies" section updated to list all 6 strategies with their flag descriptions
   - [ ] `golangci-lint run ./cmd/backtest/...` still passes
 - **Notes:** Pure documentation change — no logic, no tests needed. Low priority; do alongside any other `cmd/backtest` touch.
+
+---
+
+### [TASK-0083] Tech debt — handle `*ErrIncompleteData` typed error at cmd/ layer boundary
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-05-05
+- **Source:** session
+- **Context:** TASK-0081 introduced `*ErrIncompleteData` as a typed error from `FetchCandles` when chunk merge returns fewer candles than 90% of the weekday estimate. The cmd/ entrypoints (`cmd/universe-sweep`, `cmd/backtest`, `cmd/walk-forward`, `cmd/fetch-history`) currently propagate this as a generic `error` — no user-facing message distinguishes "no data" from "partial data". Callers should type-assert and print a clear diagnostic before exiting.
+- **Acceptance criteria:**
+  - [ ] `cmd/universe-sweep`, `cmd/backtest`, `cmd/walk-forward`: any `FetchCandles` error path type-asserts `*zerodha.ErrIncompleteData`; if matched, prints `incomplete data: instrument=%s from=%s to=%s expected≈%d got=%d` and exits with code 2 (distinct from generic error exit code 1)
+  - [ ] `cmd/fetch-history` (TASK-0070): same typed-error handling wired in when that CLI is built
+  - [ ] `golangci-lint run ./cmd/...` passes
+  - [ ] Tests: mock provider returns `*ErrIncompleteData` → CLI prints correct diagnostic and exits with code 2
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Priya (dev). Discovered during TASK-0081 harvest — the typed error is defined but not handled at the cmd/ boundary. Exit code 2 for incomplete data follows Unix convention (1 = generic error, 2 = misuse/data problem). `cmd/fetch-history` handling should be added as part of TASK-0070 build, not this task.
 
 ---
 

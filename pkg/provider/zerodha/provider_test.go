@@ -247,8 +247,18 @@ func TestFetchCandles_auth_error(t *testing.T) {
 }
 
 func TestFetchCandles_chunked_makes_multiple_requests(t *testing.T) {
+	// Range wider than maxDaysPerInterval[TimeframeDaily]=1800 days → 2 chunks.
+	from := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC) // ~2191 days
+
+	// The completeness check requires ≥ 90% of ~1565 expected weekday candles.
+	// With 2 chunks, each chunk must return ≥ 744. Use 800 per chunk so the
+	// merged total (1600) comfortably passes the ≥1487 threshold.
+	// buildCandleJSON is defined in instruments_cache_test.go (same package).
+	chunkResponse := buildCandleJSON(800)
+
 	var count atomic.Int32
-	srv := newTestServer(t, []byte(`{"data":{"candles":[]}}`), &count)
+	srv := newTestServer(t, chunkResponse, &count)
 	defer srv.Close()
 
 	p, err := NewProvider(t.Context(), Config{
@@ -260,10 +270,6 @@ func TestFetchCandles_chunked_makes_multiple_requests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Range wider than maxDaysPerInterval[TimeframeDaily]=1800 days → 2 chunks.
-	from := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC) // ~2191 days
 
 	_, err = p.FetchCandles(t.Context(), "NSE:NIFTY 50", model.TimeframeDaily, from, to)
 	if err != nil {

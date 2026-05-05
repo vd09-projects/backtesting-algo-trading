@@ -217,3 +217,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-05 | TASK-0054 | archived | moved to tasks/archive/2026-05.md |
 | 2026-05-05 | TASK-0055 | moved to Up Next | unblocked; TASK-0054 complete |
 | 2026-05-05 | BACKLOG | reordered | done tasks archived; sections priority-sorted; TASK-0082 moved to correct medium-priority slot |
+| 2026-05-05 | TASK-0081 | status → done | All 6 acceptance criteria met: instruments CSV cache, skip-network on cache hit, stale-cache fetch, ErrIncompleteData typed error (90% threshold), CachedProvider unchanged, lint+race PASS. Coverage 89.7%. | archived to tasks/archive/2026-05.md |
+| 2026-05-05 | TASK-0083 | created | priority: medium, source: session | Tech debt: handle *ErrIncompleteData at cmd/ layer boundary (universe-sweep, backtest, walk-forward); typed error propagated as generic today; exit code 2 convention |

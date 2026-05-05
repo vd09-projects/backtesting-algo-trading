@@ -3,7 +3,7 @@
 | Field    | Value        |
 |----------|--------------|
 | Date     | 2026-04-07   |
-| Status   | accepted     |
+| Status   | superseded (no-disk-cache element superseded 2026-05-05 by TASK-0081) |
 | Category | architecture |
 | Tags     | zerodha, provider, instrument-token, instruments-csv, lookup, init, kite-connect |
 
@@ -86,6 +86,8 @@ If an instrument symbol is not found in the map, `FetchCandles` returns a typed 
 - [Zerodha cache strategy](../infrastructure/2026-04-07-zerodha-cache-strategy.md) — the
   `CachedProvider` wraps `ZerodhaProvider`; instrument token lookup happens inside the inner
   provider, transparent to the cache layer
+- [Instruments CSV cached at cacheDir/instruments.csv](./2026-05-05-instruments-csv-cache-path.md) — **supersedes** the "no disk cache" element of this decision; disk caching with 24h TTL implemented in TASK-0081
+- [InstrumentsCacheDir as explicit Config field](./2026-05-05-instruments-cache-dir-explicit-config-field.md) — companion API design decision
 
 ## Revisit trigger
 

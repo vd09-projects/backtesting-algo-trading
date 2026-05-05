@@ -42,6 +42,7 @@ At startup, initialize:
 1. Glob `workflows/sessions/{today}-TASK-*.json`.
 2. If zero matches: fresh session. Skip to Step 1.
 3. If exactly one match with `workflow == "build"`: load it. If `step_completed >= 1`, resume from `step_completed + 1`. Log: `[AUTO] Resuming TASK-NNNN from step N+1.`
+   **CRITICAL — full pipeline to completion:** When resuming, you MUST run ALL remaining steps (from `step_completed + 1` through Step 6 AND session-end) before producing any output to the user. Do not stop after completing a single step. The continuous-execution rule applies equally to resumed sessions — treat it as if you never paused.
 4. If multiple matches: list them with their `task_id` and `step_completed`; ask user which to resume or whether to start fresh. Wait.
 5. If a match exists but `hard_stop_active` is set: present the stop condition and wait for user resolution before resuming.
 

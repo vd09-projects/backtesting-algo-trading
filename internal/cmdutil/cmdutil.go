@@ -108,18 +108,20 @@ func BuildProvider(ctx context.Context) (*cache.CachedProvider, error) {
 		fmt.Printf("Loaded saved token from %s\n", path)
 	}
 
+	cacheDir := os.Getenv("BACKTEST_CACHE_DIR")
+	if cacheDir == "" {
+		cacheDir = ".cache/zerodha"
+	}
+
 	inner, err := zerodha.NewProvider(ctx, zerodha.Config{
-		APIKey:      apiKey,
-		AccessToken: accessToken,
+		APIKey:              apiKey,
+		AccessToken:         accessToken,
+		InstrumentsCacheDir: cacheDir,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("NewProvider: %w", err)
 	}
 
-	cacheDir := os.Getenv("BACKTEST_CACHE_DIR")
-	if cacheDir == "" {
-		cacheDir = ".cache/zerodha"
-	}
 	return cache.NewCachedProvider(inner, cacheDir), nil
 }
 

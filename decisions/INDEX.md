@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-05-fetch-candles-completeness-threshold-90-pct
+    title: "FetchCandles chunk-merge completeness threshold set at 90% of weekday estimate"
+    date: 2026-05-05
+    status: experimental
+    category: tradeoff
+    tags: [zerodha, provider, FetchCandles, ErrIncompleteData, completeness-threshold, data-quality, TASK-0081]
+    path: tradeoff/2026-05-05-fetch-candles-completeness-threshold-90-pct.md
+    summary: "After merging chunked Kite responses, FetchCandles returns *ErrIncompleteData if actual candle count < 90% of weekday estimate. 90% (revised from initial 95%) absorbs the ~4-5% NSE holiday overcount in weekday estimates without masking genuine data gaps. Callers receive a typed error with instrument, from, to, expected, and got fields."
+
+  - id: 2026-05-05-instruments-cache-dir-explicit-config-field
+    title: "InstrumentsCacheDir as explicit optional field on zerodha.Config"
+    date: 2026-05-05
+    status: experimental
+    category: architecture
+    tags: [zerodha, provider, InstrumentsCacheDir, Config, dependency-injection, no-global-state, TASK-0081]
+    path: architecture/2026-05-05-instruments-cache-dir-explicit-config-field.md
+    summary: "InstrumentsCacheDir string added to zerodha.Config as an optional field. Empty = original uncached behavior (backward compatible). Non-empty = instruments CSV read from disk when fresh (<24h). Explicit Config field chosen over env-var or auto-detect to preserve no-global-state rule; cmdutil.BuildProvider wires it for all CLIs."
+
+  - id: 2026-05-05-instruments-csv-cache-path
+    title: "Instruments CSV cached at {cacheDir}/instruments.csv alongside candle cache"
+    date: 2026-05-05
+    status: experimental
+    category: architecture
+    tags: [zerodha, provider, instruments-csv, caching, InstrumentsCacheDir, TASK-0081]
+    path: architecture/2026-05-05-instruments-csv-cache-path.md
+    summary: "Instruments CSV cached at {InstrumentsCacheDir}/instruments.csv — same root as candle cache, controlled by caller. Fresh if file age <24h; stale/absent triggers Kite network fetch and write-back. Supersedes the 'no disk cache' element of the 2026-04-07 instrument-token-lookup decision."
+
   - id: 2026-05-05-macd-deployment-universe-correlation-screening
     title: "MACD crossover (17/26/9) provisional deployment universe — correlation screening required"
     date: 2026-05-05
@@ -1029,11 +1056,11 @@ decisions:
   - id: 2026-04-07-zerodha-instrument-token-lookup
     title: "Zerodha instrument token lookup — CSV download at provider init"
     date: 2026-04-07
-    status: accepted
+    status: superseded
     category: architecture
     tags: [zerodha, provider, instrument-token, instruments-csv, lookup, init, kite-connect]
     path: architecture/2026-04-07-zerodha-instrument-token-lookup.md
-    summary: "Provider downloads /instruments CSV once at init, builds map[exchange:symbol]→token in memory. Skips per-call download (wasteful) and file caching (unnecessary complexity for v1). ErrInstrumentNotFound returned for unknown symbols."
+    summary: "Provider downloads /instruments CSV once at init, builds map[exchange:symbol]→token in memory. Skips per-call download (wasteful) and file caching (unnecessary complexity for v1). ErrInstrumentNotFound returned for unknown symbols. SUPERSEDED (no-disk-cache element) by 2026-05-05-instruments-csv-cache-path — disk cache added in TASK-0081."
 
   - id: 2026-04-07-timeframe-weekly-unsupported-in-zerodha
     title: "TimeframeWeekly excluded from Zerodha SupportedTimeframes"

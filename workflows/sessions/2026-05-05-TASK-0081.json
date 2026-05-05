@@ -1,0 +1,87 @@
+{
+  "session_date": "2026-05-05",
+  "workflow": "build",
+  "task_id": "TASK-0081",
+  "task_title": "Bug — zerodha.NewProvider requires live token even when all candle data is cached",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": ["decisions/architecture/2026-04-22-buildprovider-extracted-to-cmdutil.md"],
+      "context_files": ["decisions/infrastructure/2026-04-28-nifty-tri-benchmark-data-source.md"]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Bugfix path: instruments CSV caching + chunk completeness validation in pkg/provider/zerodha/",
+      "files_to_create": ["pkg/provider/zerodha/instruments_cache.go", "pkg/provider/zerodha/instruments_cache_test.go"],
+      "files_to_modify": ["pkg/provider/zerodha/errors.go", "pkg/provider/zerodha/provider.go", "pkg/provider/zerodha/provider_test.go", "internal/cmdutil/cmdutil.go"],
+      "approach": "Collapsed bugfix plan: add InstrumentsCacheDir to Config, add loadOrCacheInstrumentsCSV, add ErrIncompleteData typed error, wire completeness check into FetchCandles, update cmdutil.BuildProvider."
+    },
+    "build": {
+      "build_summary": "Bugfix: zerodha.NewProvider now accepts InstrumentsCacheDir in Config. When set and the cached instruments.csv is <24h old, the Kite network call is skipped entirely — no token required. Stale or absent cache falls through to a network fetch that writes the result to disk. FetchCandles now validates chunk completeness after merge: returns *ErrIncompleteData if candle count < 90% of weekday estimate. cmdutil.BuildProvider wired to pass cacheDir as InstrumentsCacheDir so all cmd/ binaries benefit immediately.",
+      "files_modified": [
+        "pkg/provider/zerodha/errors.go",
+        "pkg/provider/zerodha/instruments_cache.go",
+        "pkg/provider/zerodha/provider.go",
+        "pkg/provider/zerodha/instruments_cache_test.go",
+        "pkg/provider/zerodha/provider_test.go",
+        "internal/cmdutil/cmdutil.go"
+      ],
+      "tests_written": [
+        "TestLoadOrCacheInstrumentsCSV_freshCacheSkipsNetwork",
+        "TestLoadOrCacheInstrumentsCSV_staleCacheFetchesAndUpdates",
+        "TestLoadOrCacheInstrumentsCSV_noCacheNoToken",
+        "TestLoadOrCacheInstrumentsCSV_noCacheFreshFetch",
+        "TestNewProvider_cachedInstruments_noTokenRequired",
+        "TestNewProvider_noCacheDir_requiresNetwork",
+        "TestFetchCandles_incompleteData_returnsTypedError",
+        "TestFetchCandles_sufficientData_noError",
+        "TestFetchCandles_emptyRange_noCompletenessCheck",
+        "TestErrIncompleteData_errorInterface"
+      ],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "blocker_count": 0,
+      "warning_count": 0,
+      "suggestion_count": 0,
+      "findings": [],
+      "coverage_pct": 89.7,
+      "benchmark_ran": false,
+      "files_reviewed": [
+        "pkg/provider/zerodha/errors.go",
+        "pkg/provider/zerodha/instruments_cache.go",
+        "pkg/provider/zerodha/provider.go",
+        "pkg/provider/zerodha/instruments_cache_test.go",
+        "pkg/provider/zerodha/provider_test.go",
+        "internal/cmdutil/cmdutil.go"
+      ]
+    }
+  },
+  "quality_review_round": 1,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0081 'Bug — zerodha.NewProvider requires live token even when all candle data is cached' picked from Up Next. Source: bug.",
+    "[AUTO] Step 1.5b — Bugfix path: plan step collapsed (is_bugfix = true).",
+    "[AUTO] Step 1.5c — Strategy registration: 7 strategies, all registered.",
+    "[AUTO] Step 1.5d — Quality gate: last-pass 2026-05-03 — stale; re-run required.",
+    "[AUTO] Step 2 — Decision lookup: 1 standing order, 1 context file.",
+    "[AUTO] Step 3 — Marcus: skipped (bug touches provider infrastructure only).",
+    "[AUTO] Step 4 — Plan: collapsed (bugfix path).",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS.",
+    "[DECISION] Priya [architecture]: InstrumentsCacheDir as explicit Config field — optional, empty = original uncached behavior.",
+    "[DECISION] Priya [architecture]: instruments CSV cached at {cacheDir}/instruments.csv alongside candle cache.",
+    "[DECISION] Priya [tradeoff]: completeness threshold 90% — absorbs NSE holiday gaps without masking real data gaps; user revised from initial 95% to 90% post-build.",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 0 warnings, 0 suggestions. gate_status=clean. Coverage: 89.7%.",
+    "[AUTO] Step 6 — Acceptance criteria verified. All criteria met. Task closed."
+  ],
+  "decision_marks_pending": [
+    "**Decision (instruments CSV cache path) — architecture: experimental** — cached instruments.csv lives in {cacheDir}/instruments.csv (same dir as candle cache); caller controls path via InstrumentsCacheDir Config field",
+    "**Decision (InstrumentsCacheDir as explicit Config field) — architecture: experimental** — optional field preserves backward compatibility; empty = original uncached behavior; non-empty = cache-aware path",
+    "**Decision (completeness threshold 90%) — tradeoff: experimental** — 90% floor (revised from initial 95%) absorbs NSE holiday gap vs weekday estimate without masking real data gaps; user confirmed 90% post-build"
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": true,
+  "prior_rounds_findings": []
+}
