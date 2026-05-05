@@ -1,0 +1,47 @@
+{
+  "session_date": "2026-05-05",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0069",
+  "task_title": "Evaluation — reconsider instrument-count gate threshold for MACD at 17/26/9",
+  "step_completed": 5,
+  "task_status": "done",
+  "gates": [
+    {"name": "bootstrap-sharpe-p5", "criteria": "SharpeP5 > 0"},
+    {"name": "bootstrap-prob-positive", "criteria": "P(Sharpe > 0) > 80%"}
+  ],
+  "command_run": "go run cmd/backtest/main.go --strategy macd-crossover --macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9 --from 2018-01-01 --to 2024-01-01 --cash 300000 --commission zerodha_full --bootstrap --bootstrap-n 10000 --bootstrap-seed 42",
+  "results_file": "runs/bootstrap-macd-2026-05-05/",
+  "results_row_count": 9,
+  "project_state": {
+    "killed_strategies": ["sma-crossover"],
+    "prior_gate_survivors": ["macd-crossover:SBIN", "macd-crossover:BAJFINANCE", "macd-crossover:TITAN", "macd-crossover:LT", "macd-crossover:ICICIBANK", "macd-crossover:INFY", "macd-crossover:AXISBANK", "macd-crossover:ITC", "macd-crossover:KOTAKBANK"],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": null,
+    "marcus_design_ruling": "Walk-forward instrument-count gate revised pipeline-wide: strategy passes if WF_passes >= floor(0.60 * universe_gate_passes) AND WF_passes >= 6. MACD crossover (9/14 = 64.3%) passes revised gate and advances to bootstrap on 9 instrument pairs: SBIN, BAJFINANCE, TITAN, LT, ICICIBANK, INFY, AXISBANK, ITC, KOTAKBANK. Bootstrap gate: SharpeP5 > 0 AND P(Sharpe > 0) > 80% per 2026-04-27 decision.",
+    "marcus": null
+  },
+  "bootstrap_results": {
+    "SBIN": {"SharpeP5": 0.0719, "SharpeP50": 0.3195, "SharpeP95": 0.5551, "ProbPositiveSharpe": 98.0, "ActualSharpe": 0.9915},
+    "BAJFINANCE": {"SharpeP5": 0.0467, "SharpeP50": 0.2526, "SharpeP95": 0.4171, "ProbPositiveSharpe": 97.3, "ActualSharpe": 0.8676},
+    "TITAN": {"SharpeP5": 0.0854, "SharpeP50": 0.3102, "SharpeP95": 0.5323, "ProbPositiveSharpe": 98.7, "ActualSharpe": 0.8605},
+    "LT": {"SharpeP5": -0.0484, "SharpeP50": 0.1870, "SharpeP95": 0.3727, "ProbPositiveSharpe": 91.2, "ActualSharpe": 0.6539},
+    "ICICIBANK": {"SharpeP5": 0.0229, "SharpeP50": 0.2489, "SharpeP95": 0.4579, "ProbPositiveSharpe": 96.2, "ActualSharpe": 0.6399},
+    "INFY": {"SharpeP5": -0.0501, "SharpeP50": 0.1839, "SharpeP95": 0.3777, "ProbPositiveSharpe": 90.9, "ActualSharpe": 0.6215},
+    "AXISBANK": {"SharpeP5": -0.1484, "SharpeP50": 0.1079, "SharpeP95": 0.3029, "ProbPositiveSharpe": 78.4, "ActualSharpe": 0.2931},
+    "ITC": {"SharpeP5": -0.1806, "SharpeP50": 0.0763, "SharpeP95": 0.2885, "ProbPositiveSharpe": 70.6, "ActualSharpe": 0.2533},
+    "KOTAKBANK": {"SharpeP5": -0.3146, "SharpeP50": -0.0003, "SharpeP95": 0.1827, "ProbPositiveSharpe": 49.9, "ActualSharpe": 0.1153}
+  },
+  "survivors": [],
+  "survivor_metrics": {},
+  "survivor_correlation_flags": [],
+  "killed": [],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "data_freshness_verified": true,
+  "results_completeness_verified": true,
+  "classification": "gate-design-prerequisite",
+  "has_cli_followup": "conditional — only if Marcus relaxes the gate"
+}

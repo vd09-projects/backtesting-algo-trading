@@ -208,3 +208,12 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-05 | TASK-0078 | created | priority: high, source: session | Session-boundary utilities (IsSessionOpen, PreviousSessionClose) in pkg/strategy/; unblocks TASK-0074 + TASK-0075 | owner: Priya |
 | 2026-05-05 | TASK-0079 | created | priority: medium, source: discovery | Tech debt: centralized strategy registry in internal/cmdutil; eliminates 4+ CLI manual registrations per new strategy | owner: Priya |
 | 2026-05-05 | TASK-0080 | created | priority: medium, source: discovery | Tech debt: CachedProvider incremental manifest (LastCachedTime, RecordFetch, atomic writes); unblocks TASK-0070 incremental mode | owner: Priya |
+| 2026-05-05 | TASK-0069 | status → done | Bootstrap gate complete: 4 survivors (SBIN, BAJFINANCE, TITAN, ICICIBANK), 5 killed. Decision: decisions/algorithm/2026-05-05-macd-bootstrap-gate-results.md. TASK-0054 unblocked. | evaluation-run |
+| 2026-05-05 | TASK-0054 | status → done | Bootstrap completed under TASK-0069 remediation. 4 MACD survivors: SBIN, BAJFINANCE, TITAN, ICICIBANK. Decision: decisions/algorithm/2026-05-05-macd-bootstrap-gate-results.md |
+| 2026-05-05 | TASK-0055 | status → todo (unblocked) | TASK-0054 complete; MACD has 4 bootstrap survivors. Correlation and portfolio construction can proceed. |
+| 2026-05-05 | TASK-0081 | created | priority: high, source: session | zerodha.NewProvider token required even when all data cached; blocks automated eval runs. Includes chunk-completeness validation with ErrIncompleteData typed error |
+| 2026-05-05 | TASK-0082 | created | priority: medium, source: session | cmd/backtest --bootstrap missing distribution stats in JSON output; evaluation pipeline had to parse stdout |
+| 2026-05-05 | TASK-0069 | archived | moved to tasks/archive/2026-05.md |
+| 2026-05-05 | TASK-0054 | archived | moved to tasks/archive/2026-05.md |
+| 2026-05-05 | TASK-0055 | moved to Up Next | unblocked; TASK-0054 complete |
+| 2026-05-05 | BACKLOG | reordered | done tasks archived; sections priority-sorted; TASK-0082 moved to correct medium-priority slot |

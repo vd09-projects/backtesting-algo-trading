@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-05 | **Open tasks:** 25 | **Next up:** TASK-0069
+**Last updated:** 2026-05-05 | **Open tasks:** 22 | **Next up:** TASK-0055
 
 ---
 
@@ -14,20 +14,34 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0069] Evaluation — reconsider instrument-count gate threshold for MACD at 17/26/9
+### [TASK-0055] Evaluation — cross-strategy correlation and portfolio construction
 
 - **Status:** todo
 - **Priority:** high
-- **Created:** 2026-05-04
+- **Created:** 2026-04-25
 - **Source:** session
-- **Context:** MACD crossover (fast=17, slow=26, signal=9) passed 9/14 instruments at walk-forward — 64% retention. The instrument-count gate requires 100% retention (same count as universe gate pass). Marcus ruled that this is a gate-design question, not a parameter question: the 9 passing instruments show solid OOS Sharpe (0.062–0.472 range), and the failures cluster in two structural patterns (OverfitFlag on large-cap defensives: RELIANCE, HINDUNILVR, WIPRO; NegFoldFlag on higher-vol names: TCS, HDFCBANK). The 100% retention requirement may be too strict for a useful portfolio strategy.
+- **Context:** Selects the final portfolio from bootstrap survivors. Two correlated strategies do not provide diversification — they add correlated risk, especially in the stress periods (2020, 2022) when diversification is most needed. The portfolio at ₹3 lakh targets ~10% annualized vol using vol-targeting sizing per strategy.
 - **Acceptance criteria:**
-  - [ ] Marcus (algo-trading-veteran) reviews MACD's 9/14 WF pass pattern and rules on whether 60–70% instrument retention is a defensible threshold for this strategy
-  - [ ] If gate is relaxed: document new threshold in `decisions/algorithm/` with explicit rationale for why 9/14 constitutes sufficient cross-instrument evidence
-  - [ ] If gate is relaxed and MACD advances: run bootstrap (TASK-0054 logic) for the 9 passing instrument pairs
-  - [ ] Record decision with revisit trigger: if relaxed threshold allows strategies with fewer passing instruments, apply consistent standard to future strategies
-  - [ ] If gate is NOT relaxed: record decision and mark MACD as killed permanently under current methodology
-- **Notes:** MACD WF results: passes = SBIN, BAJFINANCE, TITAN, LT, ICICIBANK, INFY, AXISBANK, ITC, KOTAKBANK (9 instruments). Failures = TCS (NegFoldFlag), RELIANCE (OverfitFlag 0.48), HINDUNILVR (OverfitFlag 0.34), WIPRO (OverfitFlag 0.43), HDFCBANK (NegFoldFlag). Marcus standing order (2026-05-04): "the parameter is not the issue; the gate threshold is the question." Owner: Marcus (algo-trading-veteran). Unblocked 2026-05-04: TASK-0068 complete — SMA crossover killed at universe gate (zero sufficient instruments), no SMA survivors to affect gate-design precedent.
+  - [ ] Run `cmd/correlate` for all surviving strategy × instrument pairs from TASK-0054 (full equity curves)
+  - [ ] Apply correlation gate (from TASK-0049): full-period r < 0.7 AND stress-period r < 0.6 for every pair in the final portfolio
+  - [ ] If two strategies are correlated and from the same edge bucket, keep only the higher-DSR-Sharpe one
+  - [ ] Select 2-4 uncorrelated survivors for the portfolio
+  - [ ] Define capital allocation per strategy: combined portfolio targets ~10% annualized vol using `SizingVolatilityTarget`
+  - [ ] Record portfolio composition and sizing rule in `decisions/algorithm/`
+  - [ ] Record excluded strategies with reasons (correlation, gate failure, or sizing constraint)
+- **Notes:** Unblocked 2026-05-05 (TASK-0054 complete). 4 MACD survivors: SBIN, BAJFINANCE, TITAN, ICICIBANK. SBIN/ICICIBANK pair flagged — likely |r| > 0.70 (both Nifty50 banking). Run pairwise Pearson before sizing. At ₹3 lakh total capital with vol-targeting, each strategy typically receives 20-50% of capital depending on realized volatility. No leverage at this stage. Owner: Marcus (algo-trading-veteran).
+  ```json
+  {
+    "survivor_input_from": "TASK-0069",
+    "results_file": "runs/bootstrap-macd-2026-05-05/",
+    "survivors": [
+      {"strategy": "macd-crossover", "instrument": "NSE:SBIN",      "metrics": {"SharpeP5": 0.0719, "SharpeP50": 0.3195, "SharpeP95": 0.5551, "ProbPositiveSharpe": 98.0}},
+      {"strategy": "macd-crossover", "instrument": "NSE:BAJFINANCE","metrics": {"SharpeP5": 0.0467, "SharpeP50": 0.2526, "SharpeP95": 0.4171, "ProbPositiveSharpe": 97.3}},
+      {"strategy": "macd-crossover", "instrument": "NSE:TITAN",     "metrics": {"SharpeP5": 0.0854, "SharpeP50": 0.3102, "SharpeP95": 0.5323, "ProbPositiveSharpe": 98.7}},
+      {"strategy": "macd-crossover", "instrument": "NSE:ICICIBANK", "metrics": {"SharpeP5": 0.0229, "SharpeP50": 0.2489, "SharpeP95": 0.4579, "ProbPositiveSharpe": 96.2}}
+    ]
+  }
+  ```
 
 ---
 
@@ -84,27 +98,6 @@
 
 ---
 
-### [TASK-0070] Tooling — `cmd/fetch-history` CLI for bulk intraday historical data
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-04
-- **Source:** session
-- **Context:** Zerodha Kite serves 5-min data back to ~2015 (confirmed from official developer forum). Per-request limit is 100 days per call, but total depth is ~10 years. Existing `FetchCandles` + `chunkDateRange` already handle multi-request fetching automatically. A one-shot CLI to drain full history for all instruments in a universe YAML — writing to the existing `CachedProvider` disk cache — enables all future intraday backtests to run from local files without a Zerodha token.
-- **Acceptance criteria:**
-  - [ ] `cmd/fetch-history/main.go` CLI: flags `--universe`, `--timeframe` (repeatable), `--from`, `--cache-dir`, `--api-key`, `--access-token` (or KITE_API_KEY / KITE_ACCESS_TOKEN env vars matching existing CLI convention)
-  - [ ] Reads universe YAML, iterates instruments × timeframes, calls `FetchCandles` for `[--from, today)`
-  - [ ] Writes results via `CachedProvider` (existing `pkg/provider/zerodha/cache/`) so cache keys match what `cmd/backtest` and `cmd/universe-sweep` expect
-  - [ ] Incremental: uses `CachedProvider.LastCachedTime()` (from TASK-0080) to skip already-fetched ranges; fetches only delta from last cached date to today
-  - [ ] Partial-failure recovery: on fetch error, writes `fetch-manifest.json` recording last successfully fetched instrument+timeframe+date; subsequent runs resume from manifest rather than restarting from `--from`
-  - [ ] Progress logging: prints `instrument × timeframe: fetched N candles [from → to]` per chunk so long runs are observable
-  - [ ] Dry-run flag `--dry-run`: prints what would be fetched without hitting the API
-  - [ ] Auth flags and env var fallback covered by tests (mock provider in tests)
-  - [ ] Tests written before implementation (TDD); at minimum: dry-run output, partial-failure manifest write, resume-from-manifest
-- **Notes:** Owner: Priya (dev). Blocked at runtime on Zerodha access token — no code blocker. Incremental delta fetch depends on TASK-0080 (CachedProvider manifest). Until TASK-0080 is complete, fetch-history CLI fetches full range from --from on every run (no incremental mode). First run for Nifty50 × 5-min × 2015→today ≈ 15 instruments × 30 chunks × 350ms = ~2.5 min.
-
----
-
 ### [TASK-0078] Infrastructure — session-boundary utilities for intraday strategies
 
 - **Status:** todo
@@ -124,6 +117,46 @@
 
 ---
 
+### [TASK-0081] Bug — `zerodha.NewProvider` requires live token even when all candle data is cached
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-05
+- **Source:** session
+- **Context:** `zerodha.NewProvider` unconditionally downloads the instruments CSV via `kite.Instruments()` at construction time, requiring a valid Zerodha access token even when all requested candle data is already in the local disk cache. This blocked the TASK-0069 bootstrap session mid-run after token expiry — all 9 instruments' candle data was cached but the provider refused to construct. Every automated evaluation run is exposed to this: a token expiry halts the entire pipeline even for fully-cached datasets.
+- **Acceptance criteria:**
+  - [ ] Instruments CSV is cached locally (e.g. `.cache/zerodha/instruments.csv`) alongside candle data; cache is considered fresh if file age < 24h
+  - [ ] `zerodha.NewProvider`: if a fresh cached instruments CSV exists, load from disk and skip the `kite.Instruments()` network call entirely — no valid token required for cached runs
+  - [ ] If the cached CSV is absent or stale (>24h), fetch from Kite as today (token required); write result to cache before returning
+  - [ ] **Chunk completeness validation**: when `FetchCandles` issues multiple chunked requests to cover a long date range, validate after merge that the returned candle count is consistent with expected trading days for that range (±5% tolerance for holidays/gaps); if count is below threshold, return a typed error `ErrIncompleteData{instrument, from, to, expected, got}` rather than silently returning a short slice
+  - [ ] Existing `CachedProvider` path unchanged — cache-hit still bypasses all network calls
+  - [ ] `golangci-lint run ./pkg/provider/...` and `go1.25.0 test -race ./pkg/provider/...` pass
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Priya (dev). `ErrIncompleteData` must be a typed error so callers can distinguish "no data" from "partial data". Expected candle count: `(to - from).TradingDays() * candlesPerDay` using simple weekday count (±5% covers NSE holidays).
+
+---
+
+### [TASK-0070] Tooling — `cmd/fetch-history` CLI for bulk intraday historical data
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-04
+- **Source:** session
+- **Context:** Zerodha Kite serves 5-min data back to ~2015 (confirmed from official developer forum). Per-request limit is 100 days per call, but total depth is ~10 years. Existing `FetchCandles` + `chunkDateRange` already handle multi-request fetching automatically. A one-shot CLI to drain full history for all instruments in a universe YAML — writing to the existing `CachedProvider` disk cache — enables all future intraday backtests to run from local files without a Zerodha token.
+- **Acceptance criteria:**
+  - [ ] `cmd/fetch-history/main.go` CLI: flags `--universe`, `--timeframe` (repeatable), `--from`, `--cache-dir`, `--api-key`, `--access-token` (or KITE_API_KEY / KITE_ACCESS_TOKEN env vars matching existing CLI convention)
+  - [ ] Reads universe YAML, iterates instruments × timeframes, calls `FetchCandles` for `[--from, today)`
+  - [ ] Writes results via `CachedProvider` (existing `pkg/provider/zerodha/cache/`) so cache keys match what `cmd/backtest` and `cmd/universe-sweep` expect
+  - [ ] Incremental: uses `CachedProvider.LastCachedTime()` (from TASK-0080) to skip already-fetched ranges; fetches only delta from last cached date to today
+  - [ ] Partial-failure recovery: on fetch error, writes `fetch-manifest.json` recording last successfully fetched instrument+timeframe+date; subsequent runs resume from manifest rather than restarting from `--from`
+  - [ ] Progress logging: prints `instrument × timeframe: fetched N candles [from → to]` per chunk so long runs are observable
+  - [ ] Dry-run flag `--dry-run`: prints what would be fetched without hitting the API
+  - [ ] Auth flags and env var fallback covered by tests (mock provider in tests)
+  - [ ] Tests written before implementation (TDD); at minimum: dry-run output, partial-failure manifest write, resume-from-manifest
+- **Notes:** Owner: Priya (dev). Blocked at runtime on Zerodha access token — no code blocker. Incremental delta fetch depends on TASK-0080 (CachedProvider manifest). Until TASK-0080 is complete, fetch-history CLI fetches full range from --from on every run (no incremental mode).
+
+---
+
 ### [TASK-0073] Tooling — end-to-end automated evaluation pipeline (`cmd/evaluate`)
 
 - **Status:** todo
@@ -139,13 +172,107 @@
   - [ ] Summary `verdict.json` written at end: lists survivors with gate results, kills with stage and reason
   - [ ] Existing gate thresholds unchanged — no new methodology; parameter search is a separate CLI (TASK-0077)
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). The parameter-sweep mode must enforce DSR-corrected ranking — not raw Sharpe maximization — to avoid being a professional overfitting engine. Marcus's standing order: parameter search on training window only, DSR-corrected rank, OOS untouched during search.
+- **Notes:** Owner: Priya (dev). The parameter-sweep mode must enforce DSR-corrected ranking — not raw Sharpe maximization. Marcus's standing order: parameter search on training window only, DSR-corrected rank, OOS untouched during search.
 
 ---
 
 ## Blocked
 
 <!-- Waiting on something. Each task must state what it's blocked by. -->
+
+### [TASK-0056] Evaluation — pre-live brief: kill-switch thresholds and go/no-go sign-off
+
+- **Status:** blocked
+- **Priority:** high
+- **Created:** 2026-04-25
+- **Source:** session
+- **Blocked by:** TASK-0055, TASK-0048 (cmd/monitor must exist for weekly monitoring cadence)
+- **Context:** The final checkpoint before any live capital is allocated. Documents specific kill-switch thresholds, capital allocation, and the explicit go/no-go verdict for each portfolio strategy. No strategy goes live without this document existing and dated before the first trade.
+- **Acceptance criteria:**
+  - [ ] For each portfolio strategy: kill-switch thresholds recorded — SharpeP5 threshold (from TASK-0054), MaxDrawdownPct (1.5× in-sample worst), MaxDDDuration (2× in-sample worst)
+  - [ ] Thresholds written to `decisions/algorithm/YYYY-MM-DD-kill-switch-{strategy}.md` before first trade
+  - [ ] Capital allocation per strategy documented in ₹ and % of ₹3 lakh total
+  - [ ] Monitoring cadence documented: weekly kill-switch check via `cmd/monitor`
+  - [ ] Explicit go/no-go verdict per strategy: APPROVED FOR LIVE or NOT APPROVED with specific reason
+  - [ ] Algo reviewer acknowledgement noted in the brief
+- **Notes:** Aggregates outputs from TASK-0049 through TASK-0055. Cannot be done in isolation. No strategy goes live without this document. Owner: Marcus (algo-trading-veteran).
+
+---
+
+### [TASK-0046] Engine — session-boundary support for intraday backtesting
+
+- **Status:** blocked
+- **Priority:** high
+- **Created:** 2026-04-25
+- **Source:** session
+- **Blocked by:** MIS strategies only — forced session close is not needed for CNC 2-3 day holds (the current intraday focus). TASK-0046 becomes relevant only if MIS (same-day close) strategies are built. Methodology questions resolved: Marcus answered both in session 2026-04-25 (Decision 2026-04.3.0: forced-close at 3:15 PM bar Close; Decision 2026-04.3.1: session detection via IST timestamp ≥ 15:15). Ready to build when MIS strategy work begins.
+- **Context:** The engine event loop has no concept of a trading session. For intraday (MIS) strategies, any open position must be closed by 3:15 PM IST or Zerodha auto-squares it at a random market price. Without this logic, intraday backtests are invalid.
+- **Acceptance criteria:**
+  - [ ] `SessionConfig` struct added: `Exchange string`, `Timezone *time.Location`, `SessionEndTime time.Time` (local time-of-day)
+  - [ ] `engine.Config` gains optional `Session *SessionConfig` (nil = no session boundary, current behavior preserved)
+  - [ ] `isLastBarOfSession(bar model.Candle, cfg *SessionConfig) bool` helper in `internal/engine/`
+  - [ ] Event loop: after applying pending signal, if `isLastBarOfSession` returns true and a position is open, force-close at the configured fill price
+  - [ ] Golden test: 2-day intraday candle series with position open at session end → forced close on day 1, correct equity and trade log
+  - [ ] Timezone-aware tests covering IST session boundaries
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Significant engine change. Golden tests mandatory for any event loop modification. `Session *SessionConfig` being optional (nil pointer) preserves all existing daily-bar tests without modification.
+
+---
+
+### [TASK-0048] Tooling — weekly kill-switch monitor (`cmd/monitor`)
+
+- **Status:** blocked
+- **Priority:** high
+- **Created:** 2026-04-25
+- **Source:** session
+- **Blocked by:** Trade log file format decision required. The engine currently outputs `model.Trade` structs to JSON via `cmd/backtest --out`. A weekly monitor needs a file format for live trades that accumulates across sessions. Decision needed: reuse the existing JSON format, or define a separate append-only CSV schema for live trade records.
+- **Context:** Marcus specified weekly kill-switch monitoring (not quarterly re-validation). The existing `analytics.CheckKillSwitch()` and `DeriveKillSwitchThresholds()` functions are ready. This task wires them into a runnable binary that reads live trade history and thresholds, outputs alert status, and can be cron-scheduled.
+- **Acceptance criteria:**
+  - [ ] Trade log file format decided and documented (decision record in `decisions/`)
+  - [ ] `cmd/monitor/main.go` reads: (1) live trade log in the agreed format, (2) kill-switch thresholds JSON produced by `DeriveKillSwitchThresholds`
+  - [ ] Calls `analytics.CheckKillSwitch(recentTrades, liveCurve, thresholds)`
+  - [ ] Prints clear alert status: `OK`, `HALT (Sharpe breached)`, `HALT (drawdown breached)`, `HALT (duration breached)`
+  - [ ] Exit code 0 if OK, non-zero if any threshold breached (enables shell scripting / cron alerting)
+  - [ ] Tests: known trade sequence crossing each threshold type → correct alert output and exit code
+
+---
+
+### [TASK-0074] Strategy — Opening Range Breakout (5-min, CNC overnight hold)
+
+- **Status:** blocked
+- **Priority:** medium
+- **Created:** 2026-05-04
+- **Source:** session
+- **Blocked by:** Marcus (algo-trading-veteran) must define entry/exit rules before implementation
+- **Context:** Intraday strategy for 5-min bars with 2-3 day CNC holds. Thesis: the first 30-60 minutes of the NSE session define price discovery; a clean breakout from that range in the first hour tends to persist intraday and sometimes into the next session. TimedExit wrapper provides the N-day time-stop for flat/sideways positions.
+- **Acceptance criteria:**
+  - [ ] Marcus (algo-trading-veteran) rules on whether strategy is long-only or bidirectional — decision recorded in `decisions/algorithm/` before implementation begins
+  - [ ] Marcus defines: range window duration (30 / 45 / 60 min), breakout confirmation method (close above/below? volume threshold?), time-stop N (days), position sizing rule
+  - [ ] `strategies/orb/` package implementing `Strategy` interface: range computed from first N 5-min bars using `IsSessionOpen()` from TASK-0078, long on close above high, exit on time-stop or target
+  - [ ] Uses `pkg/strategy/timed_exit.go` wrapper for N-day time-stop
+  - [ ] CLI registered in all strategy registries (`cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`)
+  - [ ] All public functions tested; golden test for range computation and signal generation
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0071 (gap handling verified), TASK-0059 (walk-forward factory API), and TASK-0078 (session-boundary utilities) before implementation begins.
+
+---
+
+### [TASK-0075] Strategy — Gap-and-Go (5-min, CNC overnight hold)
+
+- **Status:** blocked
+- **Priority:** medium
+- **Created:** 2026-05-04
+- **Source:** session
+- **Blocked by:** Marcus (algo-trading-veteran) must define entry/exit rules before implementation
+- **Context:** Intraday strategy for 5-min bars with 1-2 day CNC holds. Thesis: NSE large/midcap stocks opening 1-2%+ above/below prior close on above-average volume tend to continue in the gap direction for 1-2 sessions before reversion. Captures institutional order flow from overnight news. TimedExit provides the time-stop if the move stalls.
+- **Acceptance criteria:**
+  - [ ] Marcus defines: gap threshold % (e.g. 1.0%), volume threshold (e.g. 1.5× 20-day average), entry bar (open of gap bar? first 5-min close?), time-stop N (days)
+  - [ ] `strategies/gapandgo/` package implementing `Strategy` interface: computes prior close from last bar of previous session, detects gap condition on first bar of new session, enters in gap direction
+  - [ ] Uses `pkg/strategy/timed_exit.go` wrapper for N-day time-stop
+  - [ ] CLI registered in all strategy registries
+  - [ ] All public functions tested; golden test covering gap-up enter, gap-down enter, no-gap skip
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Requires TASK-0071 (gap handling verified) and TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here). Long-only initially.
 
 ---
 
@@ -169,191 +296,27 @@
 
 ---
 
-### [TASK-0074] Strategy — Opening Range Breakout (5-min, CNC overnight hold)
-
-- **Status:** blocked
-- **Priority:** medium
-- **Created:** 2026-05-04
-- **Source:** session
-- **Blocked by:** Marcus (algo-trading-veteran) must define entry/exit rules before implementation
-- **Context:** Intraday strategy for 5-min bars with 2-3 day CNC holds. Thesis: the first 30-60 minutes of the NSE session define price discovery; a clean breakout from that range in the first hour tends to persist intraday and sometimes into the next session. TimedExit wrapper provides the N-day time-stop for flat/sideways positions.
-- **Acceptance criteria:**
-  - [ ] Marcus (algo-trading-veteran) rules on whether strategy is long-only or bidirectional — decision recorded in `decisions/algorithm/` before implementation begins
-  - [ ] Marcus defines: range window duration (30 / 45 / 60 min), breakout confirmation method (close above/below? volume threshold?), time-stop N (days), position sizing rule
-  - [ ] `strategies/orb/` package implementing `Strategy` interface: range computed from first N 5-min bars using `IsSessionOpen()` from TASK-0078, long on close above high, exit on time-stop or target
-  - [ ] Uses `pkg/strategy/timed_exit.go` wrapper for N-day time-stop
-  - [ ] CLI registered in all strategy registries (`cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`)
-  - [ ] All public functions tested; golden test for range computation and signal generation
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0071 (gap handling verified), TASK-0059 (walk-forward factory API), and TASK-0078 (session-boundary utilities) before implementation begins. Long-only vs bidirectional must be resolved by Marcus before build.
-
----
-
-### [TASK-0075] Strategy — Gap-and-Go (5-min, CNC overnight hold)
-
-- **Status:** blocked
-- **Priority:** medium
-- **Created:** 2026-05-04
-- **Source:** session
-- **Blocked by:** Marcus (algo-trading-veteran) must define entry/exit rules before implementation
-- **Context:** Intraday strategy for 5-min bars with 1-2 day CNC holds. Thesis: NSE large/midcap stocks opening 1-2%+ above/below prior close on above-average volume tend to continue in the gap direction for 1-2 sessions before reversion. Captures institutional order flow from overnight news. TimedExit provides the time-stop if the move stalls.
-- **Acceptance criteria:**
-  - [ ] Marcus defines: gap threshold % (e.g. 1.0%), volume threshold (e.g. 1.5× 20-day average), entry bar (open of gap bar? first 5-min close?), time-stop N (days)
-  - [ ] `strategies/gapandgo/` package implementing `Strategy` interface: computes prior close from last bar of previous session, detects gap condition on first bar of new session, enters in gap direction
-  - [ ] Uses `pkg/strategy/timed_exit.go` wrapper for N-day time-stop
-  - [ ] CLI registered in all strategy registries
-  - [ ] All public functions tested; golden test covering gap-up enter, gap-down enter, no-gap skip
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Requires TASK-0071 (gap handling verified) and TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here). Long-only initially.
-
----
-
-### [TASK-0054] Evaluation — Monte Carlo bootstrap on walk-forward survivors
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** TASK-0053 (pipeline terminated — see Notes)
-- **Context:** Bootstrap produces the confidence interval on the Sharpe estimate and the kill-switch Sharpe threshold. A strategy with a high point-estimate Sharpe but wide bootstrap distribution (low p5) has too much sampling variance to trust with real capital. The p5 Sharpe from this run becomes the live kill-switch threshold, not a round number.
-- **Acceptance criteria:**
-  - [ ] Run `cmd/backtest --bootstrap` for each surviving strategy × instrument pair from TASK-0053, 10,000 simulations
-  - [ ] Apply bootstrap gate (from TASK-0049): SharpeP5 > 0 AND P(Sharpe > 0) > 80%
-  - [ ] Record for each survivor: SharpeP5, SharpeP50, SharpeP95, ProbPositiveSharpe, WorstDrawdownP95
-  - [ ] SharpeP5 value recorded as the kill-switch Sharpe threshold for that strategy × instrument pair — this feeds directly into TASK-0056
-  - [ ] Kill strategies failing the bootstrap gate; record kill decision in `decisions/algorithm/`
-  - [ ] Bootstrap seed logged with every result for reproducibility
-- **Notes:** Bootstrap Sharpe is per-trade non-annualized per 2026-04-20 decision. Kill-switch comparison must use the identical formula. Owner: Marcus (algo-trading-veteran).
-
-  PIPELINE TERMINATED: TASK-0053 produced 0 survivors. User chose Option B (parameter re-run) and Option A (gate-design review). Active remediation: TASK-0068 runs SMA at fast=20/slow=50 (new params, pre-committed revisit trigger). TASK-0069 escalates MACD instrument-count gate to Marcus. TASK-0054 unblocks if either remediation produces survivors. Kill records: `decisions/algorithm/2026-05-04-macd-crossover-walk-forward-instrument-count-gate.md`, `decisions/algorithm/2026-05-04-sma-crossover-walk-forward-instrument-count-gate.md`.
-
-```json
-{
-  "survivor_input_from": "TASK-0053",
-  "results_file": "runs/walk-forward-2026-05-04.csv",
-  "survivors": []
-}
-```
-
----
-
-### [TASK-0055] Evaluation — cross-strategy correlation and portfolio construction
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** TASK-0054
-- **Context:** Selects the final portfolio from bootstrap survivors. Two correlated strategies do not provide diversification — they add correlated risk, especially in the stress periods (2020, 2022) when diversification is most needed. The portfolio at ₹3 lakh targets ~10% annualized vol using vol-targeting sizing per strategy.
-- **Acceptance criteria:**
-  - [ ] Run `cmd/correlate` for all surviving strategy × instrument pairs from TASK-0054 (full equity curves)
-  - [ ] Apply correlation gate (from TASK-0049): full-period r < 0.7 AND stress-period r < 0.6 for every pair in the final portfolio
-  - [ ] If two strategies are correlated and from the same edge bucket, keep only the higher-DSR-Sharpe one
-  - [ ] Select 2-4 uncorrelated survivors for the portfolio
-  - [ ] Define capital allocation per strategy: combined portfolio targets ~10% annualized vol using `SizingVolatilityTarget`
-  - [ ] Record portfolio composition and sizing rule in `decisions/algorithm/`
-  - [ ] Record excluded strategies with reasons (correlation, gate failure, or sizing constraint)
-- **Notes:** At ₹3 lakh total capital with vol-targeting, each strategy typically receives 20-50% of capital depending on realized volatility. No leverage at this stage. Owner: Marcus (algo-trading-veteran).
-
----
-
-### [TASK-0056] Evaluation — pre-live brief: kill-switch thresholds and go/no-go sign-off
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** TASK-0055, TASK-0048 (cmd/monitor must exist for weekly monitoring cadence)
-- **Context:** The final checkpoint before any live capital is allocated. Documents specific kill-switch thresholds, capital allocation, and the explicit go/no-go verdict for each portfolio strategy. No strategy goes live without this document existing and dated before the first trade. This is what the algo reviewer signs.
-- **Acceptance criteria:**
-  - [ ] For each portfolio strategy: kill-switch thresholds recorded — SharpeP5 threshold (from TASK-0054), MaxDrawdownPct (1.5× in-sample worst), MaxDDDuration (2× in-sample worst)
-  - [ ] Thresholds written to `decisions/algorithm/YYYY-MM-DD-kill-switch-{strategy}.md` before first trade
-  - [ ] Capital allocation per strategy documented in ₹ and % of ₹3 lakh total
-  - [ ] Monitoring cadence documented: weekly kill-switch check via `cmd/monitor`
-  - [ ] Explicit go/no-go verdict per strategy: APPROVED FOR LIVE or NOT APPROVED with specific reason
-  - [ ] Algo reviewer acknowledgement noted in the brief
-- **Notes:** Aggregates outputs from TASK-0049 through TASK-0055. Cannot be done in isolation. No strategy goes live without this document. The live period (2025 onward) is the true holdout — the walk-forward OOS windows are the proxy for out-of-sample evidence. Owner: Marcus (algo-trading-veteran).
-
----
-
-### [TASK-0046] Engine — session-boundary support for intraday backtesting
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** MIS strategies only — forced session close is not needed for CNC 2-3 day holds (the current intraday focus). TASK-0046 becomes relevant only if MIS (same-day close) strategies are built. Methodology questions resolved: Marcus answered both in session 2026-04-25 (Decision 2026-04.3.0: forced-close at 3:15 PM bar Close; Decision 2026-04.3.1: session detection via IST timestamp ≥ 15:15). Ready to build when MIS strategy work begins.
-- **Context:** The engine event loop has no concept of a trading session. For intraday (MIS) strategies, any open position must be closed by 3:15 PM IST or Zerodha auto-squares it at a random market price. Without this logic, intraday backtests are invalid.
-- **Acceptance criteria:**
-  - [ ] `SessionConfig` struct added: `Exchange string`, `Timezone *time.Location`, `SessionEndTime time.Time` (local time-of-day)
-  - [ ] `engine.Config` gains optional `Session *SessionConfig` (nil = no session boundary, current behavior preserved)
-  - [ ] `isLastBarOfSession(bar model.Candle, cfg *SessionConfig) bool` helper in `internal/engine/`
-  - [ ] Event loop: after applying pending signal, if `isLastBarOfSession` returns true and a position is open, force-close at the configured fill price
-  - [ ] Golden test: 2-day intraday candle series with position open at session end → forced close on day 1, correct equity and trade log
-  - [ ] Timezone-aware tests covering IST session boundaries
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** This is a significant engine change. Golden tests are mandatory for any event loop modification per repo standards. The `Session *SessionConfig` being optional (nil pointer) preserves all existing daily-bar tests without modification.
-
----
-
-### [TASK-0048] Tooling — weekly kill-switch monitor (`cmd/monitor`)
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** Trade log file format decision required. The engine currently outputs `model.Trade` structs to JSON via `cmd/backtest --out`. A weekly monitor needs a file format for live trades that accumulates across sessions. Decision needed: reuse the existing JSON format, or define a separate append-only CSV schema for live trade records.
-- **Context:** Marcus specified weekly kill-switch monitoring (not quarterly re-validation). The existing `analytics.CheckKillSwitch()` and `DeriveKillSwitchThresholds()` functions are ready. This task wires them into a runnable binary that reads live trade history and thresholds, outputs alert status, and can be cron-scheduled.
-- **Acceptance criteria:**
-  - [ ] Trade log file format decided and documented (decision record in `decisions/`)
-  - [ ] `cmd/monitor/main.go` reads: (1) live trade log in the agreed format, (2) kill-switch thresholds JSON produced by `DeriveKillSwitchThresholds`
-  - [ ] Calls `analytics.CheckKillSwitch(recentTrades, liveCurve, thresholds)`
-  - [ ] Prints clear alert status: `OK`, `HALT (Sharpe breached)`, `HALT (drawdown breached)`, `HALT (duration breached)`
-  - [ ] Exit code 0 if OK, non-zero if any threshold breached (enables shell scripting / cron alerting)
-  - [ ] Tests: known trade sequence crossing each threshold type → correct alert output and exit code
-
----
-
 ## Todo (Backlog)
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
 
-### [TASK-0057] Engine — migrate accounting layer from float64 to shopspring/decimal
+### [TASK-0082] Tech debt — `cmd/backtest --bootstrap` output JSON missing distribution stats
 
 - **Status:** todo
-- **Priority:** low
-- **Created:** 2026-04-25
-- **Source:** decision
-- **Context:** The commission arithmetic in `commission.go` and the broader accounting layer (Portfolio.cash, Trade.RealizedPnL, Trade.Commission, EquityPoint.Value) all use float64. Accumulated rounding errors are negligible for backtesting but not acceptable for live execution accounting. This migration must be coordinated — partial decimal adoption creates a worse inconsistency than uniform float64.
-- **Acceptance criteria:**
-  - [ ] `shopspring/decimal` added to `go.mod` (requires explicit approval per CLAUDE.md no-new-deps rule — confirm before implementation)
-  - [ ] `commission.go` migrated: all intermediate calculations use `decimal.Decimal`; final return values converted to float64 only at the portfolio accounting boundary
-  - [ ] `portfolio.go`: `cash` field migrated to `decimal.Decimal`
-  - [ ] `pkg/model/trade.go`: `RealizedPnL`, `Commission` fields migrated to `decimal.Decimal`
-  - [ ] `pkg/model/equity.go`: `EquityPoint.Value` migrated to `decimal.Decimal`
-  - [ ] All existing tests pass with race detector after migration
-  - [ ] Golden tests in `commission_zerodha_full_test.go` updated to use exact decimal comparisons
-  - [ ] Benchmark (`BenchmarkEngineRun`) remains within 1ms/op budget after migration
-- **Notes:** This is a coordinated migration — do not migrate commission.go alone. Deferred from TASK-0038 per decision `2026-04-25-float64-for-commission-arithmetic`. The `shopspring/decimal` dependency must be discussed with the user before implementation per the no-new-dependencies rule in CLAUDE.md. Do not start until that discussion has happened.
-
----
-
-### [TASK-0037] Rigor — bootstrap re-run to fill kill-switch p5 Sharpe thresholds
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-04-21
+- **Priority:** medium
+- **Created:** 2026-05-05
 - **Source:** session
-- **Context:** TASK-0026 documented drawdown and duration kill-switch thresholds for SMA crossover and RSI mean-reversion, but the bootstrap p5 Sharpe threshold is PENDING for both. The CLI commands are ready; the Zerodha token needs to be refreshed to run them.
+- **Context:** `cmd/backtest --bootstrap` prints bootstrap distribution stats (SharpeP5, SharpeP50, SharpeP95, ProbPositiveSharpe, WorstDrawdownP95) to stdout only. The output JSON written to `--out` contains only standard backtest metrics. The evaluation-run pipeline agent had to parse stdout to capture these stats during TASK-0069 — fragile, breaks if stdout format changes, and prevents machine-readable audit trails. These fields belong in the JSON output alongside standard metrics.
 - **Acceptance criteria:**
-  - [ ] Run `go run ./cmd/backtest --strategy sma-crossover ... --bootstrap` (full command in `decisions/algorithm/2026-04-21-kill-switch-sma-crossover.md`)
-  - [ ] Run `go run ./cmd/backtest --strategy rsi-mean-reversion ... --bootstrap` (full command in `decisions/algorithm/2026-04-21-kill-switch-rsi-mean-reversion.md`)
-  - [ ] Paste the `Per-trade Sharpe p5` value from each run into the respective decision file, replacing `PENDING`
-  - [ ] Update decision file status from `accepted` (PENDING) to reflect actual values
-- **Notes:** Both strategies failed the proliferation gate — these thresholds are reference values, not live deployment approval. With only 7 and 22 trades respectively, the p5 Sharpe will have wide confidence intervals. Document that caveat alongside the values.
+  - [ ] `internal/output/` result struct extended with bootstrap fields: `BootstrapSharpeP5`, `BootstrapSharpeP50`, `BootstrapSharpeP95`, `BootstrapProbPositiveSharpe`, `BootstrapWorstDrawdownP95`, `BootstrapN`, `BootstrapSeed` — zero-valued when bootstrap not run
+  - [ ] `cmd/backtest --bootstrap` populates these fields and writes them to the `--out` JSON
+  - [ ] Existing non-bootstrap JSON output unchanged (zero-value fields are omitted with `omitempty`)
+  - [ ] Stdout summary output unchanged — still printed as today
+  - [ ] `golangci-lint run ./...` and `go1.25.0 test -race ./...` pass
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Priya (dev). Zero-value bootstrap fields must use `omitempty` so existing consumers of non-bootstrap JSON are not broken. `BootstrapN` and `BootstrapSeed` are required for reproducibility — without seed, the JSON result cannot be independently verified.
 
 ---
-
 
 ### [TASK-0058] Tooling — fix cyclomatic complexity in `cmd/rsi-diagnostic/main.go`
 
@@ -367,23 +330,6 @@
   - [ ] `go1.25.0 test -race ./...` still passes
   - [ ] No behavioral changes — refactor only
 - **Notes:** The same cyclop issue does NOT exist in cmd/backtest or cmd/sweep after TASK-0043 refactored sweep's factoryRegistry. rsi-diagnostic is the only remaining offender.
-
----
-
-### [TASK-0061] Tooling — extend `cmd/sweep2d` factoryRegistry to all 6 strategies
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-04-27
-- **Source:** session
-- **Context:** `cmd/sweep2d/main.go` was built in TASK-0044 with `sma-crossover` and `rsi-mean-reversion` only ("extend as new strategies land"). The remaining four strategies (donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum) need 2D axis mappings added to `factoryRegistry2D`. The `fixedParams` struct is also duplicated between `cmd/sweep` and `cmd/sweep2d` — each new strategy requires updating both files. Consider extracting to `internal/cmdutil` or a shared cmd-layer type at this point.
-- **Acceptance criteria:**
-  - [ ] `factoryRegistry2D` in `cmd/sweep2d/main.go` handles all 6 strategies
-  - [ ] Axis mappings documented in code comments: donchian (p1=period, p2=tbd), macd (p1=fast, p2=slow), bollinger (p1=period, p2=num-std-dev), momentum (p1=lookback, p2=threshold)
-  - [ ] `fixedParams` struct duplication between `cmd/sweep` and `cmd/sweep2d` resolved — either extracted to shared location or duplication accepted with a comment
-  - [ ] All new factory paths covered by `TestFactoryRegistry2D_KnownStrategies`
-  - [ ] `golangci-lint run ./cmd/sweep2d/...` still passes
-- **Notes:** Donchian has only one meaningful sweep parameter (period) — its p2 axis is less obvious; defer the axis mapping decision until this task is picked up. The `fixedParams` duplication is a low-friction issue for now (2 files to update per new strategy) but compounds at 6 strategies.
 
 ---
 
@@ -401,26 +347,7 @@
   - [ ] `BenchmarkReport` computation wired to use `StaticCSVProvider` for the TRI benchmark when `--benchmark-tri` flag is set (or equivalent)
   - [ ] Tests written before implementation (TDD); `go1.25.0 test -race ./pkg/provider/csv/...` passes
   - [ ] `golangci-lint run ./pkg/provider/csv/...` passes
-- **Notes:** `StaticCSVProvider` should satisfy `provider.DataProvider` at compile time via a `var _ provider.DataProvider = (*StaticCSVProvider)(nil)` check. NSE CSV columns: Date, Open, High, Low, Close (or just Index Value for TRI — inspect the actual download first). TRI values will be in the 9,000–28,000 range for 2015–2024. No chunking, no auth, no rate limits needed. Follow-up to decision `2026-04-28-nifty-tri-benchmark-data-source.md`.
-
----
-
-### [TASK-0076] Model — add Timeframe30Min and Timeframe60Min
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-05-04
-- **Source:** session
-- **Context:** Kite Connect serves 30-min and 60-min bars. Neither is currently in `pkg/model/timeframe.go`. Adding them unblocks hourly-bar strategy testing — useful for strategies that need more resolution than daily but less noise than 5-min.
-- **Acceptance criteria:**
-  - [ ] `Timeframe30Min` and `Timeframe60Min` constants added to `pkg/model/timeframe.go` with correct `Duration()` implementations
-  - [ ] `maxDaysPerInterval` in `pkg/provider/zerodha/chunk.go` updated (Kite limits: 30-min ≈ 200 days, 60-min ≈ 400 days — verify against Kite docs before committing)
-  - [ ] `timeframeToInterval` and `SupportedTimeframes` in `pkg/provider/zerodha/provider.go` updated
-  - [ ] `provider_test.go` updated: supported timeframe count increases from 4 to 6
-  - [ ] `pkg/provider/zerodha/chunk_test.go` updated to include 30-min and 60-min chunk-window cases
-  - [ ] `golangci-lint run ./...` and `go1.25.0 test -race ./...` pass
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Small change — 3 files, ~20 lines total. Verify exact Kite API limits for 30-min and 60-min before setting chunk sizes.
+- **Notes:** `StaticCSVProvider` should satisfy `provider.DataProvider` at compile time via a `var _ provider.DataProvider = (*StaticCSVProvider)(nil)` check. NSE CSV columns: Date, Open, High, Low, Close (or just Index Value for TRI — inspect the actual download first). TRI values will be in the 9,000–28,000 range for 2015–2024. No chunking, no auth, no rate limits needed.
 
 ---
 
@@ -463,6 +390,78 @@
 
 ---
 
+### [TASK-0057] Engine — migrate accounting layer from float64 to shopspring/decimal
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-04-25
+- **Source:** decision
+- **Context:** The commission arithmetic in `commission.go` and the broader accounting layer (Portfolio.cash, Trade.RealizedPnL, Trade.Commission, EquityPoint.Value) all use float64. Accumulated rounding errors are negligible for backtesting but not acceptable for live execution accounting. This migration must be coordinated — partial decimal adoption creates a worse inconsistency than uniform float64.
+- **Acceptance criteria:**
+  - [ ] `shopspring/decimal` added to `go.mod` (requires explicit approval per CLAUDE.md no-new-deps rule — confirm before implementation)
+  - [ ] `commission.go` migrated: all intermediate calculations use `decimal.Decimal`; final return values converted to float64 only at the portfolio accounting boundary
+  - [ ] `portfolio.go`: `cash` field migrated to `decimal.Decimal`
+  - [ ] `pkg/model/trade.go`: `RealizedPnL`, `Commission` fields migrated to `decimal.Decimal`
+  - [ ] `pkg/model/equity.go`: `EquityPoint.Value` migrated to `decimal.Decimal`
+  - [ ] All existing tests pass with race detector after migration
+  - [ ] Golden tests in `commission_zerodha_full_test.go` updated to use exact decimal comparisons
+  - [ ] Benchmark (`BenchmarkEngineRun`) remains within 1ms/op budget after migration
+- **Notes:** Coordinated migration — do not migrate commission.go alone. Deferred from TASK-0038 per decision `2026-04-25-float64-for-commission-arithmetic`. `shopspring/decimal` dependency must be discussed with the user before implementation per the no-new-dependencies rule in CLAUDE.md.
+
+---
+
+### [TASK-0037] Rigor — bootstrap re-run to fill kill-switch p5 Sharpe thresholds
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-04-21
+- **Source:** session
+- **Context:** TASK-0026 documented drawdown and duration kill-switch thresholds for SMA crossover and RSI mean-reversion, but the bootstrap p5 Sharpe threshold is PENDING for both. The CLI commands are ready; the Zerodha token needs to be refreshed to run them.
+- **Acceptance criteria:**
+  - [ ] Run `go run ./cmd/backtest --strategy sma-crossover ... --bootstrap` (full command in `decisions/algorithm/2026-04-21-kill-switch-sma-crossover.md`)
+  - [ ] Run `go run ./cmd/backtest --strategy rsi-mean-reversion ... --bootstrap` (full command in `decisions/algorithm/2026-04-21-kill-switch-rsi-mean-reversion.md`)
+  - [ ] Paste the `Per-trade Sharpe p5` value from each run into the respective decision file, replacing `PENDING`
+  - [ ] Update decision file status from `accepted` (PENDING) to reflect actual values
+- **Notes:** Both strategies failed the proliferation gate — these thresholds are reference values, not live deployment approval. With only 7 and 22 trades respectively, the p5 Sharpe will have wide confidence intervals. Document that caveat alongside the values.
+
+---
+
+### [TASK-0061] Tooling — extend `cmd/sweep2d` factoryRegistry to all 6 strategies
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-04-27
+- **Source:** session
+- **Context:** `cmd/sweep2d/main.go` was built in TASK-0044 with `sma-crossover` and `rsi-mean-reversion` only ("extend as new strategies land"). The remaining four strategies (donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum) need 2D axis mappings added to `factoryRegistry2D`. The `fixedParams` struct is also duplicated between `cmd/sweep` and `cmd/sweep2d` — each new strategy requires updating both files. Consider extracting to `internal/cmdutil` or a shared cmd-layer type at this point.
+- **Acceptance criteria:**
+  - [ ] `factoryRegistry2D` in `cmd/sweep2d/main.go` handles all 6 strategies
+  - [ ] Axis mappings documented in code comments: donchian (p1=period, p2=tbd), macd (p1=fast, p2=slow), bollinger (p1=period, p2=num-std-dev), momentum (p1=lookback, p2=threshold)
+  - [ ] `fixedParams` struct duplication between `cmd/sweep` and `cmd/sweep2d` resolved — either extracted to shared location or duplication accepted with a comment
+  - [ ] All new factory paths covered by `TestFactoryRegistry2D_KnownStrategies`
+  - [ ] `golangci-lint run ./cmd/sweep2d/...` still passes
+- **Notes:** Donchian has only one meaningful sweep parameter (period) — its p2 axis is less obvious; defer the axis mapping decision until this task is picked up.
+
+---
+
+### [TASK-0076] Model — add Timeframe30Min and Timeframe60Min
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-04
+- **Source:** session
+- **Context:** Kite Connect serves 30-min and 60-min bars. Neither is currently in `pkg/model/timeframe.go`. Adding them unblocks hourly-bar strategy testing — useful for strategies that need more resolution than daily but less noise than 5-min.
+- **Acceptance criteria:**
+  - [ ] `Timeframe30Min` and `Timeframe60Min` constants added to `pkg/model/timeframe.go` with correct `Duration()` implementations
+  - [ ] `maxDaysPerInterval` in `pkg/provider/zerodha/chunk.go` updated (Kite limits: 30-min ≈ 200 days, 60-min ≈ 400 days — verify against Kite docs before committing)
+  - [ ] `timeframeToInterval` and `SupportedTimeframes` in `pkg/provider/zerodha/provider.go` updated
+  - [ ] `provider_test.go` updated: supported timeframe count increases from 4 to 6
+  - [ ] `pkg/provider/zerodha/chunk_test.go` updated to include 30-min and 60-min chunk-window cases
+  - [ ] `golangci-lint run ./...` and `go1.25.0 test -race ./...` pass
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Priya (dev). Small change — 3 files, ~20 lines total. Verify exact Kite API limits for 30-min and 60-min before setting chunk sizes.
+
+---
+
 ### [TASK-0036] Research tooling — Python notebooks layer + file contract
 
 - **Status:** todo
@@ -477,8 +476,7 @@
   - [ ] `notebooks/README.md` documents file contract: equity curve CSV schema, sweep CSV schema, analytics JSON schema, column names, timestamp format
   - [ ] `notebooks/requirements.txt` with pyarrow, pandas, matplotlib pinned
   - [ ] At least one working notebook: `notebooks/equity-curve.ipynb` reads `runs/<name>-curve.csv` and plots equity curve with regime shading
-- **Notes:** Depends on TASK-0029 (equity curve CSV output) for the first working notebook.
-  The file contract in README.md is the formal boundary — Python never feeds back into Go inputs.
+- **Notes:** Depends on TASK-0029 (equity curve CSV output) for the first working notebook. The file contract in README.md is the formal boundary — Python never feeds back into Go inputs.
 
 ---
 
