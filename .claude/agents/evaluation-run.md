@@ -198,13 +198,14 @@ Log: `[AUTO] Step 4 — Results at: <path>. Rows: <N>. Completeness: verified.`
 
 ## STEP 5 — Marcus Gate Review
 
-Call `Agent()` inline. Prompt:
+Spawn sub-agent via `Agent()` tool — do NOT run this inline in the orchestrator context. Fill the prompt template below and pass it as the Agent prompt:
 
 ```
-Invoke /algo-trading-veteran (Marcus). Apply gates to backtest results. Return JSON only.
+You are a step-agent. Invoke /algo-trading-veteran (Marcus). Apply gates to backtest results.
+Return JSON only — no surrounding text.
 
-Standing orders (read in full): <standing_order_files from Step 3>
-Context: <context_files from Step 3>
+Standing orders (read each file in full before applying): <standing_order_files from Step 3>
+Context files (background — Marcus may weigh these): <context_files from Step 3>
 
 TASK: <task_id> — <task_title>
 EVALUATE ONLY: <prior_gate_survivors>
@@ -212,24 +213,31 @@ SKIP (already killed): <killed_strategies>
 PRIOR CONTEXT: <strategy_prior_context or "none">
 
 GATES (all must pass):
-<gates array>
+<gates array — name + criteria verbatim>
 
 RESULTS FILE: <path> (<results_row_count> rows)
-<file contents or top 100 rows + "total: N">
+<paste full file contents, or top 100 rows + "total: N rows" if large>
 
-THRESHOLD RULE: prior decision threshold wins over AC threshold. Conflict unresolvable → set flag.
+BOOTSTRAP STATS (if bootstrap task — parsed from stdout; not in results file):
+<paste bootstrap_results block from session state JSON, keyed by instrument>
 
-FIXED PARAMS: window 2018-01-01–2024-01-01, universe nifty50-large-cap (15 instruments), commission zerodha_full, capital ₹3L at ~10% vol.
+THRESHOLD RULE: prior decision threshold wins over AC threshold. Unresolvable conflict → set flag.
+
+FIXED PARAMS: window 2018-01-01–2024-01-01, universe nifty50-large-cap (15 instruments),
+commission zerodha_full, capital ₹3L at ~10% vol.
 
 Marcus must:
-1. Apply every gate to every strategy; pass/fail with numeric evidence
+1. Apply every gate to every strategy/instrument; pass/fail with numeric evidence
 2. Bootstrap tasks: flag if any "go" strategy has SharpeP5 < 0
 3. Walk-forward tasks: kill if NegativeFoldCount > total_folds/2 (majority-negative overrides positive avg)
 4. Correlation: compute pairwise Pearson among survivors; flag |r| > 0.70 (informational, not kill)
-5. Per kill: record all gates passed before the kill gate (gates_passed_before_kill)
-6. Mark methodology calls as **Decision (topic) — algorithm: status**
+5. Per kill: record all gates passed before the kill gate in gates_passed_before_kill (required for provenance)
+6. Mark methodology calls as **Decision (topic) — algorithm: status** — ONLY for threshold choices,
+   gate design reasoning, or structural observations (e.g. "treating LT as gate kill not thesis kill").
+   Do NOT mark kill/go verdicts themselves — those are written structurally in Step 6a.
+   Duplicate marks and duplicate decision files will result if you mark the verdicts.
 
-Return JSON:
+Return ONLY this JSON:
 {
   "step": "marcus_gate_review",
   "verdict": {
@@ -237,27 +245,26 @@ Return JSON:
     "strategy_verdicts": [{
       "strategy": "<name>", "instrument": "<NSE:X|all>",
       "verdict": "go|kill",
-      "gate_failed": "<gate|null>",
+      "gate_failed": "<gate name|null>",
       "metric_value": "<value|null>",
       "gates_passed_before_kill": {"<gate>": "<value>"},
       "survivor_metrics": {
-        // bootstrap: SharpeP5, SharpeP50, SharpeP95, ProbPositiveSharpe, WorstDrawdownP95
-        // walk-forward: AvgInSampleSharpe, AvgOutOfSampleSharpe, OIS_ratio, NegativeFoldCount, TotalFoldCount
-        // universe-sweep: AvgDSRCorrectedSharpe, PassingInstrumentCount
+        "SharpeP5": 0.0, "SharpeP50": 0.0, "SharpeP95": 0.0,
+        "ProbPositiveSharpe": 0.0, "WorstDrawdownP95": 0.0
       }
     }],
     "correlation_flags": [{"strat_a": "<>", "strat_b": "<>", "correlation": "<r>"}],
-    "correlation_note": "<null or 'deferred — no return series'>",
+    "correlation_note": "<null or reason correlation deferred>",
     "portfolio_decisions": []
   },
-  "decision_marks": ["**Decision (...) — algorithm/...: ...**"],
+  "decision_marks": ["**Decision (...) — algorithm: ...**"],
   "flag": null
 }
 ```
 
 **Check `flag` first** → non-null = Hard STOP.
 
-**Spot-check**: grep results file for ≥3 strategies, verify Marcus's reported metric ±0.01 (Sharpe) / ±1 (counts). Mismatch → Hard STOP.
+**Spot-check**: verify Marcus's reported metric for ≥3 strategies against results file ±0.01 (Sharpe) / ±1 (counts). Mismatch → Hard STOP.
 
 Extract verdicts → `survivors`, `killed`, `survivor_metrics`, `survivor_correlation_flags`, `portfolio_decisions`. Log `[FLAGGED]` for correlation pairs. Append `decision_marks` to `decision_marks_pending`.
 
@@ -271,22 +278,77 @@ Log: `[AUTO] Step 5 — Survivors: N. Killed: N.`
 
 All writes via `Agent()`. Never write decision records or edit BACKLOG.md directly.
 
-**Kills**: decision-journal sub-agent. Category: `algorithm`, status: `rejected`. Include: strategy, gate_failed, metric_value, gates_passed_before_kill (required — provenance).
+### 6a — Decision journal: kills + survivors
 
-**Survivor metrics** (if any `survivor_metrics` non-empty): decision-journal sub-agent. Category: `algorithm`, status: `accepted`. Include all metrics.
+Spawn sub-agent via `Agent()`. Prompt:
 
-**Portfolio decisions** (if non-empty): decision-journal sub-agent. Category: `algorithm`, status: `accepted`.
+```
+You are a step-agent. Invoke /decision-journal in record mode. Write the following decisions
+to decisions/algorithm/ and update decisions/INDEX.md. Return JSON only.
 
-**BACKLOG**: task-manager sub-agent:
-1. Mark task done
-2. Unblock next pipeline task
-3. Append to next task Notes (machine-readable — Step 1 parses this):
+KILLS (status: rejected — one decision file per killed strategy×instrument):
+<for each kill in SESSION STATE killed array:>
+  Strategy: <name>, Instrument: <NSE:X|all>
+  Gate failed: <gate_failed>
+  Metric value: <metric_value>
+  Gates passed before kill: <gates_passed_before_kill — required, never omit>
+  Date: <today>
 
-```json
+SURVIVORS (status: accepted — one decision file covering all survivors):
+<survivor_metrics block from SESSION STATE>
+  Bootstrap seed: <seed>, N sims: <n>
+  Results file: <results_file>
+
+PORTFOLIO DECISIONS (status: accepted — only if portfolio_decisions non-empty):
+<portfolio_decisions list from SESSION STATE>
+
+For each decision file written, add an entry to decisions/INDEX.md (newest first).
+
+Return ONLY this JSON:
 {
-  "survivor_input_from": "<TASK-ID>",
-  "results_file": "<path>",
-  "survivors": [{"strategy": "<name>", "instrument": "<NSE:X|all>", "metrics": {}}]
+  "step": "decision_record",
+  "verdict": {
+    "files_written": ["decisions/algorithm/YYYY-MM-DD-slug.md"],
+    "index_updated": true
+  },
+  "decision_marks": [],
+  "flag": null
+}
+```
+
+### 6b — Task manager: close task + advance pipeline
+
+Spawn sub-agent via `Agent()`. Prompt:
+
+```
+You are a step-agent. Invoke /task-manager. Apply the following changes to tasks/BACKLOG.md
+and append to tasks/TASK-LOG.md. Return JSON only.
+
+ACTIONS (apply in order):
+1. Mark TASK-<task_id> as done. All acceptance criteria are met.
+2. Unblock the next pipeline task (search BACKLOG.md for tasks blocked by TASK-<task_id>;
+   move the first match from Blocked → Up Next and remove the blocker annotation).
+3. Append the following machine-readable JSON block to the Notes field of the unblocked task
+   (Step 1 of the next session parses this to populate prior_gate_survivors):
+
+{
+  "survivor_input_from": "<task_id>",
+  "results_file": "<results_file from SESSION STATE>",
+  "survivors": <survivors array from SESSION STATE with metrics>
+}
+
+Archive TASK-<task_id> to tasks/archive/YYYY-MM.md. Update BACKLOG.md header stats.
+
+Return ONLY this JSON:
+{
+  "step": "backlog_advance",
+  "verdict": {
+    "task_closed": "<task_id>",
+    "task_unblocked": "<TASK-XXXX or null>",
+    "survivor_annotation_written": true
+  },
+  "decision_marks": [],
+  "flag": null
 }
 ```
 
@@ -296,18 +358,22 @@ Set `step_completed = 6`. Write session file.
 
 ## STEP 7 — Session End
 
-- task-manager sub-agent: harvest implicit tasks
-- decision-journal sub-agent: harvest `decision_marks_pending`
+1. Run `git diff --stat HEAD` in the orchestrator.
+2. Read `workflows/agents/eval-session-end.md`. Fill slots:
+   - `{{session_state_json}}` — serialize current SESSION STATE to JSON
+   - `{{git_diff_stat}}` — output of git command above
+3. Spawn sub-agent via `Agent()` using the filled prompt template from that file.
+4. Parse returned JSON → log tasks_created and decisions_written counts.
+5. Print eval-specific summary from SESSION STATE:
 
-Summary:
 ```
 ═══ Eval Session — YYYY-MM-DD ═══
-Task: TASK-NNNN — <title>
-Gates: <list> — ALL APPLIED
+Task:      TASK-NNNN — <title>
+Gates:     <list> — ALL APPLIED
 Survivors: <strategy × instruments>
-Killed: <strategy: gate — metric>
-Correlation flags: <pairs or none>
-Next up: TASK-NNNN (unblocked)
+Killed:    <strategy: gate — metric>
+Corr flags: <pairs or none>
+Next up:   TASK-NNNN (unblocked)
 ═══════════════════════════════
 ```
 
