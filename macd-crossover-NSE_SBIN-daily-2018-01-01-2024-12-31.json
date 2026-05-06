@@ -1,0 +1,29 @@
+{
+  "instrument": "NSE:SBIN",
+  "timeframe": "daily",
+  "from": "2018-01-01",
+  "to": "2024-12-31",
+  "strategy": "macd-crossover",
+  "commission_model": "zerodha",
+  "parameters": {
+    "fast_period": "17",
+    "signal_period": "9",
+    "slow_period": "26"
+  },
+  "TotalPnL": 14370.377996953266,
+  "WinRate": 42,
+  "MaxDrawdown": 3.1141045367586737,
+  "TradeCount": 50,
+  "WinCount": 21,
+  "LossCount": 29,
+  "SharpeRatio": 0.8413989063614625,
+  "ProfitFactor": 2.153015201611065,
+  "AvgWin": 1277.7943404432858,
+  "AvgLoss": 429.7690742191632,
+  "SortinoRatio": 1.2717267380203612,
+  "CalmarRatio": 0.6358906258699768,
+  "TailRatio": 1.2035100096271212,
+  "MaxDrawdownDuration": 27129600000000000,
+  "TradeMetricsInsufficient": false,
+  "CurveMetricsInsufficient": false
+}

@@ -236,3 +236,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-07 | TASK-0087 | status → done | portfolio composition file written: decisions/algorithm/2026-05-07-macd-portfolio-composition.md; both instruments RegimeConcentrated=false | archived to tasks/archive/2026-05.md |
 | 2026-05-07 | TASK-0055 | status → done | MACD portfolio construction complete: NSE:SBIN + NSE:TITAN survivors; correlation gate, regime gate, composition file all done | archived to tasks/archive/2026-05.md |
 | 2026-05-07 | TASK-0056 | status → done | pre-live brief complete; NSE:SBIN APPROVED (p5=0.0719, 98.0%), NSE:TITAN APPROVED (p5=0.0854, 98.7%); threshold JSONs written; portfolio cleared for live | archived to tasks/archive/2026-05.md |
+| 2026-05-07 | TASK-0089 | created | priority: medium, source: user | CachedProvider range-aware lookup: serve subset from disk, skip network call when superset cached |

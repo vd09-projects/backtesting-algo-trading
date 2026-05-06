@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-07 | **Open tasks:** 23 | **Next up:** TASK-0072
+**Last updated:** 2026-05-07 | **Open tasks:** 24 | **Next up:** TASK-0072
 
 ---
 
@@ -263,6 +263,27 @@
   - [ ] `golangci-lint run ./...` and `go1.25.0 test -race ./...` pass
   - [ ] Tests written before implementation (TDD)
 - **Notes:** Owner: Priya (dev). Tech debt. No new dependencies. `init()` pattern explicitly rejected per repo rules — use explicit registration in `internal/cmdutil/strategies.go`. Related: TASK-0061 extends sweep2d; that extension should also consume the central registry when done.
+
+---
+
+### [TASK-0089] Tech debt — CachedProvider range-aware lookup (serve subset from disk, skip network)
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-05-07
+- **Source:** user
+- **Context:** `CachedProvider.FetchCandles()` is keyed on exact `(instrument, timeframe, from, to)` tuples. If 2018–2024 is cached and caller requests 2019–2022, it's a cache miss — triggers a fresh Zerodha network call despite all the data being on disk. Every unique date range = separate network round-trip + duplicate storage. Fix: scan existing cache files for `(instrument, tf)`, check if any cover `[from, to]` as a superset, and slice from disk if so.
+- **Acceptance criteria:**
+  - [ ] `CachedProvider.FetchCandles()`: before hitting network, scan cache dir for any file covering `(instrument, tf)`; if found file's `[cachedFrom, cachedTo]` fully contains `[from, to]`, deserialize and return the filtered slice — no network call
+  - [ ] Cache file index (or filename convention) encodes `from` and `to` so superset check requires only filename parsing, no file open
+  - [ ] On cache miss (no superset found): fetch from network, write full result to cache, return — existing behavior unchanged
+  - [ ] Superset check handles edge cases: exact match, `from` equal to cached start, `to` equal to cached end — all treated as hits
+  - [ ] No duplicate file written when a superset file already exists and covers the requested range
+  - [ ] Golden test: write a wide cache file (2018–2024); request a narrower range (2020–2022); assert zero network calls made and returned candles are within `[2020-01-01, 2022-12-31]`
+  - [ ] Existing `CachedProvider` tests still pass (exact-match path unchanged)
+  - [ ] `golangci-lint run ./pkg/provider/zerodha/cache/...` passes
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Priya (dev). Filename convention for range encoding: `{instrument}_{tf}_{from}_{to}.json` or similar — inspect existing cache format before implementing. Related but distinct from TASK-0080 (which adds a manifest for `LastCachedTime` to support incremental CLI fetching — that's a write-side concern; this is read-side subset lookup). Both can coexist. Do not change `RecordFetch` / manifest logic when implementing this task.
 
 ---
 
