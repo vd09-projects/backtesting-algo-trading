@@ -226,3 +226,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-06 | TASK-0086 | created | priority: high, source: decision | Regime gate: compute per-regime Sharpe contributions for MACD survivors (deferred from TASK-0052); three regime windows; not a kill condition — half-weight on flag | Marcus evaluate session 2026-05-06 |
 | 2026-05-06 | TASK-0087 | created | priority: high, source: decision | Portfolio composition: record final portfolio, sizing, kill-switch thresholds in decisions/algorithm/; blocked by TASK-0085 and TASK-0086 | Marcus evaluate session 2026-05-06 |
 | 2026-05-06 | TASK-0056 | blocker updated | Blocked by TASK-0087 (portfolio composition must be written first) + TASK-0048; was blocked by TASK-0055 directly |
+| 2026-05-07 | TASK-0085 | status → done | Correlation gate completed — SBIN + TITAN survivors | Results in decisions/algorithm/2026-05-06-macd-correlation-gate-results-sbin-titan-survivors.md |

@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-06-macd-correlation-gate-results-sbin-titan-survivors
+    title: "MACD correlation gate results — SBIN and TITAN survive, BAJFINANCE and ICICIBANK excluded"
+    date: 2026-05-06
+    status: accepted
+    category: algorithm
+    tags: [macd-crossover, correlation-gate, pairwise-pearson, portfolio-construction, SBIN, BAJFINANCE, TITAN, ICICIBANK, DSR-tiebreaker, banking-cluster, TASK-0085]
+    path: algorithm/2026-05-06-macd-correlation-gate-results-sbin-titan-survivors.md
+    summary: "Pairwise Pearson correlation gate applied to 4 MACD bootstrap survivors. Three pairs fail COVID crash stress window (r > 0.6): SBIN–BAJFINANCE (0.7176), SBIN–ICICIBANK (0.6722), BAJFINANCE–ICICIBANK (0.7197). DSR tiebreaker retains SBIN (DSR=0.7042) over BAJFINANCE (0.6120) and ICICIBANK (0.3816). TITAN passes all pairs. Final portfolio: SBIN + TITAN. Pre-run fix: corrected stress window dates in correlation.go (crash2020Start 2020-01-14→2020-02-01, correction2022End 2022-06-30→2022-12-31) to match authoritative decision file."
+
   - id: 2026-05-06-bootstrap-stats-json-placement
     title: "Bootstrap stats nested under 'bootstrap' key in output JSON"
     date: 2026-05-06

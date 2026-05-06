@@ -9,9 +9,11 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
-// corrBase is the epoch for correlation test curves. Chosen inside the 2020 crash
-// window so stress-period tests can use a fixed anchor without date arithmetic.
-var corrBase = time.Date(2020, 1, 14, 18, 30, 0, 0, time.UTC)
+// corrBase is the epoch for correlation test curves. Chosen at the start of the 2020
+// crash window (2020-02-01) so stress-period tests can use a fixed anchor without date
+// arithmetic. Matches the authoritative crash window start in the correlation-gate
+// decision file (2026-04-27).
+var corrBase = time.Date(2020, 2, 1, 18, 30, 0, 0, time.UTC)
 
 // makeCorrCurve builds a NamedCurve with daily bars starting at corrBase.
 // Each value in vals becomes one EquityPoint; timestamps advance by 24h.
@@ -149,9 +151,9 @@ func TestComputeCorrelation_BothAllWarmup_ReturnsNaN(t *testing.T) {
 // ── Stress-period windows ─────────────────────────────────────────────────────
 
 func TestComputeCorrelation_Crash2020Window(t *testing.T) {
-	// Build a curve that starts exactly at crash2020Start (2020-01-14).
+	// Build a curve that starts exactly at crash2020Start (2020-02-01).
 	// We need enough active points inside the window to compute correlation.
-	// makeCorrCurve already anchors to corrBase = 2020-01-14.
+	// makeCorrCurve already anchors to corrBase = 2020-02-01.
 	a := makeCorrCurve("A", 100, 110, 99, 108.9, 120, 110, 121)
 	b := makeCorrCurve("B", 100, 110, 99, 108.9, 120, 110, 121) // identical → r=1
 	p := analytics.ComputeCorrelation(a, b)

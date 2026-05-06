@@ -10,10 +10,10 @@ import (
 // NSE stress periods for correlation analysis (Marcus, 2026-04-21).
 // Hardcoded as named values — these are reference-regime definitions, not parameters.
 var (
-	crash2020Start      = time.Date(2020, 1, 14, 0, 0, 0, 0, time.UTC)
+	crash2020Start      = time.Date(2020, 2, 1, 0, 0, 0, 0, time.UTC)
 	crash2020End        = time.Date(2020, 6, 30, 23, 59, 59, 0, time.UTC)
 	correction2022Start = time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
-	correction2022End   = time.Date(2022, 6, 30, 23, 59, 59, 0, time.UTC)
+	correction2022End   = time.Date(2022, 12, 31, 23, 59, 59, 0, time.UTC)
 )
 
 // Correlation thresholds (Marcus, 2026-04-21).
@@ -74,7 +74,7 @@ func ComputeCorrelation(a, b NamedCurve) PairCorrelation {
 // Pairs are in lexicographic (i,j) order with i < j.
 func ComputeMatrix(curves []NamedCurve) CorrelationMatrix {
 	var pairs []PairCorrelation
-	for i := 0; i < len(curves); i++ {
+	for i := range len(curves) {
 		for j := i + 1; j < len(curves); j++ {
 			pairs = append(pairs, ComputeCorrelation(curves[i], curves[j]))
 		}

@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-06 | **Open tasks:** 24 | **Next up:** TASK-0085
+**Last updated:** 2026-05-07 | **Open tasks:** 23 | **Next up:** TASK-0086
 
 ---
 
@@ -42,24 +42,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0085] Correlation — run pairwise Pearson r on all 6 MACD survivor pairs (equity curves)
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-06
-- **Source:** decision (Marcus GO verdict, evaluate session 2026-05-06)
-- **Context:** Run pairwise correlation analysis on daily log-return equity curves for MACD crossover on SBIN, BAJFINANCE, TITAN, ICICIBANK. Compute 6 pairs: full-period (2018-2024) AND stress-period (COVID crash 2020-02-01 to 2020-06-30, rate-hike bear 2022-01-01 to 2022-12-31). Gate thresholds per correlation-gate decision (2026-04-27): full-period r < 0.7 AND both stress-period r < 0.6. Marcus expects SBIN/ICICIBANK to fail — both are Nifty Bank constituents, rate-sensitive, PSU+private banking. SBIN/BAJFINANCE borderline (NBFC, estimated full-period r 0.55-0.72). TITAN expected to pass all pairs. Apply DSR tiebreaker for failing pairs (SBIN DSR=0.7042 > BAJFINANCE=0.6120 > TITAN=0.6022 > ICICIBANK=0.3816).
-- **Acceptance criteria:**
-  - [ ] Pairwise Pearson r computed for all 6 pairs on full-period (2018-2024) daily log-return equity curves
-  - [ ] Stress-period Pearson r computed separately for COVID crash (2020-02-01 to 2020-06-30) and rate-hike bear (2022-01-01 to 2022-12-31)
-  - [ ] Each pair labeled PASS or FAIL per gate (full-period r < 0.7 AND both stress-period r < 0.6)
-  - [ ] Tiebreaker applied for failing pairs: retain higher DSR-corrected Sharpe instrument (SBIN > BAJFINANCE > TITAN > ICICIBANK)
-  - [ ] Excluded instruments recorded with reason "excluded (correlation)" — not a gate failure
-  - [ ] Results feed directly into TASK-0087 (portfolio composition decision file)
-- **Notes:** Requires daily equity curve output per instrument. `runs/bootstrap-macd-2026-05-05/` has per-instrument JSON with aggregate metrics; daily equity curve CSVs may need to be re-run via `cmd/backtest --out <csv>` for each of the 4 surviving instruments. Equity curve log-returns are defined as `ln(equity[t]/equity[t-1])` per the correlation-gate decision.
-
----
 
 ### [TASK-0086] Regime gate — compute per-regime Sharpe contributions for MACD survivors (deferred from TASK-0052)
 
