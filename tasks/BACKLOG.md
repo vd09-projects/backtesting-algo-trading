@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-07 | **Open tasks:** 21 | **Next up:** TASK-0087
+**Last updated:** 2026-05-07 | **Open tasks:** 24 | **Next up:** TASK-0056
 
 ---
 
@@ -10,20 +10,20 @@
 
 ### [TASK-0055] Evaluation — cross-strategy correlation and portfolio construction
 
-- **Status:** in-progress
+- **Status:** done
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
 - **Context:** Selects the final portfolio from bootstrap survivors. Two correlated strategies do not provide diversification — they add correlated risk, especially in the stress periods (2020, 2022) when diversification is most needed. The portfolio at ₹3 lakh targets ~10% annualized vol using vol-targeting sizing per strategy.
 - **Acceptance criteria:**
-  - [ ] Run `cmd/correlate` for all surviving strategy × instrument pairs from TASK-0054 (full equity curves)
-  - [ ] Apply correlation gate (from TASK-0049): full-period r < 0.7 AND stress-period r < 0.6 for every pair in the final portfolio
-  - [ ] If two strategies are correlated and from the same edge bucket, keep only the higher-DSR-Sharpe one
-  - [ ] Select 2-4 uncorrelated survivors for the portfolio
-  - [ ] Define capital allocation per strategy: combined portfolio targets ~10% annualized vol using `SizingVolatilityTarget`
-  - [ ] Record portfolio composition and sizing rule in `decisions/algorithm/`
-  - [ ] Record excluded strategies with reasons (correlation, gate failure, or sizing constraint)
-- **Notes:** Unblocked 2026-05-05 (TASK-0054 complete). Marcus GO verdict 2026-05-06: banking cluster (SBIN, ICICIBANK, BAJFINANCE) structurally correlated; expected final portfolio SBIN + TITAN. Capital allocation and kill-switch thresholds pre-committed in `decisions/algorithm/2026-05-06-macd-portfolio-sizing-sbin-titan-vol-targeting.md`. Banking cluster rationale in `decisions/algorithm/2026-05-06-banking-cluster-sbin-bajfinance-icicibank.md`. TASK-0085 done (2026-05-07): SBIN + TITAN survive correlation gate. TASK-0086 done (2026-05-07): both RegimeConcentrated=false, no allocation adjustment. Blocked on TASK-0087 (portfolio composition file). Owner: Marcus (algo-trading-veteran).
+  - [x] Run `cmd/correlate` for all surviving strategy × instrument pairs from TASK-0054 (full equity curves)
+  - [x] Apply correlation gate (from TASK-0049): full-period r < 0.7 AND stress-period r < 0.6 for every pair in the final portfolio
+  - [x] If two strategies are correlated and from the same edge bucket, keep only the higher-DSR-Sharpe one
+  - [x] Select 2-4 uncorrelated survivors for the portfolio
+  - [x] Define capital allocation per strategy: combined portfolio targets ~10% annualized vol using `SizingVolatilityTarget`
+  - [x] Record portfolio composition and sizing rule in `decisions/algorithm/`
+  - [x] Record excluded strategies with reasons (correlation, gate failure, or sizing constraint)
+- **Notes:** Unblocked 2026-05-05 (TASK-0054 complete). Marcus GO verdict 2026-05-06: banking cluster (SBIN, ICICIBANK, BAJFINANCE) structurally correlated; expected final portfolio SBIN + TITAN. Capital allocation and kill-switch thresholds pre-committed in `decisions/algorithm/2026-05-06-macd-portfolio-sizing-sbin-titan-vol-targeting.md`. Banking cluster rationale in `decisions/algorithm/2026-05-06-banking-cluster-sbin-bajfinance-icicibank.md`. TASK-0085 done (2026-05-07): SBIN + TITAN survive correlation gate. TASK-0086 done (2026-05-07): both RegimeConcentrated=false, no allocation adjustment. TASK-0087 done (2026-05-07): portfolio composition file written at decisions/algorithm/2026-05-07-macd-portfolio-composition.md. Owner: Marcus (algo-trading-veteran).
   ```json
   {
     "survivor_input_from": "TASK-0069",
@@ -43,22 +43,40 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0087] Portfolio composition — record final portfolio, sizing, and kill-switch thresholds in decisions/algorithm/
+### [TASK-0056] Evaluation — pre-live brief: kill-switch thresholds and go/no-go sign-off
 
 - **Status:** todo
+- **Priority:** high
+- **Created:** 2026-04-25
+- **Source:** session
+- **Context:** The final checkpoint before any live capital is allocated. Documents specific kill-switch thresholds, capital allocation, and the explicit go/no-go verdict for each portfolio strategy. No strategy goes live without this document existing and dated before the first trade.
+- **Acceptance criteria:**
+  - [ ] For each portfolio strategy: kill-switch thresholds recorded — SharpeP5 threshold (from TASK-0054), MaxDrawdownPct (1.5× in-sample worst), MaxDDDuration (2× in-sample worst)
+  - [ ] Thresholds written to `decisions/algorithm/YYYY-MM-DD-kill-switch-{strategy}.md` before first trade
+  - [ ] Capital allocation per strategy documented in ₹ and % of ₹3 lakh total
+  - [ ] Monitoring cadence documented: weekly kill-switch check via `cmd/monitor`
+  - [ ] Explicit go/no-go verdict per strategy: APPROVED FOR LIVE or NOT APPROVED with specific reason
+  - [ ] Algo reviewer acknowledgement noted in the brief
+- **Notes:** Unblocked 2026-05-07 (TASK-0087 done — portfolio composition and kill-switch thresholds recorded in decisions/algorithm/2026-05-07-macd-portfolio-composition.md; TASK-0048 done — cmd/monitor built and tested). Aggregates outputs from TASK-0049 through TASK-0087. Cannot be done in isolation. No strategy goes live without this document. Owner: Marcus (algo-trading-veteran).
+
+---
+
+### [TASK-0087] Portfolio composition — record final portfolio, sizing, and kill-switch thresholds in decisions/algorithm/
+
+- **Status:** done
 - **Priority:** high
 - **Created:** 2026-05-06
 - **Source:** decision (Marcus GO verdict, evaluate session 2026-05-06; kill-switch derivation methodology 2026-04-21)
 - **Context:** After correlation gate and regime gate are applied, record the final portfolio composition and all live-deployment parameters. Marcus's expected portfolio: NSE:SBIN + NSE:TITAN (subject to actual correlation gate results from TASK-0085). Capital: ₹1.5 lakh notional per instrument (₹3 lakh total), no leverage. Vol-targeting: SizingVolatilityTarget, 20-bar rolling log-return std dev, fraction = volTarget/(instrumentVol × sqrt(252)), capped at 1.0. Kill-switch thresholds from bootstrap p5 per kill-switch derivation methodology (2026-04-21). SBIN: p5=0.0719, max DD=4.10% (1.5×2.73%), max DD duration=448 days (2×224 days). TITAN: p5=0.0854, max DD and duration from TITAN.json. Unblocks TASK-0056 (pre-live brief).
 - **Acceptance criteria:**
-  - [ ] `decisions/algorithm/YYYY-MM-DD-macd-portfolio-composition.md` created
-  - [ ] Final instrument list with inclusion reason (passed correlation gate) or exclusion reason (failed correlation gate)
-  - [ ] Capital allocation per instrument explicit: ₹ amount and fraction of total, adjusted for regime half-weight if applicable
-  - [ ] Vol-targeting sizing rule explicit: formula, 20-bar window, fraction cap at 1.0, no leverage, 10% annualized vol target
-  - [ ] Kill-switch thresholds per instrument: SharpeP5 threshold (from bootstrap), MaxDD threshold (1.5× in-sample worst), MaxDDDuration threshold (2× in-sample worst)
-  - [ ] Regime gate outcome per instrument: RegimeConcentrated true/false, capital adjustment if applicable
-  - [ ] TASK-0056 (pre-live brief) unblocked after this file is written
-- **Notes:** Unblocked 2026-05-07: TASK-0085 done (SBIN + TITAN survivors), TASK-0086 done (both RegimeConcentrated=false, no allocation adjustment). TITAN.json, BAJFINANCE.json, ICICIBANK.json MaxDrawdown and MaxDrawdownDuration in `runs/bootstrap-macd-2026-05-05/`. SBIN: MaxDrawdown=2.73%, MaxDrawdownDuration≈224 days. Owner: Marcus (algo-trading-veteran).
+  - [x] `decisions/algorithm/YYYY-MM-DD-macd-portfolio-composition.md` created
+  - [x] Final instrument list with inclusion reason (passed correlation gate) or exclusion reason (failed correlation gate)
+  - [x] Capital allocation per instrument explicit: ₹ amount and fraction of total, adjusted for regime half-weight if applicable
+  - [x] Vol-targeting sizing rule explicit: formula, 20-bar window, fraction cap at 1.0, no leverage, 10% annualized vol target
+  - [x] Kill-switch thresholds per instrument: SharpeP5 threshold (from bootstrap), MaxDD threshold (1.5× in-sample worst), MaxDDDuration threshold (2× in-sample worst)
+  - [x] Regime gate outcome per instrument: RegimeConcentrated true/false, capital adjustment if applicable
+  - [x] TASK-0056 (pre-live brief) unblocked after this file is written
+- **Notes:** Done 2026-05-07. Decision file: decisions/algorithm/2026-05-07-macd-portfolio-composition.md. TITAN kill-switch: SharpeP5=0.0854, MaxDD=4.72% (1.5×3.1454%), MaxDDDuration=1,388 days (2×694 days). Both instruments RegimeConcentrated=false; no allocation adjustment. TASK-0056 unblocked. Owner: Marcus (algo-trading-veteran).
 
 ---
 
@@ -178,25 +196,6 @@
 
 <!-- Waiting on something. Each task must state what it's blocked by. -->
 
-### [TASK-0056] Evaluation — pre-live brief: kill-switch thresholds and go/no-go sign-off
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** TASK-0087 (portfolio composition and kill-switch thresholds must be recorded first), TASK-0048 (cmd/monitor must exist for weekly monitoring cadence)
-- **Context:** The final checkpoint before any live capital is allocated. Documents specific kill-switch thresholds, capital allocation, and the explicit go/no-go verdict for each portfolio strategy. No strategy goes live without this document existing and dated before the first trade.
-- **Acceptance criteria:**
-  - [ ] For each portfolio strategy: kill-switch thresholds recorded — SharpeP5 threshold (from TASK-0054), MaxDrawdownPct (1.5× in-sample worst), MaxDDDuration (2× in-sample worst)
-  - [ ] Thresholds written to `decisions/algorithm/YYYY-MM-DD-kill-switch-{strategy}.md` before first trade
-  - [ ] Capital allocation per strategy documented in ₹ and % of ₹3 lakh total
-  - [ ] Monitoring cadence documented: weekly kill-switch check via `cmd/monitor`
-  - [ ] Explicit go/no-go verdict per strategy: APPROVED FOR LIVE or NOT APPROVED with specific reason
-  - [ ] Algo reviewer acknowledgement noted in the brief
-- **Notes:** Aggregates outputs from TASK-0049 through TASK-0055. Cannot be done in isolation. No strategy goes live without this document. Owner: Marcus (algo-trading-veteran).
-
----
-
 ### [TASK-0046] Engine — session-boundary support for intraday backtesting
 
 - **Status:** blocked
@@ -217,23 +216,6 @@
 
 ---
 
-### [TASK-0048] Tooling — weekly kill-switch monitor (`cmd/monitor`)
-
-- **Status:** blocked
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Blocked by:** Trade log file format decision required. The engine currently outputs `model.Trade` structs to JSON via `cmd/backtest --out`. A weekly monitor needs a file format for live trades that accumulates across sessions. Decision needed: reuse the existing JSON format, or define a separate append-only CSV schema for live trade records.
-- **Context:** Marcus specified weekly kill-switch monitoring (not quarterly re-validation). The existing `analytics.CheckKillSwitch()` and `DeriveKillSwitchThresholds()` functions are ready. This task wires them into a runnable binary that reads live trade history and thresholds, outputs alert status, and can be cron-scheduled.
-- **Acceptance criteria:**
-  - [ ] Trade log file format decided and documented (decision record in `decisions/`)
-  - [ ] `cmd/monitor/main.go` reads: (1) live trade log in the agreed format, (2) kill-switch thresholds JSON produced by `DeriveKillSwitchThresholds`
-  - [ ] Calls `analytics.CheckKillSwitch(recentTrades, liveCurve, thresholds)`
-  - [ ] Prints clear alert status: `OK`, `HALT (Sharpe breached)`, `HALT (drawdown breached)`, `HALT (duration breached)`
-  - [ ] Exit code 0 if OK, non-zero if any threshold breached (enables shell scripting / cron alerting)
-  - [ ] Tests: known trade sequence crossing each threshold type → correct alert output and exit code
-
----
 
 ### [TASK-0074] Strategy — Opening Range Breakout (5-min, CNC overnight hold)
 
@@ -503,6 +485,21 @@
   - [ ] Tests: mock provider returns `*ErrIncompleteData` → CLI prints correct diagnostic and exits with code 2
   - [ ] Tests written before implementation (TDD)
 - **Notes:** Owner: Priya (dev). Discovered during TASK-0081 harvest — the typed error is defined but not handled at the cmd/ boundary. Exit code 2 for incomplete data follows Unix convention (1 = generic error, 2 = misuse/data problem). `cmd/fetch-history` handling should be added as part of TASK-0070 build, not this task.
+
+---
+
+### [TASK-0088] Tech debt — cmd/monitor test cleanup: missing thresholds JSON test + Trade.Instrument in fixtures
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-07
+- **Source:** discovery
+- **Context:** Two cosmetic gaps found in cmd/monitor quality review (TASK-0048 post-build gate). Neither is a bug, but both are quick fixes to bring the test suite up to the same standard as the rest of the codebase.
+- **Acceptance criteria:**
+  - [ ] `TestRun_InvalidThresholdsJSON` added to `cmd/monitor/monitor_test.go`: write a thresholds file with invalid JSON, call `run()`, assert error returned
+  - [ ] Three `model.Trade` struct literals in `TestBuildSyntheticCurve_Order` updated to include `Instrument: "NSE:TEST"` — satisfies repo rule "every Trade must carry an instrument identifier"
+  - [ ] `go1.25.0 test -race ./cmd/monitor/...` and `golangci-lint run ./cmd/monitor/...` still pass after changes
+- **Notes:** Discovered during go-quality-review standard gate on TASK-0048. Both fixes are in `cmd/monitor/monitor_test.go` only — no production code changes.
 
 ---
 

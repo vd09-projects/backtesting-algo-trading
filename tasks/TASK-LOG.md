@@ -230,3 +230,6 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-07 | TASK-0086 | status → done | All 6 acceptance criteria met. SBIN: RegimeConcentrated=false (max 41.84% COVID+recovery). TITAN: RegimeConcentrated=false (max 45.97% pre-COVID). No allocation adjustment. Results in decisions/algorithm/2026-05-07-regime-gate-results-sbin-titan-macd-task0086.md | archived to tasks/archive/2026-05.md |
 | 2026-05-07 | TASK-0087 | status → todo (unblocked) | TASK-0085 and TASK-0086 both done; moved from Blocked to Up Next | |
 | 2026-05-07 | TASK-0055 | notes updated | TASK-0085 done (SBIN+TITAN survive correlation gate), TASK-0086 done (both RegimeConcentrated=false); blocked on TASK-0087 only | |
+| 2026-05-07 | TASK-0048 | status → done | cmd/monitor built: JSON trade log + thresholds JSON + synthetic equity curve + CheckKillSwitch wiring; 13 tests pass; 85.9% coverage; 0 lint issues; decision record decisions/convention/2026-05-07-live-trade-log-json-array-format.md | archived to tasks/archive/2026-05.md |
+| 2026-05-07 | TASK-0056 | blocker updated | TASK-0048 resolved 2026-05-07; still blocked by TASK-0087 only | |
+| 2026-05-07 | TASK-0088 | created | priority: low, source: discovery | cmd/monitor test cleanup: TestRun_InvalidThresholdsJSON + Trade.Instrument in TestBuildSyntheticCurve_Order fixtures |

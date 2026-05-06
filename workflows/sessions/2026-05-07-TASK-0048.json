@@ -1,0 +1,55 @@
+{
+  "session_date": "2026-05-07",
+  "workflow": "build",
+  "task_id": "TASK-0048",
+  "task_title": "Tooling — weekly kill-switch monitor (cmd/monitor)",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": ["decisions/algorithm/2026-04-21-kill-switch-derivation-methodology.md"],
+      "context_files": [
+        "decisions/convention/2026-04-21-compute-per-trade-sharpe-formula-duplication.md",
+        "decisions/architecture/2026-04-21-kill-switch-analytics-to-montecarlo-boundary.md",
+        "decisions/convention/2026-05-03-run-extraction-for-testability-in-cmd-walk-forward.md",
+        "decisions/architecture/2026-04-22-buildprovider-extracted-to-cmdutil.md"
+      ]
+    },
+    "marcus": {"summary": "not applicable — step skipped"},
+    "priya_plan": {
+      "plan_summary": "cmd/monitor is a pure file-reading CLI with no DataProvider dependency.",
+      "files_to_create": ["cmd/monitor/main.go", "cmd/monitor/monitor_test.go", "decisions/convention/2026-05-07-live-trade-log-json-array-format.md"],
+      "files_to_modify": [],
+      "approach": "run(args, stdout, stderr) extraction pattern, thresholdsFile DTO, synthetic equity curve from sorted trades"
+    },
+    "build": {
+      "build_summary": "cmd/monitor implemented. 13 tests written, all pass with race detector. 0 lint issues. Quality gate PASS.",
+      "files_modified": ["cmd/monitor/main.go", "cmd/monitor/monitor_test.go", "decisions/convention/2026-05-07-live-trade-log-json-array-format.md"],
+      "tests_written": ["TestRun_MissingTradesFlag", "TestRun_MissingThresholdsFlag", "TestRun_TradesFileNotFound", "TestRun_ThresholdsFileNotFound", "TestRun_InvalidTradesJSON", "TestRun_AllGreen", "TestRun_SharpeBreached_ExitCode1", "TestRun_DrawdownBreached_ExitCode1", "TestRun_DurationBreached_ExitCode1", "TestRun_MultipleBreaches_AllReported", "TestRun_EmptyTradeLog_OK", "TestBuildSyntheticCurve_Order", "TestBuildSyntheticCurve_Empty"],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "gate_status": "warnings_cosmetic",
+      "findings": [
+        {"file": "cmd/monitor/monitor_test.go", "line": 0, "severity": "suggestion", "description": "Missing TestRun_InvalidThresholdsJSON", "code_change_required": false},
+        {"file": "cmd/monitor/monitor_test.go", "line": 318, "severity": "suggestion", "description": "Trade.Instrument zero in TestBuildSyntheticCurve_Order", "code_change_required": false}
+      ]
+    }
+  },
+  "quality_review_round": 1,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0048 picked. Source: session.",
+    "[AUTO] Step 1.5 preflight passed.",
+    "[AUTO] Step 2 — Decision lookup: 1 standing order, 4 context files.",
+    "[AUTO] Step 3 — Marcus: skipped.",
+    "[AUTO] Step 4 — Plan: complete.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS.",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 0 warnings, 2 suggestions (cosmetic). Gate: warnings_cosmetic.",
+    "[AUTO] Step 6 — All 6/6 AC met. TASK-0048 archived. TASK-0088 created. 4 decisions harvested."
+  ],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

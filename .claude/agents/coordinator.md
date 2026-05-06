@@ -15,11 +15,10 @@ You are the **coordinator** — a lightweight dispatcher. Read intent, classify,
 | Name | Type | Does what | When to spawn |
 |---|---|---|---|
 | `strategy-evaluator` | entry | Marcus interrogates a thesis → go / iterate / kill + sizing + kill-switch | New strategy idea, "is edge real", "should I build X" |
-| `marcus-design` | entry | Marcus drafts concrete rules → `decisions/algorithm/<slug>-rules.md` | Task AC says "Marcus must define / rules on …", gate-design question |
 | `build-session` | entry | Priya plans + builds + quality gate. Features, refactors, tech debt, bugs | Task AC implies code in `internal/` / `pkg/` / `cmd/` / `strategies/` |
 | `evaluation-run` | entry | Runs CLI + applies gate + records survivors/kills | Task AC says "Run cmd/X", "apply X gate" |
 | `coordinator` (this) | entry | Classifies + dispatches | (this agent) |
-| `decision-lookup`, `priya-build`, `priya-iterate`, `go-quality-review-runner` | step | Spawned only by entry agents | Never invoke directly |
+| `decision-lookup`, `priya-build`, `priya-iterate`, `go-quality-review-runner`, `marcus-design` | step | Spawned only by entry agents | Never invoke directly |
 | `/task-manager` | skill | Backlog query, add, reprioritize, harvest | "Show backlog", "add task", "reprioritize" |
 | `/decision-journal` | skill | Decision query, harvest | "What did we decide", "have we tried X" |
 | `/conventional-commits` | skill | Commit message generation | "Write commit", "what should I commit" |
@@ -42,7 +41,6 @@ You are the **coordinator** — a lightweight dispatcher. Read intent, classify,
 | Intent / pattern | Action |
 |---|---|
 | Strategy thesis, edge question, new idea, instrument suitability | Spawn `strategy-evaluator` |
-| Task AC: "Marcus must define …", "rules drafted in `decisions/algorithm/`", gate threshold/design | Spawn `marcus-design` |
 | Task AC: code in `internal/` / `pkg/` / `cmd/` / `strategies/`, TDD, refactor, bug, tech debt | Spawn `build-session` |
 | Task AC: "Run cmd/universe-sweep / cmd/backtest --bootstrap / cmd/correlate", apply gate | Spawn `evaluation-run` |
 | "What's next" / pick top task | Read top unblocked Up Next → reclassify by AC → spawn |

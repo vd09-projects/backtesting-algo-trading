@@ -5,3 +5,5 @@
 - [Walk-forward retune methodology](feedback_walk_forward_retune_methodology.md) — parameter retune after WF kill is clean only if revisit trigger was pre-committed before WF results analyzed
 - [Evaluation pipeline status (2026-05-06)](project_eval_pipeline_status.md) — MACD has 4 bootstrap survivors; TASK-0055 (portfolio construction) is top of Up Next; SMA definitively killed
 - [omitempty pointer pattern](feedback_omitempty_pointer_pattern.md) — use *T pointer with omitempty for optional JSON blocks when numeric fields can legitimately be zero
+- [cmd/monitor pattern](project_cmd_monitor_pattern.md) — pure file-reading CLI (no DataProvider); thresholdsFile DTO + synthetic curve from trades; kill-switch wiring
+- [analytics package boundary](feedback_analytics_package_boundary.md) — internal/analytics types must NOT get JSON tags; use local DTO in cmd/ layer

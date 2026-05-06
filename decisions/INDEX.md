@@ -8,6 +8,60 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-07-macd-crossover-icicibank-correlation-gate-kill
+    title: "macd-crossover × NSE:ICICIBANK — killed at correlation-gate-stress-covid"
+    date: 2026-05-07
+    status: rejected
+    category: algorithm
+    tags: [macd-crossover, ICICIBANK, correlation-gate, stress-covid, rejected, TASK-0055]
+    path: algorithm/2026-05-07-macd-crossover-icicibank-correlation-gate-kill.md
+    summary: "SBIN–ICICIBANK COVID crash stress-period Pearson r=0.6722 exceeds threshold < 0.6. Gates passed before kill: bootstrap_gate (SharpeP5=0.0229, ProbPositiveSharpe=96.2%), correlation-gate-full-period (r=0.4243). DSR tiebreaker: SBIN (0.7042) > ICICIBANK (0.3816); SBIN retained. Portfolio diversification kill — bootstrap outcomes remain valid."
+
+  - id: 2026-05-07-macd-crossover-bajfinance-correlation-gate-kill
+    title: "macd-crossover × NSE:BAJFINANCE — killed at correlation-gate-stress-covid"
+    date: 2026-05-07
+    status: rejected
+    category: algorithm
+    tags: [macd-crossover, BAJFINANCE, correlation-gate, stress-covid, rejected, TASK-0055]
+    path: algorithm/2026-05-07-macd-crossover-bajfinance-correlation-gate-kill.md
+    summary: "SBIN–BAJFINANCE COVID crash stress-period Pearson r=0.7176 exceeds threshold < 0.6. Gates passed before kill: bootstrap_gate (SharpeP5=0.0467, ProbPositiveSharpe=97.3%), correlation-gate-full-period (r=0.3857). DSR tiebreaker: SBIN (0.7042) > BAJFINANCE (0.6120); SBIN retained. Portfolio diversification kill — bootstrap outcomes remain valid."
+
+  - id: 2026-05-07-run-extraction-for-testability-in-cmd-monitor
+    title: "run() extraction for testability in cmd/monitor"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [testability, flag-parse, coverage, run-function, cmd/monitor, TASK-0048]
+    path: convention/2026-05-07-run-extraction-for-testability-in-cmd-monitor.md
+    summary: "main() is a one-liner delegating to run(args, stdout, stderr) using flag.NewFlagSet with ContinueOnError. cmd/monitor has no DataProvider paths, so all non-trivial wiring is unit-testable. Follows the pattern established in cmd/walk-forward (2026-05-03)."
+
+  - id: 2026-05-07-synthetic-equity-curve-built-from-trades
+    title: "Synthetic equity curve built from trades, not a separate curve file"
+    date: 2026-05-07
+    status: experimental
+    category: tradeoff
+    tags: [equity-curve, synthetic, trades, no-separate-input, cmd/monitor, TASK-0048]
+    path: tradeoff/2026-05-07-synthetic-equity-curve-built-from-trades.md
+    summary: "cmd/monitor builds the equity curve by sorting trades by ExitTime and accumulating initialEquity + sum(RealizedPnL). No separate --curve input required. Tradeoff: no intrabar drawdown signal, only closed-trade granularity. Sufficient for weekly monitoring cadence on daily-bar strategies."
+
+  - id: 2026-05-07-thresholdsfile-dto-in-cmd-monitor
+    title: "thresholdsFile DTO in cmd/monitor, not JSON tags on KillSwitchThresholds"
+    date: 2026-05-07
+    status: experimental
+    category: architecture
+    tags: [serialization-dto, JSON-tags, package-boundary, pure-computation, cmd/monitor, TASK-0048]
+    path: architecture/2026-05-07-thresholdsfile-dto-in-cmd-monitor.md
+    summary: "Local thresholdsFile struct in cmd/monitor handles JSON unmarshalling; analytics.KillSwitchThresholds receives no JSON tags and stays a pure computation type. MaxDDDuration serialized as int64 nanoseconds (max_dd_duration_ns key). Revisit if a second binary needs to read thresholds from disk."
+
+  - id: 2026-05-07-live-trade-log-json-array-format
+    title: "Live trade log format: JSON array of model.Trade"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [live-trade-log, JSON, file-format, kill-switch, cmd/monitor, TASK-0048]
+    path: convention/2026-05-07-live-trade-log-json-array-format.md
+    summary: "cmd/monitor reads live trades as a JSON array of model.Trade (same format the engine already produces). JSON chosen over CSV: Direction is a string type, time.Time marshals as RFC 3339, no custom schema needed. Backtest output can be used directly as a live log seed."
+
   - id: 2026-05-06-macd-correlation-gate-results-sbin-titan-survivors
     title: "MACD correlation gate results — SBIN and TITAN survive, BAJFINANCE and ICICIBANK excluded"
     date: 2026-05-06
