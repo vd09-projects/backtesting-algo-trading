@@ -233,3 +233,6 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-07 | TASK-0048 | status → done | cmd/monitor built: JSON trade log + thresholds JSON + synthetic equity curve + CheckKillSwitch wiring; 13 tests pass; 85.9% coverage; 0 lint issues; decision record decisions/convention/2026-05-07-live-trade-log-json-array-format.md | archived to tasks/archive/2026-05.md |
 | 2026-05-07 | TASK-0056 | blocker updated | TASK-0048 resolved 2026-05-07; still blocked by TASK-0087 only | |
 | 2026-05-07 | TASK-0088 | created | priority: low, source: discovery | cmd/monitor test cleanup: TestRun_InvalidThresholdsJSON + Trade.Instrument in TestBuildSyntheticCurve_Order fixtures |
+| 2026-05-07 | TASK-0087 | status → done | portfolio composition file written: decisions/algorithm/2026-05-07-macd-portfolio-composition.md; both instruments RegimeConcentrated=false | archived to tasks/archive/2026-05.md |
+| 2026-05-07 | TASK-0055 | status → done | MACD portfolio construction complete: NSE:SBIN + NSE:TITAN survivors; correlation gate, regime gate, composition file all done | archived to tasks/archive/2026-05.md |
+| 2026-05-07 | TASK-0056 | status → done | pre-live brief complete; NSE:SBIN APPROVED (p5=0.0719, 98.0%), NSE:TITAN APPROVED (p5=0.0854, 98.7%); threshold JSONs written; portfolio cleared for live | archived to tasks/archive/2026-05.md |

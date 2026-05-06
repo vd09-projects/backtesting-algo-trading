@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-07 | **Open tasks:** 24 | **Next up:** TASK-0056
+**Last updated:** 2026-05-07 | **Open tasks:** 23 | **Next up:** TASK-0072
 
 ---
 
@@ -8,77 +8,11 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
-### [TASK-0055] Evaluation — cross-strategy correlation and portfolio construction
-
-- **Status:** done
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** Selects the final portfolio from bootstrap survivors. Two correlated strategies do not provide diversification — they add correlated risk, especially in the stress periods (2020, 2022) when diversification is most needed. The portfolio at ₹3 lakh targets ~10% annualized vol using vol-targeting sizing per strategy.
-- **Acceptance criteria:**
-  - [x] Run `cmd/correlate` for all surviving strategy × instrument pairs from TASK-0054 (full equity curves)
-  - [x] Apply correlation gate (from TASK-0049): full-period r < 0.7 AND stress-period r < 0.6 for every pair in the final portfolio
-  - [x] If two strategies are correlated and from the same edge bucket, keep only the higher-DSR-Sharpe one
-  - [x] Select 2-4 uncorrelated survivors for the portfolio
-  - [x] Define capital allocation per strategy: combined portfolio targets ~10% annualized vol using `SizingVolatilityTarget`
-  - [x] Record portfolio composition and sizing rule in `decisions/algorithm/`
-  - [x] Record excluded strategies with reasons (correlation, gate failure, or sizing constraint)
-- **Notes:** Unblocked 2026-05-05 (TASK-0054 complete). Marcus GO verdict 2026-05-06: banking cluster (SBIN, ICICIBANK, BAJFINANCE) structurally correlated; expected final portfolio SBIN + TITAN. Capital allocation and kill-switch thresholds pre-committed in `decisions/algorithm/2026-05-06-macd-portfolio-sizing-sbin-titan-vol-targeting.md`. Banking cluster rationale in `decisions/algorithm/2026-05-06-banking-cluster-sbin-bajfinance-icicibank.md`. TASK-0085 done (2026-05-07): SBIN + TITAN survive correlation gate. TASK-0086 done (2026-05-07): both RegimeConcentrated=false, no allocation adjustment. TASK-0087 done (2026-05-07): portfolio composition file written at decisions/algorithm/2026-05-07-macd-portfolio-composition.md. Owner: Marcus (algo-trading-veteran).
-  ```json
-  {
-    "survivor_input_from": "TASK-0069",
-    "results_file": "runs/bootstrap-macd-2026-05-05/",
-    "survivors": [
-      {"strategy": "macd-crossover", "instrument": "NSE:SBIN",      "metrics": {"SharpeP5": 0.0719, "SharpeP50": 0.3195, "SharpeP95": 0.5551, "ProbPositiveSharpe": 98.0}},
-      {"strategy": "macd-crossover", "instrument": "NSE:BAJFINANCE","metrics": {"SharpeP5": 0.0467, "SharpeP50": 0.2526, "SharpeP95": 0.4171, "ProbPositiveSharpe": 97.3}},
-      {"strategy": "macd-crossover", "instrument": "NSE:TITAN",     "metrics": {"SharpeP5": 0.0854, "SharpeP50": 0.3102, "SharpeP95": 0.5323, "ProbPositiveSharpe": 98.7}},
-      {"strategy": "macd-crossover", "instrument": "NSE:ICICIBANK", "metrics": {"SharpeP5": 0.0229, "SharpeP50": 0.2489, "SharpeP95": 0.4579, "ProbPositiveSharpe": 96.2}}
-    ]
-  }
-  ```
-
----
+<!-- empty -->
 
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0056] Evaluation — pre-live brief: kill-switch thresholds and go/no-go sign-off
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-25
-- **Source:** session
-- **Context:** The final checkpoint before any live capital is allocated. Documents specific kill-switch thresholds, capital allocation, and the explicit go/no-go verdict for each portfolio strategy. No strategy goes live without this document existing and dated before the first trade.
-- **Acceptance criteria:**
-  - [ ] For each portfolio strategy: kill-switch thresholds recorded — SharpeP5 threshold (from TASK-0054), MaxDrawdownPct (1.5× in-sample worst), MaxDDDuration (2× in-sample worst)
-  - [ ] Thresholds written to `decisions/algorithm/YYYY-MM-DD-kill-switch-{strategy}.md` before first trade
-  - [ ] Capital allocation per strategy documented in ₹ and % of ₹3 lakh total
-  - [ ] Monitoring cadence documented: weekly kill-switch check via `cmd/monitor`
-  - [ ] Explicit go/no-go verdict per strategy: APPROVED FOR LIVE or NOT APPROVED with specific reason
-  - [ ] Algo reviewer acknowledgement noted in the brief
-- **Notes:** Unblocked 2026-05-07 (TASK-0087 done — portfolio composition and kill-switch thresholds recorded in decisions/algorithm/2026-05-07-macd-portfolio-composition.md; TASK-0048 done — cmd/monitor built and tested). Aggregates outputs from TASK-0049 through TASK-0087. Cannot be done in isolation. No strategy goes live without this document. Owner: Marcus (algo-trading-veteran).
-
----
-
-### [TASK-0087] Portfolio composition — record final portfolio, sizing, and kill-switch thresholds in decisions/algorithm/
-
-- **Status:** done
-- **Priority:** high
-- **Created:** 2026-05-06
-- **Source:** decision (Marcus GO verdict, evaluate session 2026-05-06; kill-switch derivation methodology 2026-04-21)
-- **Context:** After correlation gate and regime gate are applied, record the final portfolio composition and all live-deployment parameters. Marcus's expected portfolio: NSE:SBIN + NSE:TITAN (subject to actual correlation gate results from TASK-0085). Capital: ₹1.5 lakh notional per instrument (₹3 lakh total), no leverage. Vol-targeting: SizingVolatilityTarget, 20-bar rolling log-return std dev, fraction = volTarget/(instrumentVol × sqrt(252)), capped at 1.0. Kill-switch thresholds from bootstrap p5 per kill-switch derivation methodology (2026-04-21). SBIN: p5=0.0719, max DD=4.10% (1.5×2.73%), max DD duration=448 days (2×224 days). TITAN: p5=0.0854, max DD and duration from TITAN.json. Unblocks TASK-0056 (pre-live brief).
-- **Acceptance criteria:**
-  - [x] `decisions/algorithm/YYYY-MM-DD-macd-portfolio-composition.md` created
-  - [x] Final instrument list with inclusion reason (passed correlation gate) or exclusion reason (failed correlation gate)
-  - [x] Capital allocation per instrument explicit: ₹ amount and fraction of total, adjusted for regime half-weight if applicable
-  - [x] Vol-targeting sizing rule explicit: formula, 20-bar window, fraction cap at 1.0, no leverage, 10% annualized vol target
-  - [x] Kill-switch thresholds per instrument: SharpeP5 threshold (from bootstrap), MaxDD threshold (1.5× in-sample worst), MaxDDDuration threshold (2× in-sample worst)
-  - [x] Regime gate outcome per instrument: RegimeConcentrated true/false, capital adjustment if applicable
-  - [x] TASK-0056 (pre-live brief) unblocked after this file is written
-- **Notes:** Done 2026-05-07. Decision file: decisions/algorithm/2026-05-07-macd-portfolio-composition.md. TITAN kill-switch: SharpeP5=0.0854, MaxDD=4.72% (1.5×3.1454%), MaxDDDuration=1,388 days (2×694 days). Both instruments RegimeConcentrated=false; no allocation adjustment. TASK-0056 unblocked. Owner: Marcus (algo-trading-veteran).
-
----
 
 ### [TASK-0072] Data — Nifty Midcap 150 universe YAML
 
