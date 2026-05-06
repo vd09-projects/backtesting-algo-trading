@@ -1161,6 +1161,185 @@ func TestWriteSweep_DSRSection(t *testing.T) {
 	}
 }
 
+// --- Regime gate output tests ---
+
+// TestWrite_RegimeGate_Stdout verifies that when Config.RegimeGate is non-nil,
+// the regime gate section is printed to stdout with per-regime PerTradeSharpe,
+// Contribution%, TradeCount, and RegimeConcentrated flag.
+func TestWrite_RegimeGate_Stdout(t *testing.T) {
+	t.Parallel()
+
+	report := &analytics.RegimeGateReport{
+		RegimeConcentrated: false,
+		Regimes: []analytics.RegimeContribution{
+			{Name: "Pre-COVID (2018–1Jan 2020)", PerTradeSharpe: 0.3512, Contribution: 0.38, TradeCount: 42},
+			{Name: "COVID crash + recovery (Feb 2020–Jun 2021)", PerTradeSharpe: 0.4901, Contribution: 0.52, TradeCount: 18},
+			{Name: "Post-recovery (Jul 2021–2024)", PerTradeSharpe: 0.0888, Contribution: 0.10, TradeCount: 61},
+		},
+	}
+
+	var buf bytes.Buffer
+	cfg := output.Config{
+		PrintToStdout: true,
+		Stdout:        &buf,
+		RegimeGate:    report,
+	}
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	out := buf.String()
+
+	for _, want := range []string{
+		"Regime Gate",
+		"Pre-COVID",
+		"0.3512",
+		"38.00%",
+		"42",
+		"COVID crash",
+		"0.4901",
+		"52.00%",
+		"18",
+		"Post-recovery",
+		"0.0888",
+		"10.00%",
+		"61",
+		"RegimeConcentrated: false",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("regime gate stdout missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// TestWrite_RegimeGate_Concentrated verifies the stdout output says "true"
+// when RegimeConcentrated is set.
+func TestWrite_RegimeGate_Concentrated(t *testing.T) {
+	t.Parallel()
+
+	report := &analytics.RegimeGateReport{
+		RegimeConcentrated: true,
+		Regimes: []analytics.RegimeContribution{
+			{Name: "Pre-COVID", PerTradeSharpe: 2.10, Contribution: 0.85, TradeCount: 30},
+			{Name: "COVID", PerTradeSharpe: 0.15, Contribution: 0.10, TradeCount: 8},
+			{Name: "Post-recovery", PerTradeSharpe: 0.07, Contribution: 0.05, TradeCount: 6},
+		},
+	}
+
+	var buf bytes.Buffer
+	cfg := output.Config{
+		PrintToStdout: true,
+		Stdout:        &buf,
+		RegimeGate:    report,
+	}
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "RegimeConcentrated: true") {
+		t.Errorf("expected 'RegimeConcentrated: true' in stdout, got:\n%s", out)
+	}
+}
+
+// TestWrite_RegimeGate_JSON verifies that RegimeGate data is present in the JSON output.
+func TestWrite_RegimeGate_JSON(t *testing.T) {
+	t.Parallel()
+
+	report := &analytics.RegimeGateReport{
+		RegimeConcentrated: true,
+		Regimes: []analytics.RegimeContribution{
+			{Name: "Pre-COVID", PerTradeSharpe: 2.10, Contribution: 0.85, TradeCount: 30},
+			{Name: "COVID", PerTradeSharpe: 0.15, Contribution: 0.10, TradeCount: 8},
+			{Name: "Post-recovery", PerTradeSharpe: 0.07, Contribution: 0.05, TradeCount: 6},
+		},
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+	cfg := output.Config{
+		FilePath:   path,
+		RegimeGate: report,
+	}
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !json.Valid(data) {
+		t.Fatalf("output is not valid JSON: %s", data)
+	}
+
+	// Verify the regime_gate key exists with expected fields.
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	rg, ok := got["regime_gate"]
+	if !ok {
+		t.Fatalf("JSON missing 'regime_gate' key; got keys: %v", mapKeys(got))
+	}
+	rgMap, ok := rg.(map[string]any)
+	if !ok {
+		t.Fatalf("regime_gate is not an object: %T", rg)
+	}
+	if concentrated, ok := rgMap["regime_concentrated"]; !ok || concentrated != true {
+		t.Errorf("regime_gate.regime_concentrated: want true, got %v (ok=%v)", concentrated, ok)
+	}
+	regimes, ok := rgMap["regimes"].([]any)
+	if !ok || len(regimes) != 3 {
+		t.Fatalf("regime_gate.regimes: want 3 entries, got %v", rgMap["regimes"])
+	}
+}
+
+// TestWrite_RegimeGate_Nil verifies that when Config.RegimeGate is nil, no regime
+// gate section appears in stdout and no "regime_gate" key appears in JSON.
+func TestWrite_RegimeGate_Nil(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.json")
+	cfg := output.Config{
+		PrintToStdout: true,
+		Stdout:        &buf,
+		FilePath:      path,
+		RegimeGate:    nil,
+	}
+	if err := output.Write(analytics.Report{}, cfg); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	// Stdout must not mention regime gate.
+	if strings.Contains(buf.String(), "Regime Gate") {
+		t.Errorf("expected no regime gate section when nil, got:\n%s", buf.String())
+	}
+
+	// JSON must not contain regime_gate key.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if _, ok := got["regime_gate"]; ok {
+		t.Errorf("JSON should not contain 'regime_gate' when RegimeGate is nil")
+	}
+}
+
+// mapKeys returns the keys of a map for test diagnostics.
+func mapKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // --- Bootstrap write-error paths ---
 
 // failAfterNWriter fails after exactly N successful writes.
@@ -1195,6 +1374,38 @@ func TestWrite_Bootstrap_WriteError(t *testing.T) {
 				Bootstrap:      result,
 				BootstrapSeed:  1,
 				BootstrapNSims: 1000,
+			}
+			if err := output.Write(analytics.Report{}, cfg); err == nil {
+				t.Errorf("failAfterN=%d: expected error, got nil", tt.failAfterN)
+			}
+		})
+	}
+}
+
+// TestWrite_RegimeGate_WriteError verifies all error paths in printRegimeGateSection.
+// The function has 3 fmt.Fprintf calls: header, per-regime row, and concentrated flag.
+// summary is 1 write; each regime-gate call adds one more.
+func TestWrite_RegimeGate_WriteError(t *testing.T) {
+	rgReport := &analytics.RegimeGateReport{
+		RegimeConcentrated: false,
+		Regimes: []analytics.RegimeContribution{
+			{Name: "Pre-COVID", PerTradeSharpe: 0.35, Contribution: 0.40, TradeCount: 10},
+		},
+	}
+	tests := []struct {
+		name       string
+		failAfterN int
+	}{
+		{"header_fails", 1},    // summary fails → header is the first write in printRegimeGateSection
+		{"row_fails", 2},       // summary ok → header ok → row fails
+		{"flag_fails", 3},      // summary ok → header ok → row ok → flag fails
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := output.Config{
+				PrintToStdout: true,
+				Stdout:        &failAfterNWriter{n: tt.failAfterN},
+				RegimeGate:    rgReport,
 			}
 			if err := output.Write(analytics.Report{}, cfg); err == nil {
 				t.Errorf("failAfterN=%d: expected error, got nil", tt.failAfterN)

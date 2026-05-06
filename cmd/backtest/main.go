@@ -108,6 +108,7 @@ type flags struct {
 	doBootstrap       bool
 	bootstrapSeed     int64
 	bootstrapN        int
+	doRegimeGate      bool
 }
 
 func main() {
@@ -140,6 +141,7 @@ func main() {
 	flag.BoolVar(&f.doBootstrap, "bootstrap", false, "Run Monte Carlo bootstrap for Sharpe confidence intervals")
 	flag.Int64Var(&f.bootstrapSeed, "bootstrap-seed", 42, "RNG seed for bootstrap (logged with results for reproducibility)")
 	flag.IntVar(&f.bootstrapN, "bootstrap-n", 0, "Bootstrap simulation count (0 = default 10,000)")
+	flag.BoolVar(&f.doRegimeGate, "regime-gate", false, "Compute per-regime per-trade Sharpe gate using NSE regime windows (2018-2024)")
 	flag.Parse()
 
 	from, to, tf := parseAndValidateFlags(&f)
@@ -211,6 +213,12 @@ func main() {
 
 	bootstrapResult := runBootstrap(f.doBootstrap, trades, f.bootstrapSeed, f.bootstrapN)
 
+	var regimeGateReport *analytics.RegimeGateReport
+	if f.doRegimeGate {
+		r := analytics.ComputeRegimeGate(trades, analytics.NSERegimesGate)
+		regimeGateReport = &r
+	}
+
 	runCfg := buildRunConfig(f.stratName, f.instrument, f.tfStr, f.fromStr, f.toStr, f.commissionStr, p)
 
 	if err := output.Write(report, output.Config{
@@ -225,6 +233,7 @@ func main() {
 		BootstrapSeed:  f.bootstrapSeed,
 		BootstrapNSims: f.bootstrapN,
 		RunConfig:      runCfg,
+		RegimeGate:     regimeGateReport,
 	}); err != nil {
 		cmdutil.Fatalf("output: %v", err)
 	}

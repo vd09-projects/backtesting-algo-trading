@@ -1,0 +1,73 @@
+{
+  "session_date": "2026-05-07",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0086",
+  "task_title": "Regime gate — compute per-regime Sharpe contributions for MACD survivors",
+  "step_completed": 7,
+  "gates": [
+    {
+      "name": "RegimeConcentrated",
+      "criteria": "abs(S[regime]) / sum(abs(S[all regimes])) >= 0.70 for any single regime → RegimeConcentrated=true → 50% of base allocation (NOT a kill)"
+    }
+  ],
+  "command_run": [
+    "go1.25.0 run ./cmd/backtest --instrument NSE:SBIN --from 2018-01-01 --to 2024-12-31 --timeframe daily --strategy macd-crossover --macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9 --commission zerodha_full --sizing-model vol-target --vol-target 0.10 --regime-gate --out runs/regime-gate-macd-2026-05-07/sbin-regime-gate.json",
+    "go1.25.0 run ./cmd/backtest --instrument NSE:TITAN --from 2018-01-01 --to 2024-12-31 --timeframe daily --strategy macd-crossover --macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9 --commission zerodha_full --sizing-model vol-target --vol-target 0.10 --regime-gate --out runs/regime-gate-macd-2026-05-07/titan-regime-gate.json"
+  ],
+  "results_file": [
+    "runs/regime-gate-macd-2026-05-07/sbin-regime-gate.json",
+    "runs/regime-gate-macd-2026-05-07/titan-regime-gate.json"
+  ],
+  "project_state": {
+    "killed_strategies": [],
+    "prior_gate_survivors": ["NSE:SBIN", "NSE:TITAN"],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": "2026-05-06-regime-gate-application-macd-task0055.md — prior applied",
+    "marcus_design_ruling": "Expected max contribution 40–60% COVID+recovery, RegimeConcentrated=false. Validated.",
+    "marcus": null
+  },
+  "survivors": ["NSE:SBIN", "NSE:TITAN"],
+  "survivor_metrics": {
+    "NSE:SBIN": {
+      "regime_concentrated": false,
+      "regimes": [
+        {"name": "Pre-COVID (2018–Jan 2020)", "per_trade_sharpe": 0.3040, "contribution": 0.3901, "trade_count": 14},
+        {"name": "COVID crash + recovery (Feb 2020–Jun 2021)", "per_trade_sharpe": 0.3260, "contribution": 0.4184, "trade_count": 11},
+        {"name": "Post-recovery (Jul 2021–2024)", "per_trade_sharpe": 0.1492, "contribution": 0.1915, "trade_count": 25}
+      ],
+      "allocation": 150000,
+      "allocation_adjusted": false
+    },
+    "NSE:TITAN": {
+      "regime_concentrated": false,
+      "regimes": [
+        {"name": "Pre-COVID (2018–Jan 2020)", "per_trade_sharpe": 0.3976, "contribution": 0.4597, "trade_count": 14},
+        {"name": "COVID crash + recovery (Feb 2020–Jun 2021)", "per_trade_sharpe": 0.3681, "contribution": 0.4256, "trade_count": 12},
+        {"name": "Post-recovery (Jul 2021–2024)", "per_trade_sharpe": 0.0993, "contribution": 0.1147, "trade_count": 32}
+      ],
+      "allocation": 150000,
+      "allocation_adjusted": false
+    }
+  },
+  "survivor_correlation_flags": [],
+  "killed": [],
+  "portfolio_decisions": [
+    "NSE:SBIN: full base allocation ₹1,50,000 (RegimeConcentrated=false)",
+    "NSE:TITAN: full base allocation ₹1,50,000 (RegimeConcentrated=false)"
+  ],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "data_freshness_verified": true,
+  "results_completeness_verified": true,
+  "decision_file_written": "decisions/algorithm/2026-05-07-regime-gate-results-sbin-titan-macd-task0086.md",
+  "acceptance_criteria": {
+    "per_regime_trade_logs_extracted": true,
+    "per_trade_sharpe_computed_per_regime": true,
+    "contribution_fractions_computed": true,
+    "regime_concentrated_flag_set": true,
+    "capital_allocation_adjustment_documented": true,
+    "results_recorded_in_decisions_algorithm": true
+  }
+}

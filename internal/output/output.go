@@ -55,6 +55,7 @@ type Config struct {
 	BootstrapSeed  int64                       // seed used in the bootstrap run; printed in header
 	BootstrapNSims int                         // simulation count; 0 displayed as 10000 (the montecarlo default)
 	RunConfig      RunConfig                   // optional run metadata embedded at top level of JSON output; zero value omits all metadata fields
+	RegimeGate     *analytics.RegimeGateReport // optional; when non-nil, prints regime gate section and includes in JSON
 }
 
 // Write formats report as a human-readable summary and/or a JSON file.
@@ -73,10 +74,15 @@ func Write(report analytics.Report, cfg Config) error { //nolint:gocritic // Rep
 				return err
 			}
 		}
+		if cfg.RegimeGate != nil {
+			if err := printRegimeGateSection(w, cfg.RegimeGate); err != nil {
+				return err
+			}
+		}
 	}
 
 	if cfg.FilePath != "" {
-		if err := writeJSON(cfg.FilePath, report, cfg.RunConfig, cfg.Bootstrap, cfg.BootstrapSeed, cfg.BootstrapNSims); err != nil {
+		if err := writeJSON(cfg.FilePath, report, cfg.RunConfig, cfg.Bootstrap, cfg.BootstrapSeed, cfg.BootstrapNSims, cfg.RegimeGate); err != nil {
 			return err
 		}
 	}
@@ -168,6 +174,25 @@ func printBootstrapSection(w io.Writer, result *montecarlo.BootstrapResult, seed
 		result.SharpeP5,
 	); err != nil {
 		return fmt.Errorf("output: write bootstrap kill-switch: %w", err)
+	}
+	return nil
+}
+
+// printRegimeGateSection prints the per-regime PerTradeSharpe, Contribution%, TradeCount,
+// and RegimeConcentrated flag for the regime gate evaluation (TASK-0086).
+func printRegimeGateSection(w io.Writer, r *analytics.RegimeGateReport) error {
+	if _, err := fmt.Fprintf(w, "\n--- Regime Gate ---\n%-42s  %-14s  %-12s  %s\n",
+		"Regime", "PerTradeSharpe", "Contribution", "TradeCount"); err != nil {
+		return fmt.Errorf("output: write regime gate header: %w", err)
+	}
+	for _, rc := range r.Regimes {
+		if _, err := fmt.Fprintf(w, "%-42s  %-14.4f  %-12s  %d\n",
+			rc.Name, rc.PerTradeSharpe, fmt.Sprintf("%.2f%%", rc.Contribution*100), rc.TradeCount); err != nil {
+			return fmt.Errorf("output: write regime gate row %q: %w", rc.Name, err)
+		}
+	}
+	if _, err := fmt.Fprintf(w, "RegimeConcentrated: %v\n", r.RegimeConcentrated); err != nil {
+		return fmt.Errorf("output: write regime concentrated flag: %w", err)
 	}
 	return nil
 }
@@ -327,14 +352,18 @@ type BootstrapStats struct {
 //
 // Bootstrap is a named pointer field (not embedded) so it appears under a "bootstrap"
 // sub-key. The omitempty tag means the key is absent entirely when no bootstrap was run.
+//
+// RegimeGate is a named pointer field so it appears under a "regime_gate" sub-key.
+// The omitempty tag means the key is absent entirely when no regime gate was run.
 type jsonResult struct {
 	RunConfig
 	analytics.Report
-	Bootstrap *BootstrapStats `json:"bootstrap,omitempty"`
+	Bootstrap  *BootstrapStats             `json:"bootstrap,omitempty"`
+	RegimeGate *analytics.RegimeGateReport `json:"regime_gate,omitempty"`
 }
 
-func writeJSON(path string, r analytics.Report, rc RunConfig, br *montecarlo.BootstrapResult, seed int64, nSims int) error { //nolint:gocritic // value semantics intentional; r and rc are read-only
-	result := jsonResult{RunConfig: rc, Report: r}
+func writeJSON(path string, r analytics.Report, rc RunConfig, br *montecarlo.BootstrapResult, seed int64, nSims int, rg *analytics.RegimeGateReport) error { //nolint:gocritic // value semantics intentional; r and rc are read-only
+	result := jsonResult{RunConfig: rc, Report: r, RegimeGate: rg}
 	if br != nil {
 		n := nSims
 		if n <= 0 {

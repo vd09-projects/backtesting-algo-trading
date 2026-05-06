@@ -227,3 +227,6 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-06 | TASK-0087 | created | priority: high, source: decision | Portfolio composition: record final portfolio, sizing, kill-switch thresholds in decisions/algorithm/; blocked by TASK-0085 and TASK-0086 | Marcus evaluate session 2026-05-06 |
 | 2026-05-06 | TASK-0056 | blocker updated | Blocked by TASK-0087 (portfolio composition must be written first) + TASK-0048; was blocked by TASK-0055 directly |
 | 2026-05-07 | TASK-0085 | status → done | Correlation gate completed — SBIN + TITAN survivors | Results in decisions/algorithm/2026-05-06-macd-correlation-gate-results-sbin-titan-survivors.md |
+| 2026-05-07 | TASK-0086 | status → done | All 6 acceptance criteria met. SBIN: RegimeConcentrated=false (max 41.84% COVID+recovery). TITAN: RegimeConcentrated=false (max 45.97% pre-COVID). No allocation adjustment. Results in decisions/algorithm/2026-05-07-regime-gate-results-sbin-titan-macd-task0086.md | archived to tasks/archive/2026-05.md |
+| 2026-05-07 | TASK-0087 | status → todo (unblocked) | TASK-0085 and TASK-0086 both done; moved from Blocked to Up Next | |
+| 2026-05-07 | TASK-0055 | notes updated | TASK-0085 done (SBIN+TITAN survive correlation gate), TASK-0086 done (both RegimeConcentrated=false); blocked on TASK-0087 only | |

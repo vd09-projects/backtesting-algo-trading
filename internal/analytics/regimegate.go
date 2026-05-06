@@ -45,23 +45,23 @@ var NSERegimesGate = []Regime{
 type RegimeGateReport struct {
 	// RegimeConcentrated is true when any single regime accounts for >= 70% of
 	// total Sharpe mass (abs-weighted), or when any regime window has zero trades.
-	RegimeConcentrated bool
+	RegimeConcentrated bool `json:"regime_concentrated"`
 	// Regimes holds the per-regime breakdown in the same order as the input regimes.
-	Regimes []RegimeContribution
+	Regimes []RegimeContribution `json:"regimes"`
 }
 
 // RegimeContribution holds per-regime metrics from the regime gate computation.
 type RegimeContribution struct {
 	// Name is copied from the input Regime.Name.
-	Name string
+	Name string `json:"name"`
 	// PerTradeSharpe is mean(ReturnOnNotional) / std(ReturnOnNotional) with sample
 	// variance (n-1), no annualization. 0 when fewer than 2 trades are in this regime.
-	PerTradeSharpe float64
+	PerTradeSharpe float64 `json:"per_trade_sharpe"`
 	// Contribution is abs(PerTradeSharpe) / sum(abs(PerTradeSharpe)) across all regimes.
 	// 0 when sum of all abs(PerTradeSharpe) == 0 (degenerate case).
-	Contribution float64
+	Contribution float64 `json:"contribution"`
 	// TradeCount is the number of trades whose ExitTime falls in this regime's window.
-	TradeCount int
+	TradeCount int `json:"trade_count"`
 }
 
 // ComputeRegimeGate evaluates whether a strategy's Sharpe is concentrated in a single
