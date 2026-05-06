@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-06 | **Open tasks:** 22 | **Next up:** TASK-0055
+**Last updated:** 2026-05-06 | **Open tasks:** 24 | **Next up:** TASK-0085
 
 ---
 
@@ -8,15 +8,9 @@
 
 <!-- Currently being worked on. Keep at most 2-3 tasks here. -->
 
----
-
-## Up Next
-
-<!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
 ### [TASK-0055] Evaluation — cross-strategy correlation and portfolio construction
 
-- **Status:** todo
+- **Status:** in-progress
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
@@ -29,7 +23,7 @@
   - [ ] Define capital allocation per strategy: combined portfolio targets ~10% annualized vol using `SizingVolatilityTarget`
   - [ ] Record portfolio composition and sizing rule in `decisions/algorithm/`
   - [ ] Record excluded strategies with reasons (correlation, gate failure, or sizing constraint)
-- **Notes:** Unblocked 2026-05-05 (TASK-0054 complete). 4 MACD survivors: SBIN, BAJFINANCE, TITAN, ICICIBANK. SBIN/ICICIBANK pair flagged — likely |r| > 0.70 (both Nifty50 banking). Run pairwise Pearson before sizing. At ₹3 lakh total capital with vol-targeting, each strategy typically receives 20-50% of capital depending on realized volatility. No leverage at this stage. Owner: Marcus (algo-trading-veteran).
+- **Notes:** Unblocked 2026-05-05 (TASK-0054 complete). Marcus GO verdict 2026-05-06: banking cluster (SBIN, ICICIBANK, BAJFINANCE) structurally correlated; expected final portfolio SBIN + TITAN. Capital allocation and kill-switch thresholds pre-committed in `decisions/algorithm/2026-05-06-macd-portfolio-sizing-sbin-titan-vol-targeting.md`. Banking cluster rationale in `decisions/algorithm/2026-05-06-banking-cluster-sbin-bajfinance-icicibank.md`. Blocked by TASK-0085 (actual correlation computation) and TASK-0086 (regime gate) before final composition can be recorded in TASK-0087. Owner: Marcus (algo-trading-veteran).
   ```json
   {
     "survivor_input_from": "TASK-0069",
@@ -42,6 +36,46 @@
     ]
   }
   ```
+
+---
+
+## Up Next
+
+<!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
+
+### [TASK-0085] Correlation — run pairwise Pearson r on all 6 MACD survivor pairs (equity curves)
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-06
+- **Source:** decision (Marcus GO verdict, evaluate session 2026-05-06)
+- **Context:** Run pairwise correlation analysis on daily log-return equity curves for MACD crossover on SBIN, BAJFINANCE, TITAN, ICICIBANK. Compute 6 pairs: full-period (2018-2024) AND stress-period (COVID crash 2020-02-01 to 2020-06-30, rate-hike bear 2022-01-01 to 2022-12-31). Gate thresholds per correlation-gate decision (2026-04-27): full-period r < 0.7 AND both stress-period r < 0.6. Marcus expects SBIN/ICICIBANK to fail — both are Nifty Bank constituents, rate-sensitive, PSU+private banking. SBIN/BAJFINANCE borderline (NBFC, estimated full-period r 0.55-0.72). TITAN expected to pass all pairs. Apply DSR tiebreaker for failing pairs (SBIN DSR=0.7042 > BAJFINANCE=0.6120 > TITAN=0.6022 > ICICIBANK=0.3816).
+- **Acceptance criteria:**
+  - [ ] Pairwise Pearson r computed for all 6 pairs on full-period (2018-2024) daily log-return equity curves
+  - [ ] Stress-period Pearson r computed separately for COVID crash (2020-02-01 to 2020-06-30) and rate-hike bear (2022-01-01 to 2022-12-31)
+  - [ ] Each pair labeled PASS or FAIL per gate (full-period r < 0.7 AND both stress-period r < 0.6)
+  - [ ] Tiebreaker applied for failing pairs: retain higher DSR-corrected Sharpe instrument (SBIN > BAJFINANCE > TITAN > ICICIBANK)
+  - [ ] Excluded instruments recorded with reason "excluded (correlation)" — not a gate failure
+  - [ ] Results feed directly into TASK-0087 (portfolio composition decision file)
+- **Notes:** Requires daily equity curve output per instrument. `runs/bootstrap-macd-2026-05-05/` has per-instrument JSON with aggregate metrics; daily equity curve CSVs may need to be re-run via `cmd/backtest --out <csv>` for each of the 4 surviving instruments. Equity curve log-returns are defined as `ln(equity[t]/equity[t-1])` per the correlation-gate decision.
+
+---
+
+### [TASK-0086] Regime gate — compute per-regime Sharpe contributions for MACD survivors (deferred from TASK-0052)
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-06
+- **Source:** decision (regime gate deferred 2026-05-03; Marcus GO verdict evaluate session 2026-05-06)
+- **Context:** Regime gate deferred from TASK-0052 because universe-sweep CSV contains no per-trade timestamps. Must now be computed for the 4 surviving instruments (or whichever subset passes correlation gate in TASK-0085). Three regime windows: pre-COVID (2018-01-01 to 2020-01-31), COVID+recovery (2020-02-01 to 2021-06-30), post-recovery (2021-07-01 to 2024-12-31). Contribution metric: abs(S[regime])/sum(abs(S[all regimes])). Gate: any regime >= 70% → RegimeConcentrated=true → half-weight in final allocation. This is NOT a kill condition; it halves the capital allocation.
+- **Acceptance criteria:**
+  - [ ] Per-regime trade logs extracted for each surviving instrument (run `cmd/backtest` with restricted date range per regime window, OR extract per-trade timestamps from existing full-period trade log)
+  - [ ] Per-trade Sharpe computed for each (instrument, regime) pair: `mean(ReturnOnNotional)/std(ReturnOnNotional)`, sample variance (n-1), no annualization
+  - [ ] `abs(S[regime]) / sum(abs(S[all regimes]))` computed for each instrument
+  - [ ] RegimeConcentrated flag set per instrument: true if any single regime >= 70% of absolute Sharpe mass
+  - [ ] Capital allocation adjustment documented: RegimeConcentrated=true → 50% of base allocation
+  - [ ] Results recorded in `decisions/algorithm/` (can be part of TASK-0087 composition file or a separate regime-gate file)
+- **Notes:** Marcus's prior: MACD (17/26/9) on Nifty50 daily bars is unlikely to hit 70% concentration — COVID+recovery (Feb 2020 to Jun 2021) was a strong trending period but post-recovery is 3.5 years including the 2022 bear. Pre-COVID (2018-2020) likely has modest negative or flat per-trade Sharpe due to IL&FS aftermath and whipsaw conditions — this dilutes COVID contribution. SBIN and ICICIBANK likely survive regime gate. Apply even if expected to pass — the gate is mandatory per the 2026-05-03 deferral decision.
 
 ---
 
@@ -161,13 +195,33 @@
 
 <!-- Waiting on something. Each task must state what it's blocked by. -->
 
+### [TASK-0087] Portfolio composition — record final portfolio, sizing, and kill-switch thresholds in decisions/algorithm/
+
+- **Status:** blocked
+- **Priority:** high
+- **Created:** 2026-05-06
+- **Source:** decision (Marcus GO verdict, evaluate session 2026-05-06; kill-switch derivation methodology 2026-04-21)
+- **Blocked by:** TASK-0085 (correlation gate results), TASK-0086 (regime gate results)
+- **Context:** After correlation gate and regime gate are applied, record the final portfolio composition and all live-deployment parameters. Marcus's expected portfolio: NSE:SBIN + NSE:TITAN (subject to actual correlation gate results from TASK-0085). Capital: ₹1.5 lakh notional per instrument (₹3 lakh total), no leverage. Vol-targeting: SizingVolatilityTarget, 20-bar rolling log-return std dev, fraction = volTarget/(instrumentVol × sqrt(252)), capped at 1.0. Kill-switch thresholds from bootstrap p5 per kill-switch derivation methodology (2026-04-21). SBIN: p5=0.0719, max DD=4.10% (1.5×2.73%), max DD duration=448 days (2×224 days). TITAN: p5=0.0854, max DD and duration from TITAN.json. Unblocks TASK-0056 (pre-live brief).
+- **Acceptance criteria:**
+  - [ ] `decisions/algorithm/YYYY-MM-DD-macd-portfolio-composition.md` created
+  - [ ] Final instrument list with inclusion reason (passed correlation gate) or exclusion reason (failed correlation gate)
+  - [ ] Capital allocation per instrument explicit: ₹ amount and fraction of total, adjusted for regime half-weight if applicable
+  - [ ] Vol-targeting sizing rule explicit: formula, 20-bar window, fraction cap at 1.0, no leverage, 10% annualized vol target
+  - [ ] Kill-switch thresholds per instrument: SharpeP5 threshold (from bootstrap), MaxDD threshold (1.5× in-sample worst), MaxDDDuration threshold (2× in-sample worst)
+  - [ ] Regime gate outcome per instrument: RegimeConcentrated true/false, capital adjustment if applicable
+  - [ ] TASK-0056 (pre-live brief) unblocked after this file is written
+- **Notes:** TITAN.json, BAJFINANCE.json, ICICIBANK.json MaxDrawdown and MaxDrawdownDuration must be read from `runs/bootstrap-macd-2026-05-05/` before kill-switch thresholds can be fully specified. SBIN: MaxDrawdown=2.73%, MaxDrawdownDuration≈224 days (19,353,600,000,000,000 ns from SBIN.json). Owner: Marcus (algo-trading-veteran).
+
+---
+
 ### [TASK-0056] Evaluation — pre-live brief: kill-switch thresholds and go/no-go sign-off
 
 - **Status:** blocked
 - **Priority:** high
 - **Created:** 2026-04-25
 - **Source:** session
-- **Blocked by:** TASK-0055, TASK-0048 (cmd/monitor must exist for weekly monitoring cadence)
+- **Blocked by:** TASK-0087 (portfolio composition and kill-switch thresholds must be recorded first), TASK-0048 (cmd/monitor must exist for weekly monitoring cadence)
 - **Context:** The final checkpoint before any live capital is allocated. Documents specific kill-switch thresholds, capital allocation, and the explicit go/no-go verdict for each portfolio strategy. No strategy goes live without this document existing and dated before the first trade.
 - **Acceptance criteria:**
   - [ ] For each portfolio strategy: kill-switch thresholds recorded — SharpeP5 threshold (from TASK-0054), MaxDrawdownPct (1.5× in-sample worst), MaxDDDuration (2× in-sample worst)

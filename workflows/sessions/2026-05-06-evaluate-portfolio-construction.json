@@ -1,0 +1,88 @@
+{
+  "session_date": "2026-05-06",
+  "workflow": "evaluate",
+  "evaluation_id": "2026-05-06-evaluate-portfolio-construction",
+  "strategy_name": "MACD crossover portfolio — cross-strategy correlation gate and portfolio construction",
+  "strategy_description": "TASK-0055: Evaluate pairwise correlation among 4 MACD bootstrap survivors (SBIN, BAJFINANCE, TITAN, ICICIBANK). Apply correlation gate (full-period r < 0.7, stress-period r < 0.6). Determine which instruments coexist in the portfolio. Define capital allocation using SizingVolatilityTarget at ~10% annualized vol on ₹3 lakh total capital. Record portfolio composition and sizing rule in decisions/algorithm/.",
+  "step_completed": 4,
+  "iterate_round": 0,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-05-05-macd-bootstrap-gate-results.md",
+        "decisions/algorithm/2026-04-27-bootstrap-gate.md",
+        "decisions/algorithm/2026-04-13-vol-targeting-algorithm-choices.md",
+        "decisions/algorithm/2026-04-20-bootstrap-sharpe-non-annualized-per-trade.md",
+        "decisions/algorithm/2026-04-21-kill-switch-derivation-methodology.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-27-correlation-gate.md",
+        "decisions/algorithm/2026-04-27-regime-gate.md",
+        "decisions/algorithm/2026-05-05-macd-deployment-universe-correlation-screening.md",
+        "decisions/algorithm/2026-05-03-regime-gate-deferred-universe-sweep-csv.md",
+        "decisions/algorithm/2026-04-25-2025-live-data-as-true-holdout.md"
+      ]
+    },
+    "marcus": {
+      "summary": "GO verdict. The correlation gate applies unchanged to same-strategy/different-instrument pairs. Banking cluster (SBIN, ICICIBANK, BAJFINANCE) is structurally correlated — SBIN/ICICIBANK expected to fail both full-period (r > 0.7) and COVID stress-period (r > 0.6) gates. DSR tiebreaker favors SBIN (0.7042) over ICICIBANK (0.3816) and BAJFINANCE (0.6120). TITAN is structurally uncorrelated with banking names. Expected final portfolio: SBIN + TITAN at ₹1.5 lakh each, vol-targeting at 10% annualized. Kill-switch thresholds derived from bootstrap p5 and in-sample MaxDD/MaxDDDuration. Regime gate must be computed before finalizing weights.",
+      "go_iterate_kill": "go",
+      "expected_portfolio": ["NSE:SBIN", "NSE:TITAN"],
+      "capital_per_instrument_lakhs": 1.5,
+      "kill_switch_sbin": {"SharpeP5Threshold": 0.0719, "MaxDDThreshold_pct": 4.10, "MaxDDDuration_days": 448},
+      "kill_switch_titan": {"SharpeP5Threshold": 0.0854, "MaxDDThreshold_pct": 4.72, "MaxDDDuration_days": 1388},
+      "decision_marks": [
+        "**Decision (2026-04.1.0) — algorithm: experimental** scope: portfolio-construction, MACD-crossover, TASK-0055 — Banking cluster (SBIN, BAJFINANCE, ICICIBANK) treated as correlated instruments. Expected outcome: SBIN/ICICIBANK fails full-period and stress-period correlation gates; SBIN/BAJFINANCE borderline. DSR tiebreaker retains SBIN. Expected final portfolio: SBIN + TITAN.",
+        "**Decision (2026-04.1.0) — algorithm: experimental** scope: portfolio-sizing, MACD-crossover, TASK-0055 — For 2-instrument portfolio (SBIN + TITAN), ₹1.5 lakh notional per instrument. Vol-targeting (SizingVolatilityTarget, 20-bar, no leverage) at 10% annualized vol target. SBIN kill-switch: Sharpe p5=0.0719, max DD threshold=4.10% (1.5×2.73%), max DD duration=448 days (2×224 days). TITAN kill-switch: p5=0.0854, max DD threshold=4.72% (1.5×3.1454%), max DD duration=1388 days (2×694 days).",
+        "**Decision (2026-04.1.0) — algorithm: experimental** scope: regime-gate-application, TASK-0055 — Regime gate computation is a blocking step before finalizing capital weights. Per-regime backtests (pre-COVID 2018-2020, COVID+recovery 2020-2021, post-recovery 2021-2024) required for all surviving instruments. If any instrument shows single-regime abs(Sharpe) contribution >= 70%, apply half-weight in final allocation."
+      ]
+    },
+    "go_iterate_kill": "go"
+  },
+  "project_state": {
+    "implemented_strategies": [
+      "bollinger",
+      "ccimeanrev",
+      "donchian",
+      "macd",
+      "momentum",
+      "rsimeanrev",
+      "smacrossover"
+    ],
+    "killed_strategies": [
+      {"name": "sma-crossover (fast=10/slow=20)", "failure_mode": "walk-forward instrument-count gate (33% retention, 4/12)", "edge_category": "trend-following"},
+      {"name": "sma-crossover (fast=20/slow=50)", "failure_mode": "universe gate — zero sufficient instruments (2-3 trades/year)", "edge_category": "trend-following"},
+      {"name": "rsi-mean-reversion", "failure_mode": "proliferation gate (signal frequency)", "edge_category": "mean-reversion"},
+      {"name": "bollinger-mean-reversion", "failure_mode": "universe gate failed", "edge_category": "mean-reversion"},
+      {"name": "cci-mean-reversion", "failure_mode": "universe gate failed", "edge_category": "mean-reversion"},
+      {"name": "donchian-breakout", "failure_mode": "universe gate failed", "edge_category": "trend-following"},
+      {"name": "momentum", "failure_mode": "universe gate failed", "edge_category": "momentum"}
+    ],
+    "surviving_strategies": [
+      {"strategy": "macd-crossover", "instrument": "NSE:SBIN", "SharpeP5": 0.0719, "SharpeP50": 0.3195, "SharpeP95": 0.5551, "ProbPositiveSharpe": 98.0},
+      {"strategy": "macd-crossover", "instrument": "NSE:BAJFINANCE", "SharpeP5": 0.0467, "SharpeP50": 0.2526, "SharpeP95": 0.4171, "ProbPositiveSharpe": 97.3},
+      {"strategy": "macd-crossover", "instrument": "NSE:TITAN", "SharpeP5": 0.0854, "SharpeP50": 0.3102, "SharpeP95": 0.5323, "ProbPositiveSharpe": 98.7},
+      {"strategy": "macd-crossover", "instrument": "NSE:ICICIBANK", "SharpeP5": 0.0229, "SharpeP50": 0.2489, "SharpeP95": 0.4579, "ProbPositiveSharpe": 96.2}
+    ],
+    "pipeline_stage": "portfolio construction — correlation gate (TASK-0055). MACD bootstrap complete (TASK-0069). Next: TASK-0085 (correlation computation) and TASK-0086 (regime gate). TASK-0087 (final portfolio composition) blocked by both.",
+    "available_helpers": {
+      "pkg/strategy/strategy.go": "Strategy interface",
+      "pkg/strategy/timed_exit.go": "TimedExit wrapper (stateful, needs TASK-0059 factory fix before WF use)"
+    },
+    "helper_gaps": ["TASK-0059 — walk-forward Run() factory API for TimedExit (in-progress/todo)"]
+  },
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "decisions_written": [
+    "decisions/algorithm/2026-05-06-banking-cluster-sbin-bajfinance-icicibank.md",
+    "decisions/algorithm/2026-05-06-macd-portfolio-sizing-sbin-titan-vol-targeting.md",
+    "decisions/algorithm/2026-05-06-regime-gate-application-macd-task0055.md"
+  ],
+  "execution_log": [
+    "[AUTO] Step 0 — Project state loaded. Implemented: 7 strategies. Killed: 7 (SMA fast10/slow20 WF gate, SMA fast20/slow50 universe gate, RSI proliferation gate, Bollinger universe gate, CCI universe gate, Donchian universe gate, Momentum universe gate). Surviving: 4 MACD crossover instruments (SBIN, BAJFINANCE, TITAN, ICICIBANK). Pipeline stage: portfolio construction (TASK-0055). Helpers: strategy.go (Strategy interface), timed_exit.go (TimedExit wrapper).",
+    "[AUTO] Step 1 — Decision lookup: 10 relevant decisions found. Standing orders: MACD bootstrap gate results, bootstrap gate design, vol-targeting algorithm choices (accepted), bootstrap Sharpe formula, kill-switch derivation methodology. Context: correlation gate design, regime gate (deferred to TASK-0055), SBIN/ICICIBANK correlation flag, regime gate deferral decision, 2025 live holdout.",
+    "[AUTO] Step 2 — Marcus evaluation: complete. Verdict: go.",
+    "[DECISION] Marcus [algorithm]: Correlation gate applies unchanged to same-strategy/different-instrument pairs — identical math, different framing. Banking cluster (SBIN, ICICIBANK, BAJFINANCE) structurally correlated; SBIN/ICICIBANK almost certainly fails both gates. DSR tiebreaker retains SBIN. Expected final portfolio: SBIN + TITAN. ₹1.5 lakh notional per instrument at 10% vol target. SBIN kill-switch: p5=0.0719, MaxDD=4.10%, MaxDDDuration=448d. TITAN kill-switch: p5=0.0854, MaxDD=4.72%, MaxDDDuration=1388d. Regime gate computation required before finalizing weights.",
+    "[AUTO] Step 3 — GO verdict. Portfolio sizing decision written: decisions/algorithm/2026-05-06-macd-portfolio-sizing-sbin-titan-vol-targeting.md. TITAN kill-switch thresholds computed from TITAN.json (MaxDrawdown=3.1454%, MaxDrawdownDuration=694d). Regime gate application decision written: decisions/algorithm/2026-05-06-regime-gate-application-macd-task0055.md. TASK-0055 notes updated to reflect Marcus GO verdict and decisions written. Session tasks (TASK-0085, TASK-0086, TASK-0087) confirmed already created in backlog from prior partial session.",
+    "[AUTO] Step 4 — Session end. 3 decisions written. 0 new tasks created (downstream tasks TASK-0085/0086/0087 already in backlog). TASK-0055 remains in-progress pending TASK-0085/0086."
+  ]
+}
