@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-07 | **Open tasks:** 22 | **Next up:** TASK-0078
+**Last updated:** 2026-05-07 | **Open tasks:** 21 | **Next up:** TASK-0070
 
 ---
 
@@ -13,25 +13,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0078] Infrastructure — session-boundary utilities for intraday strategies
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-05
-- **Source:** session
-- **Context:** Both ORB (TASK-0074) and gap-and-go (TASK-0075) need to detect "is this the first bar of today's NSE session?" and "what was the close of the last bar of the previous session?" No utility exists for this. Without it, both strategies will independently hardcode IST timestamp parsing — duplicated, untestable, fragile on NSE holidays and half-days.
-- **Acceptance criteria:**
-  - [ ] `pkg/strategy/session.go`: `IsSessionOpen(bar model.Candle) bool` — returns true if bar timestamp is 09:15 IST (first bar of NSE session)
-  - [ ] `pkg/strategy/session.go`: `PreviousSessionClose(bars []model.Candle, i int) (float64, bool)` — scans backward from index i to find last bar before 09:15 IST on a prior trading day; returns (close, true) or (0, false) if no prior session in slice
-  - [ ] IST timezone uses `time.FixedZone("IST", 5*3600+30*60)` — no tzdata dependency, consistent with engine convention
-  - [ ] Golden test: synthetic 5-min slice spanning 2 sessions — `IsSessionOpen` fires exactly once per day (09:15 bar only); `PreviousSessionClose` returns correct prior-session close from any intraday bar on day 2
-  - [ ] Weekend/holiday gap test: gap of >1 calendar day between sessions — `PreviousSessionClose` returns most recent prior-session close correctly
-  - [ ] `golangci-lint run ./pkg/strategy/...` passes
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Unblocks TASK-0074 and TASK-0075 — add as their shared dependency. Single file, no engine changes, pkg/strategy only.
-
----
 
 ### [TASK-0070] Tooling — `cmd/fetch-history` CLI for bulk intraday historical data
 
@@ -132,7 +113,7 @@
   - [ ] CLI registered in all strategy registries (`cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`)
   - [ ] All public functions tested; golden test for range computation and signal generation
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — still todo) before implementation begins.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — done 2026-05-07) before implementation begins. All infrastructure dependencies resolved — blocked solely on Marcus rules.
 
 ---
 
@@ -151,7 +132,7 @@
   - [ ] CLI registered in all strategy registries
   - [ ] All public functions tested; golden test covering gap-up enter, gap-down enter, no-gap skip
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. Remaining dependency: TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here). Long-only initially.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here) done 2026-05-07. All infrastructure dependencies resolved — blocked solely on Marcus rules. Long-only initially.
 
 ---
 

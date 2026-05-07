@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-07-nolint-gocritic-hugeparam-candle-pkg-strategy
+    title: "nolint:gocritic for hugeParam on model.Candle in pkg/strategy functions"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [gocritic, nolint, model.Candle, value-receiver, hugeParam, convention, TASK-0078, pkg/strategy]
+    path: convention/2026-05-07-nolint-gocritic-hugeparam-candle-pkg-strategy.md
+    summary: "pkg/strategy/ functions accepting model.Candle suppress gocritic hugeParam with //nolint:gocritic — consistent with codebase-wide value semantics convention and the existing nolint in model.Candle.Validate(). Extends 2026-04-06-value-semantics-for-domain-types from method receivers to function parameters."
+
+  - id: 2026-05-07-ist-package-level-var-time-fixedzone
+    title: "IST timezone as package-level var via time.FixedZone — no tzdata dependency"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [IST, timezone, pkg/strategy, session-boundary, time.FixedZone, TASK-0078]
+    path: convention/2026-05-07-ist-package-level-var-time-fixedzone.md
+    summary: "var ist = time.FixedZone(\"IST\", 5*3600+30*60) at package level in pkg/strategy/session.go. Constructed once, never mutated — not global mutable state. Eliminates per-call allocation in the hot path. No tzdata import needed. Any pkg/strategy/ function requiring IST conversion should use this var."
+
   - id: 2026-05-07-overnight-gap-fill-confirmed-correct
     title: "Overnight gap fill: engine is gap-transparent by construction"
     date: 2026-05-07

@@ -1,0 +1,71 @@
+{
+  "session_date": "2026-05-07",
+  "workflow": "build",
+  "task_id": "TASK-0078",
+  "task_title": "Infrastructure — session-boundary utilities for intraday strategies",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [],
+      "context_files": [
+        "decisions/algorithm/2026-04-25-intraday-session-detection-ist-cutoff.md",
+        "decisions/algorithm/2026-04-25-intraday-forced-close-fill-price.md",
+        "decisions/convention/2026-04-10-nse-annualization-factors.md",
+        "decisions/convention/2026-05-07-overnight-gap-fill-confirmed-correct.md"
+      ]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Create pkg/strategy/session.go with IsSessionOpen and PreviousSessionClose utilities, and pkg/strategy/session_test.go with full golden tests per TDD order. No existing files modified.",
+      "files_to_create": ["pkg/strategy/session_test.go", "pkg/strategy/session.go"],
+      "files_to_modify": [],
+      "approach": "TDD: write tests first, then implementation. IST package-level var. IsSessionOpen checks hour==9 && minute==15 in IST. PreviousSessionClose scans backward for first bar on prior IST calendar date."
+    },
+    "build": {
+      "build_summary": "Created pkg/strategy/session.go with IsSessionOpen and PreviousSessionClose. Tests written first (TDD confirmed). 11 tests, 100% coverage, 0 lint issues, race clean.",
+      "files_modified": ["pkg/strategy/session.go", "pkg/strategy/session_test.go"],
+      "tests_written": [
+        "TestIsSessionOpen_TrueAt0915",
+        "TestIsSessionOpen_FalseAt0920",
+        "TestIsSessionOpen_FalseAt0900",
+        "TestIsSessionOpen_FalseAtMidday",
+        "TestIsSessionOpen_UTCTimestamp_StillDetectedCorrectly",
+        "TestIsSessionOpen_GoldenTest_FiresExactlyOncePerDay",
+        "TestPreviousSessionClose_NoHistory_ReturnsFalse",
+        "TestPreviousSessionClose_ReturnsLastBarOfPriorSession",
+        "TestPreviousSessionClose_CalledAtFirstBarOfDay",
+        "TestPreviousSessionClose_WeekendHolidayGap",
+        "TestPreviousSessionClose_IndexZero_ReturnsFalse"
+      ],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "blocker_count": 0,
+      "warning_count": 0,
+      "suggestion_count": 0
+    }
+  },
+  "quality_review_round": 1,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0078 \"Infrastructure — session-boundary utilities for intraday strategies\" picked from Up Next. Source: session.",
+    "[AUTO] Step 1.5 — Preflight passed. No wrong-agent redirect. Not bugfix. Strategy registration N/A. Quality gate sentinel present.",
+    "[AUTO] Step 2 — Decision lookup: 0 standing orders, 4 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (task is pure pkg/strategy timezone utility; no fill model, sizing, metrics, kill-switch, or walk-forward touches).",
+    "[AUTO] Step 4 — Plan: complete. Approach: Create session.go and session_test.go — TDD order, IST package-level var, IsSessionOpen at 09:15, PreviousSessionClose scans backward.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: pkg/strategy/session.go, pkg/strategy/session_test.go.",
+    "[DECISION] Priya [convention]: IST package-level var via time.FixedZone, no tzdata dependency.",
+    "[DECISION] Priya [convention]: nolint:gocritic for Candle value receiver in IsSessionOpen — matches existing codebase pattern.",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 0 warnings, 0 suggestions. gate_status: clean.",
+    "[AUTO] Step 6 — All 7 acceptance criteria met. Task closed.",
+    "[AUTO] Session end — Task harvest: 0 new tasks created; TASK-0078 archived, TASK-0074 and TASK-0075 notes updated.",
+    "[AUTO] Session end — Decision harvest: 2 decisions written (ist-package-level-var-time-fixedzone, nolint-gocritic-hugeparam-candle-pkg-strategy).",
+    "[CLOSED] TASK-0078 done. All criteria met. Archived."
+  ],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

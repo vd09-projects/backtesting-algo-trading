@@ -8,3 +8,4 @@
 - [cmd/monitor pattern](project_cmd_monitor_pattern.md) — pure file-reading CLI (no DataProvider); thresholdsFile DTO + synthetic curve from trades; kill-switch wiring
 - [analytics package boundary](feedback_analytics_package_boundary.md) — internal/analytics types must NOT get JSON tags; use local DTO in cmd/ layer
 - [Engine gap handling confirmed correct](project_engine_gap_handling.md) — pendingSignal fills at candles[i].Open with no clamping; CNC gap exposure correct without engine changes
+- [Intraday strategy infra status (2026-05-07)](project_intraday_strategy_deps.md) — TASK-0078 done; TASK-0074/0075 blocked solely on Marcus rules; IST var + nolint pattern established in pkg/strategy
