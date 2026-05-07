@@ -1,0 +1,64 @@
+{
+  "session_date": "2026-05-07",
+  "workflow": "build",
+  "task_id": "TASK-0059",
+  "task_title": "Engine — walk-forward Run() factory API for stateful strategy wrappers",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/tradeoff/2026-04-22-walkforward-strategy-single-instance.md",
+        "decisions/convention/2026-04-27-timed-exit-statefulness-pkg-strategy.md",
+        "decisions/architecture/2026-05-03-strategyfactory-table-dispatch-replaces-flat.md"
+      ],
+      "context_files": [
+        "decisions/architecture/2026-05-01-signalaudit-strategy-factory-decoupling.md",
+        "decisions/architecture/2026-04-15-sweep-strategy-factory-func-type.md"
+      ]
+    },
+    "marcus": "skipped — prior decision applies: walk-forward single-instance revisit trigger already fired with TimedExit addition (TASK-0039); factory API change is architectural, not methodology",
+    "priya_plan": {
+      "approach": "factory func() strategy.Strategy per fold; runFold calls factory() twice (IS+OOS); cmd/walk-forward already uses builder pattern; new TimedExit isolation test added",
+      "files_to_create": [],
+      "files_to_modify": [
+        "internal/walkforward/walkforward.go",
+        "internal/walkforward/walkforward_test.go",
+        "cmd/walk-forward/main.go"
+      ]
+    },
+    "build": {
+      "quality_gate": "PASS",
+      "files_modified": [
+        "internal/walkforward/walkforward_test.go",
+        "internal/output/output_test.go"
+      ]
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "findings": []
+    }
+  },
+  "quality_review_round": 1,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0059 \"Engine — walk-forward Run() factory API for stateful strategy wrappers\" picked from Up Next. Source: session.",
+    "[AUTO] Step 1.5c — Strategy registration: 7 strategies, all registered.",
+    "[AUTO] Step 1.5 — Preflight passed.",
+    "[AUTO] Step 2 — Decision lookup: 3 standing orders, 2 context files. (provided in prompt)",
+    "[AUTO] Step 3 — Marcus: skipped (prior decision applies: revisit trigger from 2026-04-22-walkforward-strategy-single-instance.md already resolved by TASK-0039).",
+    "[AUTO] Step 4 — Plan: complete. Approach: factory per fold; runFold calls factory() twice; cmd/walk-forward builder pattern already in place; add TimedExit isolation test.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: internal/walkforward/walkforward_test.go, internal/output/output_test.go",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 0 warnings (pre-existing gofumpt in output_test.go fixed as opportunistic cleanup), 0 suggestions. gate_status=clean",
+    "[AUTO] Step 6 — All 7/7 acceptance criteria met. Task closed."
+  ],
+  "decision_marks_pending": [
+    {
+      "file": "internal/walkforward/walkforward.go",
+      "mark": "Decision (strategy factory replaces single instance) — architecture: experimental",
+      "summary": "Run() accepts func() strategy.Strategy factory; each fold gets fresh instance via factory(); stateless callers wrap in closure; TimedExit-safe"
+    }
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

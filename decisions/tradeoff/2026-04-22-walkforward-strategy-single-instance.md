@@ -3,7 +3,7 @@
 | Field    | Value            |
 |----------|------------------|
 | Date     | 2026-04-22       |
-| Status   | experimental     |
+| Status   | superseded       |
 | Category | tradeoff         |
 | Tags     | walkforward, strategy, concurrency, API, factory, TASK-0022 |
 
@@ -22,3 +22,7 @@ Any future strategy with mutable state (e.g., a running EMA buffer updated insid
 ## Revisit trigger
 
 When the first mutable-state strategy is added to `strategies/`.
+
+## Superseded by
+
+[Walk-forward Run() accepts a factory, not a single strategy instance](../architecture/2026-05-07-walkforward-strategy-factory-per-fold.md) — TASK-0059 (2026-05-07). `TimedExit` (TASK-0039) was the first mutable-state strategy; the revisit trigger fired.

@@ -67,6 +67,17 @@ func (n *neverTradeStrategy) Next(_ []model.Candle) model.Signal {
 	return model.SignalHold
 }
 
+// alwaysBuyInner always emits Buy and never emits Sell, so TimedExit's timer is
+// the only mechanism that closes positions. Used to test timer-driven fold isolation.
+type alwaysBuyInner struct{}
+
+func (a *alwaysBuyInner) Name() string               { return "always-buy" }
+func (a *alwaysBuyInner) Timeframe() model.Timeframe { return model.TimeframeDaily }
+func (a *alwaysBuyInner) Lookback() int              { return 1 }
+func (a *alwaysBuyInner) Next(_ []model.Candle) model.Signal {
+	return model.SignalBuy
+}
+
 // ---------------------------------------------------------------------------
 // TestGenerateWindows — pure time math, no engine.
 // ---------------------------------------------------------------------------
@@ -502,6 +513,87 @@ func TestRun_DeduplicatedFoldCountExcludesDegenerates(t *testing.T) {
 	report := scoreFolds(windows)
 	if report.DeduplicatedFoldCount != 2 {
 		t.Errorf("DeduplicatedFoldCount: got %d, want 2", report.DeduplicatedFoldCount)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestRun_TimedExitFoldStateIsolation — TASK-0059 acceptance criterion.
+// ---------------------------------------------------------------------------
+
+// TestRun_TimedExitFoldStateIsolation verifies that each fold receives a fresh
+// strategy instance from the factory, so mutable state in TimedExit (inPosition,
+// entryBar) does not bleed across fold boundaries.
+//
+// Setup:
+//   - Inner strategy always emits Buy, never Sell → only TimedExit's timer closes positions.
+//   - TimedExit(maxHoldBars=3): position is forced closed 3 bars after entry.
+//   - Two folds, each with an OOS window long enough (15+ days) for the timer to fire at least once.
+//
+// Expected (factory per fold — correct behavior):
+//   - Fold 2 OOS starts with a fresh TimedExit (inPosition=false, entryBar=0).
+//   - The inner Buy is treated as a new entry on bar 0 of fold 2 OOS.
+//   - The timer fires at bar 3, producing a closed trade.
+//   - Fold 2 is non-degenerate (TradeCount > 0).
+//
+// If a single shared instance were passed instead of a factory, fold 2 would inherit
+// inPosition=true and a stale entryBar from fold 1's IS or OOS period. The
+// barsSinceEntry calculation (currentBar - staleEntryBar) would be a large negative
+// value, the timer would never fire in the OOS window, no trade would close, and
+// fold 2 would be degenerate. The factory API prevents this class of silent corruption.
+func TestRun_TimedExitFoldStateIsolation(t *testing.T) {
+	t.Parallel()
+
+	// Configure two folds with small windows (measured in days, not years) to
+	// keep the test fast. The OOS window is 20 days — large enough that
+	// TimedExit(maxHoldBars=3) fires multiple times if state is fresh.
+	// IS 30d, OOS 20d, step 30d → two folds:
+	//   Fold 1: IS [day 0, day 30), OOS [day 30, day 50)
+	//   Fold 2: IS [day 30, day 60), OOS [day 60, day 80)
+	//   Fold 3: IS [day 60, day 90), OOS [day 90, day 110) → OOS end > To=day 100 → excluded.
+	baseDay := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	day := 24 * time.Hour
+
+	cfg := WalkForwardConfig{
+		InSampleWindow:    30 * day,
+		OutOfSampleWindow: 20 * day,
+		StepSize:          30 * day,
+		Instrument:        "TEST:TIMEX",
+		From:              baseDay,
+		To:                baseDay.Add(100 * day), // exclusive; fits exactly 2 folds
+	}
+	baseCfg := baseEngineConfig()
+
+	maxHoldBars := 3
+	factory := func() strategy.Strategy {
+		return strategy.NewTimedExit(&alwaysBuyInner{}, maxHoldBars)
+	}
+
+	report, err := Run(context.Background(), cfg, baseCfg, &staticProvider{}, factory)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// We expect exactly 2 folds (see window arithmetic above).
+	if len(report.Windows) < 2 {
+		t.Fatalf("expected at least 2 folds, got %d — window sizing may be wrong", len(report.Windows))
+	}
+
+	// Both folds must be non-degenerate: timer must fire in the OOS window of
+	// each fold, producing closed trades. A degenerate fold 2 indicates stale
+	// TimedExit state leaked from fold 1 (timer never fired because entryBar
+	// from fold 1 caused barsSinceEntry to be perpetually negative in fold 2).
+	for i, w := range report.Windows {
+		if w.Degenerate {
+			t.Errorf(
+				"fold %d is degenerate (TradeCount=%d): "+
+					"TimedExit timer did not fire — likely caused by stale inPosition/entryBar state "+
+					"leaking from a prior fold; factory must produce a fresh instance per fold",
+				i, w.TradeCount,
+			)
+		}
+		if w.TradeCount <= 0 {
+			t.Errorf("fold %d: TradeCount=%d, want > 0 (timer must produce closed trades)", i, w.TradeCount)
+		}
 	}
 }
 

@@ -1396,9 +1396,9 @@ func TestWrite_RegimeGate_WriteError(t *testing.T) {
 		name       string
 		failAfterN int
 	}{
-		{"header_fails", 1},    // summary fails → header is the first write in printRegimeGateSection
-		{"row_fails", 2},       // summary ok → header ok → row fails
-		{"flag_fails", 3},      // summary ok → header ok → row ok → flag fails
+		{"header_fails", 1}, // summary fails → header is the first write in printRegimeGateSection
+		{"row_fails", 2},    // summary ok → header ok → row fails
+		{"flag_fails", 3},   // summary ok → header ok → row ok → flag fails
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
