@@ -1,0 +1,69 @@
+{
+  "session_date": "2026-05-07",
+  "workflow": "build",
+  "task_id": "TASK-0071",
+  "task_title": "Engine — verify overnight gap handling for intraday CNC backtests",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/convention/2026-04-10-equity-curve-covers-all-bars.md",
+        "decisions/convention/2026-04-02-trade-pnl-stored-not-computed.md",
+        "decisions/convention/2026-04-07-hold-signal-not-passed-to-portfolio.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-25-intraday-session-detection-ist-cutoff.md",
+        "decisions/algorithm/2026-04-25-intraday-forced-close-fill-price.md",
+        "decisions/infrastructure/2026-04-10-zerodha-daily-candles-adjusted-for-corporate-actions.md"
+      ]
+    },
+    "marcus": "skipped — fill-model convention already resolved by 2026-04-25-intraday-forced-close-fill-price.md; overnight gap fill at next-bar open is existing engine behaviour covered by pendingSignal pattern",
+    "priya_plan": {
+      "approach": "Write two golden tests for gap handling, run them, record finding; no engine fix needed",
+      "files_to_create": [
+        "internal/engine/engine_gap_test.go",
+        "decisions/convention/2026-05-07-overnight-gap-fill-confirmed-correct.md"
+      ],
+      "files_to_modify": [
+        "tasks/BACKLOG.md",
+        "tasks/archive/2026-05.md"
+      ]
+    },
+    "build": {
+      "status": "PASS",
+      "outcome": "engine_correct",
+      "quality_gate": "PASS",
+      "files_modified": [
+        "internal/engine/engine_gap_test.go",
+        "decisions/convention/2026-05-07-overnight-gap-fill-confirmed-correct.md",
+        "tasks/BACKLOG.md",
+        "tasks/archive/2026-05.md"
+      ],
+      "quality_findings": [],
+      "pnl_test_a_result": "PASS — gap-down loss correctly captured at actual gap-open fill price",
+      "pnl_test_b_result": "PASS — exit fills at next-bar gapped Open, not signal bar Close"
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "findings": [],
+      "round": 1
+    }
+  },
+  "quality_review_round": 1,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0071 \"Engine — verify overnight gap handling for intraday CNC backtests\" picked from Up Next. Source: session.",
+    "[AUTO] Step 1.5c — Strategy registration: 7 strategies (bollinger, ccimeanrev, donchian, macd, momentum, rsimeanrev, smacrossover), all registered.",
+    "[AUTO] Step 1.5d — Quality gate sentinel present (2026-05-07T08:09:28Z); flagged for re-run in Step 5b regardless.",
+    "[AUTO] Step 2 — Decision lookup: 3 standing orders, 3 context files (provided inline by user).",
+    "[AUTO] Step 3 — Marcus: skipped (fill-model convention already resolved by 2026-04-25-intraday-forced-close-fill-price.md).",
+    "[AUTO] Step 4 — Plan: complete. Approach: write failing golden tests first, observe pass/fail, no fix needed if engine already correct.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: internal/engine/engine_gap_test.go, decisions/convention/2026-05-07-overnight-gap-fill-confirmed-correct.md, tasks/BACKLOG.md, tasks/archive/2026-05.md.",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 0 warnings, 0 suggestions. Gate: clean. golangci-lint 0 issues, all tests PASS, engine 98.1% coverage.",
+    "[AUTO] Step 6 — Verify and Close: 5/5 acceptance criteria met. Task archived. Session-end harvests complete: 0 new tasks created, 1 decision indexed in decisions/INDEX.md."
+  ],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

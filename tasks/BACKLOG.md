@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-07 | **Open tasks:** 24 | **Next up:** TASK-0059
+**Last updated:** 2026-05-07 | **Open tasks:** 22 | **Next up:** TASK-0078
 
 ---
 
@@ -13,43 +13,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0059] Engine — walk-forward `Run()` factory API for stateful strategy wrappers
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-04-27
-- **Source:** session
-- **Context:** `TimedExit` (added in TASK-0039) is stateful — it tracks `entryBar` and `inPosition` between `Next()` calls. The walk-forward harness currently accepts a single `strategy.Strategy` instance, safe only when stateless. Using `TimedExit` with walk-forward today silently produces corrupted results across fold boundaries. This is a blocker for any intraday strategy that uses the TimedExit wrapper (all planned 2-3 day hold strategies).
-- **Acceptance criteria:**
-  - [ ] `internal/walkforward.Run()` signature changed to accept `factory func() strategy.Strategy` instead of a single `strategy.Strategy` instance
-  - [ ] Each fold constructs a fresh strategy instance via `factory()` — no shared state across folds
-  - [ ] Existing callers updated: stateless strategies pass `func() strategy.Strategy { return myStrategy }` closures
-  - [ ] All 17 existing walk-forward tests still pass with race detector
-  - [ ] New test: `TimedExit`-wrapped strategy used in walk-forward — verify fold 2 starts with clean position state
-  - [ ] Godoc on `Run()` updated to remove the concurrent-safety caveat
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Priority bumped from medium → high on 2026-05-04: all planned intraday strategies (ORB, gap-and-go) will use TimedExit wrapper, making this a blocker for the intraday pipeline. Breaking API change — scan all callers in `cmd/` before implementing. Owner: Priya (dev).
-
----
-
-### [TASK-0071] Engine — verify overnight gap handling for intraday CNC backtests
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-04
-- **Source:** session
-- **Context:** The engine processes bars sequentially. On 5-min bars with CNC overnight holds, the bar at 3:25 PM is immediately followed by 9:15 AM next day — a real-world 17-hour gap invisible to the event loop. Three concerns: (1) P&L must capture the overnight gap correctly (next open vs prior close); (2) stop-loss fills must use the gap-down open price, not the stop level; (3) any trade log metrics that assume uniform bar spacing may be wrong. Must be verified with a golden test before any intraday backtest result is trusted.
-- **Acceptance criteria:**
-  - [ ] Read `internal/engine/` event loop and portfolio accounting: document exactly where P&L is computed and how fill price is determined for the bar following an overnight gap
-  - [ ] Write golden test: synthetic 5-min candle series spanning 2 sessions with a 3% gap-down open on day 2; position entered on day 1 close; verify P&L in trade log equals gap-adjusted loss, not zero
-  - [ ] Write golden test: synthetic strategy that signals position-close at bar N where bar N+1 opens with a 3% gap below the signal exit price — verify engine fills at bar N+1 open price, not at the signal price from bar N
-  - [ ] If bugs found: fix before any intraday strategy is evaluated; record fix in `decisions/`
-  - [ ] If engine already handles this correctly: record confirmed-correct note in `decisions/`
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). This is a blocker for any intraday backtest producing valid results. CNC strategies (2-3 day holds) don't need forced session close (that's TASK-0046 for MIS), but they do need correct gap accounting. Run this before TASK-0070 (fetch-history) to avoid running large fetches before we know backtests are valid.
-
----
 
 ### [TASK-0078] Infrastructure — session-boundary utilities for intraday strategies
 
@@ -169,7 +132,7 @@
   - [ ] CLI registered in all strategy registries (`cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`)
   - [ ] All public functions tested; golden test for range computation and signal generation
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0071 (gap handling verified), TASK-0059 (walk-forward factory API), and TASK-0078 (session-boundary utilities) before implementation begins.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — still todo) before implementation begins.
 
 ---
 
@@ -188,7 +151,7 @@
   - [ ] CLI registered in all strategy registries
   - [ ] All public functions tested; golden test covering gap-up enter, gap-down enter, no-gap skip
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Requires TASK-0071 (gap handling verified) and TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here). Long-only initially.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. Remaining dependency: TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here). Long-only initially.
 
 ---
 

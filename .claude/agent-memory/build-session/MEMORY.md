@@ -7,3 +7,4 @@
 - [omitempty pointer pattern](feedback_omitempty_pointer_pattern.md) — use *T pointer with omitempty for optional JSON blocks when numeric fields can legitimately be zero
 - [cmd/monitor pattern](project_cmd_monitor_pattern.md) — pure file-reading CLI (no DataProvider); thresholdsFile DTO + synthetic curve from trades; kill-switch wiring
 - [analytics package boundary](feedback_analytics_package_boundary.md) — internal/analytics types must NOT get JSON tags; use local DTO in cmd/ layer
+- [Engine gap handling confirmed correct](project_engine_gap_handling.md) — pendingSignal fills at candles[i].Open with no clamping; CNC gap exposure correct without engine changes

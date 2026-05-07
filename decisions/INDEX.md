@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-07-overnight-gap-fill-confirmed-correct
+    title: "Overnight gap fill: engine is gap-transparent by construction"
+    date: 2026-05-07
+    status: accepted
+    category: convention
+    tags: [overnight-gap, fill-model, intraday, CNC, pending-signal, TASK-0071]
+    path: convention/2026-05-07-overnight-gap-fill-confirmed-correct.md
+    summary: "pendingSignal → candles[i].Open fills at the actual next-bar Open with no clamping, smoothing, or session-boundary check. CNC positions exposed to overnight gap risk; P&L reflects real gap-down fills. Confirmed by two golden tests — TestGapDown_PositionEntered_PnLReflectsGap and TestGapDown_ExitFillsAtNextBarOpen_NotSignalBarClose — no engine change required."
+
+  - id: 2026-05-07-walkforward-strategy-factory-per-fold
+    title: "Walk-forward Run() accepts a factory, not a single strategy instance"
+    date: 2026-05-07
+    status: experimental
+    category: architecture
+    tags: [walkforward, strategy, factory, stateful-strategies, API-change, TASK-0059]
+    path: architecture/2026-05-07-walkforward-strategy-factory-per-fold.md
+    summary: "Run() accepts func() strategy.Strategy per fold; runFold() calls factory() twice (IS+OOS). Eliminates silent cross-fold state corruption for stateful strategies like TimedExit. Supersedes 2026-04-22-walkforward-strategy-single-instance."
+
+  - id: 2026-05-07-walkforward-runfold-is-oos-sequential
+    title: "IS and OOS runs within a walk-forward fold execute sequentially"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [walkforward, concurrency, fold-internal-sequencing, errgroup, IS-OOS, TASK-0059]
+    path: convention/2026-05-07-walkforward-runfold-is-oos-sequential.md
+    summary: "IS and OOS engine runs within a single fold execute sequentially. The outer errgroup already saturates CPUs with fold goroutines; nested goroutines double concurrency without halving runtime on CPU-bound candle processing."
+
+  - id: 2026-05-07-walkforward-errgroup-gomaxprocs-ceiling
+    title: "errgroup parallelism ceiling = GOMAXPROCS for walk-forward fold fan-out"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [walkforward, concurrency, errgroup, parallelism, GOMAXPROCS, memory, TASK-0059]
+    path: convention/2026-05-07-walkforward-errgroup-gomaxprocs-ceiling.md
+    summary: "errgroup.SetLimit(runtime.GOMAXPROCS(0)) caps concurrent fold goroutines. Each fold holds two full candle series in memory (IS+OOS); the ceiling guards against memory blow-up on high-frequency timeframes with many folds."
+
   - id: 2026-05-07-marginal-adv-flagged-inline
     title: "Marginal ADV flagged inline rather than a separate list"
     date: 2026-05-07
@@ -677,11 +713,11 @@ decisions:
   - id: 2026-04-22-walkforward-strategy-single-instance
     title: "Walk-forward accepts a single strategy instance, not a factory"
     date: 2026-04-22
-    status: experimental
+    status: superseded
     category: tradeoff
     tags: [walkforward, strategy, concurrency, API, factory, TASK-0022]
     path: tradeoff/2026-04-22-walkforward-strategy-single-instance.md
-    summary: "Run() takes a single strategy.Strategy; all current strategies are stateless so concurrent fold runs are safe. Factory API deferred until a mutable-state strategy is added."
+    summary: "Run() took a single strategy.Strategy; all strategies were stateless so concurrent fold runs were safe. Factory API deferred until a mutable-state strategy was added. Superseded by 2026-05-07-walkforward-strategy-factory-per-fold when TimedExit (TASK-0039) fired the revisit trigger."
 
   - id: 2026-04-22-walkforward-to-exclusive-upper-bound
     title: "WalkForwardConfig.To is the exclusive upper bound"
