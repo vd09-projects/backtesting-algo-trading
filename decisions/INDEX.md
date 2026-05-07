@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-07-marginal-adv-flagged-inline
+    title: "Marginal ADV flagged inline rather than a separate list"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [universe-yaml, ADV, marginal-flag, yaml-comments, convention, TASK-0072]
+    path: convention/2026-05-07-marginal-adv-flagged-inline.md
+    summary: "Instruments with ADV in Rs 50-100 crore range are flagged with an end-of-line YAML comment on the same instrument line. Keeps the flag colocated with the instrument and visible in diffs without schema changes to ParseUniverseFile."
+
+  - id: 2026-05-07-sector-grouping-in-universe-yaml
+    title: "Sector grouping in universe YAML via inline comments"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [universe-yaml, yaml-comments, sector-grouping, universe-file-format, convention, TASK-0072]
+    path: convention/2026-05-07-sector-grouping-in-universe-yaml.md
+    summary: "Universe YAML files use YAML comment lines (# --- Sector Name ---) to group instrument entries by sector. Zero schema change — ParseUniverseFile strips comments; convention applies to universe files of >= 10 instruments."
+
+  - id: 2026-05-07-adv-floor-midcap-daily-bar-universe
+    title: "ADV floor for midcap daily-bar universe — Rs 50 crore minimum, Rs 100 crore comfort threshold"
+    date: 2026-05-07
+    status: experimental
+    category: algorithm
+    tags: [midcap, liquidity, ADV, instrument-screening, universe, slippage, TASK-0072]
+    path: algorithm/2026-05-07-adv-floor-midcap-daily-bar-universe.md
+    summary: "Rs 50 crore ADV is the hard minimum for midcap universe inclusion; instruments in Rs 50-100 crore range flagged as marginal with inline YAML comments. Rs 100 crore is a comfort threshold, not a gate. At daily-bar position sizes (< 0.5% of ADV), Rs 50 crore provides clean fills."
+
+  - id: 2026-05-07-nifty-midcap-150-universe-instrument-list
+    title: "Nifty Midcap 150 universe — instrument list and gate thresholds"
+    date: 2026-05-07
+    status: experimental
+    category: algorithm
+    tags: [midcap, universe, instrument-selection, nifty-midcap-150, gate-thresholds, evaluation-methodology, TASK-0072]
+    path: algorithm/2026-05-07-nifty-midcap-150-universe-instrument-list.md
+    summary: "Expanded to 48 instruments across 10 sectors (was 25/9). Marcus approved original 25 on 2026-05-07; re-review pending for 23 new additions before TASK-0091 runs. Gate thresholds unchanged. ABCAPITAL and LEMONTREE flagged for Kite history verification; INDHOTEL flagged for large-cap membership check."
+
   - id: 2026-05-07-init-fn-uses-background-context-not-caller-ctx
     title: "lazyProvider initFn uses context.Background(), not the caller's context"
     date: 2026-05-07

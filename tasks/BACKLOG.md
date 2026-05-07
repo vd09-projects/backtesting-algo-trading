@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-07 | **Open tasks:** 24 | **Next up:** TASK-0072
+**Last updated:** 2026-05-07 | **Open tasks:** 24 | **Next up:** TASK-0059
 
 ---
 
@@ -13,22 +13,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0072] Data — Nifty Midcap 150 universe YAML
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-04
-- **Source:** session
-- **Context:** All strategies tested so far run only on Nifty50 large-caps — the most analyst-covered, institutionally-traded names in India. Edge thesis is weaker there. Midcap names have thinner analyst coverage, more retail participation, and more persistent behavioral inefficiencies. Same daily-bar pipeline applies, zero new infrastructure needed.
-- **Acceptance criteria:**
-  - [ ] `universes/nifty-midcap-liquid.yaml` created in same format as `universes/nifty50-large-cap.yaml`
-  - [ ] 20–30 Nifty Midcap 150 names selected: continuous Kite daily bar history from 2018-01-01, reasonably liquid (ADV > ₹50 crore), no pending delistings or recent IPOs
-  - [ ] Marcus (algo-trading-veteran) reviews final list for liquidity and data quality before first sweep run
-  - [ ] `cmd/universe-sweep --universe universes/nifty-midcap-liquid.yaml` runs without errors
-- **Notes:** Owner: Priya builds YAML, Marcus reviews instrument list. Zero code — purely a data/config task. Unblocks midcap daily sweep immediately after review. Same 2018-01-01 to 2024-12-31 evaluation window applies.
-
----
 
 ### [TASK-0059] Engine — walk-forward `Run()` factory API for stateful strategy wrappers
 
@@ -104,6 +88,24 @@
   - [ ] Auth flags and env var fallback covered by tests (mock provider in tests)
   - [ ] Tests written before implementation (TDD); at minimum: dry-run output, partial-failure manifest write, resume-from-manifest
 - **Notes:** Owner: Priya (dev). Blocked at runtime on Zerodha access token — no code blocker. Incremental delta fetch depends on TASK-0080 (CachedProvider manifest). Until TASK-0080 is complete, fetch-history CLI fetches full range from --from on every run (no incremental mode).
+
+---
+
+### [TASK-0091] Eval — Nifty Midcap 150 universe sweep (MACD and other survivors)
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-07
+- **Source:** session
+- **Context:** `universes/nifty-midcap-liquid.yaml` is ready (TASK-0072 complete). The same evaluation pipeline used for Nifty50 large-caps (universe sweep → walk-forward → bootstrap) now needs to run on the midcap universe. MACD crossover (17/26/9) is the primary candidate given its strong large-cap results. If any other daily-bar strategies passed bootstrap on large-caps, run them in parallel.
+- **Acceptance criteria:**
+  - [ ] Universe sweep run: `cmd/universe-sweep --universe universes/nifty-midcap-liquid.yaml --strategy macd-crossover --from 2018-01-01 --to 2024-12-31 --timeframe daily --commission zerodha_full`
+  - [ ] If ABCAPITAL (IPO 2017) returns `insufficient_data=true` or `*ErrIncompleteData`, replace it with an alternative midcap financial name and re-run
+  - [ ] Gate applied: DSR-corrected average Sharpe > 0 AND >= 40% pass fraction AND >= 30 trades per instrument (unchanged from large-cap pipeline)
+  - [ ] Marginal-ADV instruments (BHEL, SCHAEFFLER, EXIDEIND, NATIONALUM, SAIL) reviewed: if `insufficient_data=true` for majority of them, note for potential replacement in universe v2
+  - [ ] If universe gate passes: advance to walk-forward on eligible instruments
+  - [ ] Results and gate verdict recorded in `decisions/algorithm/`
+- **Notes:** Use `evaluation-run` agent workflow. Requires live Zerodha token. Marginal-ADV instruments are flagged in the YAML but not pre-excluded — let the gate decide. Gate thresholds unchanged per Marcus's ruling (2026-05-07).
 
 ---
 

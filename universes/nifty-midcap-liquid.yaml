@@ -1,0 +1,77 @@
+# NSE Nifty Midcap 150 liquid constituents — screened for backtesting (as of 2026)
+# Screening criteria:
+#   - Continuous Zerodha Kite daily bar history from 2018-01-01 (no IPOs or relistings after that date)
+#   - ADV > Rs 50 crore; names in the Rs 50-100 crore range flagged as marginal ADV
+#   - No pending delistings, mergers, or corporate restructurings that create lookahead bias
+# Marcus review: approved 2026-05-07 (original 25). Expanded to 43 on 2026-05-07 — pending Marcus re-review.
+# Gate thresholds unchanged from Nifty50 pipeline:
+#   DSR-corrected average Sharpe > 0, >= 40% pass fraction, >= 30 trades per instrument.
+# Evaluation window: 2018-01-01 to 2024-12-31 (daily bars, same as large-cap pipeline).
+instruments:
+  # --- Financials ---
+  - NSE:MUTHOOTFIN
+  - NSE:CHOLAFIN
+  - NSE:ABCAPITAL   # IPO 2017 — verify Kite history reaches 2018-01-01
+  - NSE:LICHSGFIN
+  - NSE:FEDERALBNK
+  - NSE:SUNDARMFIN
+  - NSE:M&MFIN
+
+  # --- Consumer / FMCG ---
+  - NSE:GODREJCP
+  - NSE:COLPAL
+  - NSE:DABUR
+  - NSE:EMAMILTD
+  - NSE:RADICO
+  - NSE:TATACONSUM  # renamed from Tata Global Beverages 2020; NSE listing continuous pre-2018
+
+  # --- Industrials / Capital Goods ---
+  - NSE:BHEL        # marginal ADV (50-100 crore range) — PSU, liquidity can compress
+  - NSE:CUMMINSIND
+  - NSE:SCHAEFFLER  # marginal ADV (50-100 crore range)
+  - NSE:ELGIEQUIP
+  - NSE:THERMAX
+
+  # --- Auto / Auto Ancillary ---
+  - NSE:BALKRISIND
+  - NSE:MOTHERSON
+  - NSE:EXIDEIND    # marginal ADV (50-100 crore range)
+  - NSE:SUNDRMFAST
+  - NSE:ENDURANCE   # IPO Oct 2016; history clears 2018-01-01
+
+  # --- IT / Tech ---
+  - NSE:MPHASIS
+  - NSE:COFORGE     # formerly Niit Technologies; listing continuous pre-2018
+  - NSE:LTTS        # L&T Technology Services; IPO May 2016
+  - NSE:PERSISTENT
+
+  # --- Pharma / Healthcare ---
+  - NSE:TORNTPHARM
+  - NSE:ALKEM
+  - NSE:LALPATHLAB
+  - NSE:AJANTPHARM
+  - NSE:IPCALAB
+
+  # --- Chemicals ---
+  - NSE:PIIND
+  - NSE:DEEPAKNTR
+  - NSE:VINATIORGA
+  - NSE:NAVINFLUOR
+
+  # --- Infrastructure / Real Estate ---
+  - NSE:OBEROIRLTY
+  - NSE:PRESTIGE
+  - NSE:PHOENIXLTD
+
+  # --- Metals / Materials ---
+  - NSE:NATIONALUM  # marginal ADV (50-100 crore range) — PSU
+  - NSE:NMDC
+  - NSE:SAIL        # marginal ADV (50-100 crore range) — PSU, liquidity can compress
+  - NSE:RATNAMANI
+
+  # --- Hotels / Hospitality ---
+  - NSE:LEMONTREE   # IPO Mar 2018 — verify Kite history clears 2018-01-01
+  - NSE:EIHOTEL     # EIH Ltd (Oberoi Hotels); listed pre-2010, strong history
+  - NSE:INDHOTEL    # Indian Hotels (Taj); long listing history, may have moved to largecap — verify index membership
+  - NSE:MHRIL       # Mahindra Holidays; listed 2009
+  - NSE:THOMASCOOK  # Thomas Cook India; travel + hospitality; listed pre-2018

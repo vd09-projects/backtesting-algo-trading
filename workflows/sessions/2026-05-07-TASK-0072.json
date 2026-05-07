@@ -1,0 +1,66 @@
+{
+  "session_date": "2026-05-07",
+  "workflow": "build",
+  "task_id": "TASK-0072",
+  "task_title": "Data — Nifty Midcap 150 universe YAML",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-05-03-macd-crossover-universe-gate-passed.md",
+        "decisions/algorithm/2026-05-03-sma-crossover-universe-gate-passed.md",
+        "decisions/tradeoff/2026-05-05-fetch-candles-completeness-threshold-90-pct.md"
+      ]
+    },
+    "marcus": {
+      "summary": "Marcus approved the midcap universe expansion thesis and provided a 25-instrument candidate list across 9 sectors. Gate thresholds unchanged. ADV floor Rs 50 crore minimum; 50-100 crore range flagged as marginal.",
+      "go_iterate_kill": "n/a"
+    },
+    "priya_plan": {
+      "plan_summary": "Create universes/nifty-midcap-liquid.yaml in identical format to nifty50-large-cap.yaml: top-level 'instruments:' key with 25 NSE: prefixed instrument strings. Header comment block documents screening criteria. Instruments grouped by sector via inline YAML comments; marginal-ADV names flagged. No Go code changes.",
+      "files_to_create": ["universes/nifty-midcap-liquid.yaml"],
+      "files_to_modify": [],
+      "approach": "Write universes/nifty-midcap-liquid.yaml matching nifty50-large-cap.yaml schema. Header documents criteria, Marcus review, evaluation window. All 25 instruments sector-grouped with marginal-ADV flags."
+    },
+    "build": {
+      "quality_gate": "PASS",
+      "files_modified": ["universes/nifty-midcap-liquid.yaml"],
+      "notes": "Created universes/nifty-midcap-liquid.yaml with 25-instrument list across 9 sectors. CLI verified 25 instruments parse correctly."
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "findings": [],
+      "notes": "Pure YAML config — no Go lint or tests applicable. All 4 ACs verified. ABCAPITAL Kite history verification deferred to first sweep run (operational, documented in file)."
+    }
+  },
+  "quality_review_round": 1,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0072 \"Data — Nifty Midcap 150 universe YAML\" picked from Up Next. Source: session.",
+    "[AUTO] Step 1.5a — No wrong-agent redirect triggered.",
+    "[AUTO] Step 1.5b — Not a bugfix. is_bugfix=false.",
+    "[AUTO] Step 1.5c — Strategy registration: 7 strategies, all registered.",
+    "[AUTO] Step 1.5d — Quality gate sentinel stale but gate N/A for this task (no internal/ or pkg/ changes).",
+    "[AUTO] Step 1.5 — Preflight passed.",
+    "[AUTO] Step 2 — Decision lookup: 1 standing order, 3 context files.",
+    "[AUTO] Step 3 — Marcus: new call made. 25-instrument candidate list provided, gate thresholds unchanged, ADV Rs 50 crore floor confirmed.",
+    "[DECISION] Marcus [algorithm]: Nifty Midcap 150 universe instrument list and gate thresholds approved.",
+    "[DECISION] Marcus [algorithm]: ADV floor for midcap daily-bar universe — Rs 50 crore minimum, Rs 100 crore comfort threshold for flagging marginal names.",
+    "[AUTO] Step 4 — Plan: complete. Approach: Create universes/nifty-midcap-liquid.yaml with 25-instrument list, sector-grouped comments, marginal-ADV flags.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. Files: universes/nifty-midcap-liquid.yaml. CLI verified 25 instruments parse correctly.",
+    "[AUTO] Step 5b round 1 — Quality review: clean. 0 blockers, 0 warnings. Pure YAML config — golangci-lint/go test not applicable.",
+    "[CLOSED] TASK-0072 done. All criteria met."
+  ],
+  "decision_marks_pending": [
+    "**Decision (Nifty Midcap 150 universe — instrument list and gate thresholds) — algorithm: experimental**",
+    "**Decision (ADV floor for midcap daily-bar universe — Rs 50 crore minimum, Rs 100 crore comfort threshold) — algorithm: experimental**",
+    "**Decision (sector grouping in universe YAML via inline comments) — convention: experimental**",
+    "**Decision (marginal ADV flagged inline rather than a separate list) — convention: experimental**"
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

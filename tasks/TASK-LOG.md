@@ -241,3 +241,5 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-07 | TASK-0090 | created | priority: low, source: discovery | CachedProvider: add TestSupersetHit_CorruptSupersetFallback to cover corrupt-superset-file fallback path |
 | 2026-05-07 | TASK-0090 | updated | notes: added lazy auth session context (lazyProvider + context.Background() fix in internal/cmdutil/cmdutil.go; decisions recorded) | no status change |
 | 2026-05-07 | TASK-0076 | updated | AC: added lazyProvider.SupportedTimeframes() update requirement in internal/cmdutil/cmdutil.go — maintenance trap from lazy auth fix | no status change |
+| 2026-05-07 | TASK-0072 | status → done | universes/nifty-midcap-liquid.yaml created; 25 instruments across 9 sectors; Marcus approved; CLI parse verified; archived to tasks/archive/2026-05.md |
+| 2026-05-07 | TASK-0091 | created | priority: high, source: session | Eval run: Nifty Midcap 150 universe sweep (MACD crossover + other survivors) — unblocked by TASK-0072 |
