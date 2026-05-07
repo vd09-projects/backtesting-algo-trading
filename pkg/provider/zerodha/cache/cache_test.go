@@ -261,3 +261,190 @@ func TestCachePath(t *testing.T) {
 		t.Errorf("cachePath = %q, want %q", got, want)
 	}
 }
+
+// --- Range-aware superset lookup tests ---
+
+// wideCandles builds a synthetic candle series spanning [start, end) in daily steps.
+// Timestamps are set to midnight UTC on each day; weekends are included for simplicity
+// (the filter is timestamp-based, not calendar-aware).
+func wideCandles(instrument string, tf model.Timeframe, start, end time.Time) []model.Candle {
+	var out []model.Candle
+	for d := start; d.Before(end); d = d.AddDate(0, 0, 1) {
+		c, err := model.NewCandle(instrument, tf, d, 100, 110, 90, 105, 1000)
+		if err != nil {
+			panic(err)
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// TestSupersetHit_Golden is the primary acceptance test: a wide cache file (2018–2024) is
+// written manually, then a narrow request (2020–2022) is made. The inner provider must
+// receive zero calls, and all returned candles must fall within [2020-01-01, 2022-12-31].
+func TestSupersetHit_Golden(t *testing.T) {
+	wideFrom := time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
+	wideTo := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	narrowFrom := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	narrowTo := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC) // exclusive upper bound
+
+	allCandles := wideCandles(testInstrument, testTF, wideFrom, wideTo)
+
+	inner := &mockProvider{candles: allCandles}
+	cp := newTestProvider(t, inner)
+
+	// Write the wide cache file directly.
+	widePath := cp.cachePath(testInstrument, testTF, wideFrom, wideTo)
+	if err := cp.writeCache(widePath, allCandles); err != nil {
+		t.Fatalf("writeCache wide: %v", err)
+	}
+
+	// Request a narrow range — must be served from the wide file, zero network calls.
+	got, err := cp.FetchCandles(context.Background(), testInstrument, testTF, narrowFrom, narrowTo)
+	if err != nil {
+		t.Fatalf("FetchCandles narrow: %v", err)
+	}
+	if inner.callCount != 0 {
+		t.Errorf("inner call count = %d, want 0 (superset hit expected)", inner.callCount)
+	}
+	if len(got) == 0 {
+		t.Fatal("got 0 candles, want candles in [2020-01-01, 2023-01-01)")
+	}
+	for _, c := range got {
+		if c.Timestamp.Before(narrowFrom) {
+			t.Errorf("candle timestamp %v is before narrowFrom %v", c.Timestamp, narrowFrom)
+		}
+		if !c.Timestamp.Before(narrowTo) {
+			t.Errorf("candle timestamp %v is not before narrowTo %v", c.Timestamp, narrowTo)
+		}
+	}
+}
+
+// TestSupersetHit_FromEqualCachedStart verifies that from == cachedFrom is treated as a superset hit.
+func TestSupersetHit_FromEqualCachedStart(t *testing.T) {
+	wideFrom := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	wideTo := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	narrowTo := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	allCandles := wideCandles(testInstrument, testTF, wideFrom, wideTo)
+
+	inner := &mockProvider{candles: allCandles}
+	cp := newTestProvider(t, inner)
+
+	widePath := cp.cachePath(testInstrument, testTF, wideFrom, wideTo)
+	if err := cp.writeCache(widePath, allCandles); err != nil {
+		t.Fatalf("writeCache: %v", err)
+	}
+
+	// from == wideFrom, to < wideTo — superset hit.
+	got, err := cp.FetchCandles(context.Background(), testInstrument, testTF, wideFrom, narrowTo)
+	if err != nil {
+		t.Fatalf("FetchCandles: %v", err)
+	}
+	if inner.callCount != 0 {
+		t.Errorf("inner call count = %d, want 0", inner.callCount)
+	}
+	for _, c := range got {
+		if !c.Timestamp.Before(narrowTo) {
+			t.Errorf("candle %v outside requested range (to=%v)", c.Timestamp, narrowTo)
+		}
+	}
+}
+
+// TestSupersetHit_ToEqualCachedEnd verifies that to == cachedTo is treated as a superset hit.
+func TestSupersetHit_ToEqualCachedEnd(t *testing.T) {
+	wideFrom := time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
+	wideTo := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	narrowFrom := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	allCandles := wideCandles(testInstrument, testTF, wideFrom, wideTo)
+
+	inner := &mockProvider{candles: allCandles}
+	cp := newTestProvider(t, inner)
+
+	widePath := cp.cachePath(testInstrument, testTF, wideFrom, wideTo)
+	if err := cp.writeCache(widePath, allCandles); err != nil {
+		t.Fatalf("writeCache: %v", err)
+	}
+
+	// from > wideFrom, to == wideTo — superset hit.
+	got, err := cp.FetchCandles(context.Background(), testInstrument, testTF, narrowFrom, wideTo)
+	if err != nil {
+		t.Fatalf("FetchCandles: %v", err)
+	}
+	if inner.callCount != 0 {
+		t.Errorf("inner call count = %d, want 0", inner.callCount)
+	}
+	for _, c := range got {
+		if c.Timestamp.Before(narrowFrom) {
+			t.Errorf("candle %v before narrowFrom %v", c.Timestamp, narrowFrom)
+		}
+	}
+}
+
+// TestSupersetMiss_NoSupersetFile verifies that when no file covers [from, to], the inner
+// provider is called and the result is written to disk.
+func TestSupersetMiss_NoSupersetFile(t *testing.T) {
+	// Write a narrow file that does NOT cover the wider request.
+	narrowFrom := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
+	narrowTo := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+	wideFrom := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
+	wideTo := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	smallCandles := wideCandles(testInstrument, testTF, narrowFrom, narrowTo)
+	bigCandles := wideCandles(testInstrument, testTF, wideFrom, wideTo)
+
+	inner := &mockProvider{candles: bigCandles}
+	cp := newTestProvider(t, inner)
+
+	// Write the narrow file — it does NOT cover the wide request.
+	smallPath := cp.cachePath(testInstrument, testTF, narrowFrom, narrowTo)
+	if err := cp.writeCache(smallPath, smallCandles); err != nil {
+		t.Fatalf("writeCache narrow: %v", err)
+	}
+
+	// Request the wide range — narrow file is not a superset, must hit network.
+	got, err := cp.FetchCandles(context.Background(), testInstrument, testTF, wideFrom, wideTo)
+	if err != nil {
+		t.Fatalf("FetchCandles: %v", err)
+	}
+	if inner.callCount != 1 {
+		t.Errorf("inner call count = %d, want 1 (no superset available)", inner.callCount)
+	}
+	if len(got) != len(bigCandles) {
+		t.Errorf("got %d candles, want %d", len(got), len(bigCandles))
+	}
+}
+
+// TestNoWriteOnSupersetHit verifies that when a superset file is used to serve a request,
+// no additional file is written (file count in the instrument dir stays at 1).
+func TestNoWriteOnSupersetHit(t *testing.T) {
+	wideFrom := time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
+	wideTo := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	narrowFrom := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	narrowTo := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	allCandles := wideCandles(testInstrument, testTF, wideFrom, wideTo)
+
+	inner := &mockProvider{candles: allCandles}
+	cp := newTestProvider(t, inner)
+
+	widePath := cp.cachePath(testInstrument, testTF, wideFrom, wideTo)
+	if err := cp.writeCache(widePath, allCandles); err != nil {
+		t.Fatalf("writeCache wide: %v", err)
+	}
+
+	if _, err := cp.FetchCandles(context.Background(), testInstrument, testTF, narrowFrom, narrowTo); err != nil {
+		t.Fatalf("FetchCandles: %v", err)
+	}
+
+	// The instrument dir should still contain exactly one file.
+	instrDir := filepath.Dir(widePath)
+	entries, err := os.ReadDir(instrDir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("file count = %d, want 1 (no new file written on superset hit)", len(entries))
+	}
+}

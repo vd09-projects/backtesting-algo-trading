@@ -237,3 +237,7 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-07 | TASK-0055 | status → done | MACD portfolio construction complete: NSE:SBIN + NSE:TITAN survivors; correlation gate, regime gate, composition file all done | archived to tasks/archive/2026-05.md |
 | 2026-05-07 | TASK-0056 | status → done | pre-live brief complete; NSE:SBIN APPROVED (p5=0.0719, 98.0%), NSE:TITAN APPROVED (p5=0.0854, 98.7%); threshold JSONs written; portfolio cleared for live | archived to tasks/archive/2026-05.md |
 | 2026-05-07 | TASK-0089 | created | priority: medium, source: user | CachedProvider range-aware lookup: serve subset from disk, skip network call when superset cached |
+| 2026-05-07 | TASK-0089 | status → done | All 9 acceptance criteria met; 90.8% coverage, 0 lint issues, TDD; archived to tasks/archive/2026-05.md |
+| 2026-05-07 | TASK-0090 | created | priority: low, source: discovery | CachedProvider: add TestSupersetHit_CorruptSupersetFallback to cover corrupt-superset-file fallback path |
+| 2026-05-07 | TASK-0090 | updated | notes: added lazy auth session context (lazyProvider + context.Background() fix in internal/cmdutil/cmdutil.go; decisions recorded) | no status change |
+| 2026-05-07 | TASK-0076 | updated | AC: added lazyProvider.SupportedTimeframes() update requirement in internal/cmdutil/cmdutil.go — maintenance trap from lazy auth fix | no status change |

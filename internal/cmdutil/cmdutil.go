@@ -12,8 +12,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha/cache"
 )
@@ -77,52 +80,89 @@ func TokenFilePath() string {
 	return filepath.Join(home, ".config", "backtest", "token.json")
 }
 
+// lazyProvider defers Zerodha token loading and provider init until the first
+// FetchCandles call that reaches it (i.e. a cache miss). On a full cache hit
+// the token is never loaded and the Kite Connect client is never constructed.
+type lazyProvider struct {
+	once    sync.Once
+	inner   provider.DataProvider
+	initErr error
+	initFn  func() (provider.DataProvider, error)
+}
+
+// FetchCandles defers Zerodha init to first call, then delegates.
+func (l *lazyProvider) FetchCandles(ctx context.Context, instrument string, tf model.Timeframe, from, to time.Time) ([]model.Candle, error) {
+	l.once.Do(func() {
+		l.inner, l.initErr = l.initFn()
+	})
+	if l.initErr != nil {
+		return nil, l.initErr
+	}
+	return l.inner.FetchCandles(ctx, instrument, tf, from, to)
+}
+
+// SupportedTimeframes returns the static set of timeframes Zerodha supports.
+// Does not trigger lazy init — callers get the answer without touching the network.
+func (l *lazyProvider) SupportedTimeframes() []model.Timeframe {
+	return []model.Timeframe{
+		model.Timeframe1Min,
+		model.Timeframe5Min,
+		model.Timeframe15Min,
+		model.TimeframeDaily,
+		model.TimeframeWeekly,
+	}
+}
+
 // BuildProvider constructs the Zerodha cached provider used by all cmd/ entrypoints.
-// It loads credentials from the environment, loads or exchanges an access token,
-// and wraps the result in a disk cache. The cache directory is read from
-// BACKTEST_CACHE_DIR (default: .cache/zerodha).
+// Token loading and Zerodha client init are deferred until the first cache miss —
+// if all requested candles are already on disk, no network call or auth occurs.
+// The cache directory is read from BACKTEST_CACHE_DIR (default: .cache/zerodha).
+// ctx is accepted for interface compatibility but unused; initFn runs under
+// context.Background() so a request-scoped ctx cannot cancel lazy init on first miss.
 //
 // **Decision (BuildProvider extracted to cmdutil) — architecture: experimental**
 // scope: internal/cmdutil, cmd/backtest, cmd/sweep, cmd/universe-sweep
 // tags: provider, DRY, cmd, zerodha
 // owner: priya
-//
-// cmd/backtest and cmd/sweep each had an identical private buildProvider function.
-// cmd/universe-sweep would have been a third copy. Extracting to cmdutil.BuildProvider
-// eliminates the duplication. The function is a pure I/O constructor with no
-// business logic, so it belongs in cmdutil alongside MustEnv, TokenFilePath,
-// and LoginFlow — the other shared cmd-layer plumbing.
-func BuildProvider(ctx context.Context) (*cache.CachedProvider, error) {
+func BuildProvider(_ context.Context) (*cache.CachedProvider, error) {
 	apiKey := MustEnv("KITE_API_KEY")
 	apiSecret := MustEnv("KITE_API_SECRET")
-
-	path := TokenFilePath()
-	accessToken, err := zerodha.LoadToken(path)
-	if err != nil {
-		fmt.Println("No valid saved token — starting Kite Connect login flow.")
-		accessToken, err = LoginFlow(ctx, http.DefaultClient, "https://api.kite.trade", apiKey, apiSecret, path)
-		if err != nil {
-			return nil, fmt.Errorf("login: %w", err)
-		}
-	} else {
-		fmt.Printf("Loaded saved token from %s\n", path)
-	}
 
 	cacheDir := os.Getenv("BACKTEST_CACHE_DIR")
 	if cacheDir == "" {
 		cacheDir = ".cache/zerodha"
 	}
 
-	inner, err := zerodha.NewProvider(ctx, zerodha.Config{
-		APIKey:              apiKey,
-		AccessToken:         accessToken,
-		InstrumentsCacheDir: cacheDir,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("NewProvider: %w", err)
+	tokenPath := TokenFilePath()
+
+	lazy := &lazyProvider{
+		initFn: func() (provider.DataProvider, error) {
+			// Use background context: auth and instruments-CSV fetch are one-time startup
+			// work that must not be canceled by a request-scoped context.
+			initCtx := context.Background()
+			accessToken, err := zerodha.LoadToken(tokenPath)
+			if err != nil {
+				fmt.Println("No valid saved token — starting Kite Connect login flow.")
+				accessToken, err = LoginFlow(initCtx, http.DefaultClient, "https://api.kite.trade", apiKey, apiSecret, tokenPath)
+				if err != nil {
+					return nil, fmt.Errorf("login: %w", err)
+				}
+			} else {
+				fmt.Printf("Loaded saved token from %s\n", tokenPath)
+			}
+			p, err := zerodha.NewProvider(initCtx, zerodha.Config{
+				APIKey:              apiKey,
+				AccessToken:         accessToken,
+				InstrumentsCacheDir: cacheDir,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("NewProvider: %w", err)
+			}
+			return p, nil
+		},
 	}
 
-	return cache.NewCachedProvider(inner, cacheDir), nil
+	return cache.NewCachedProvider(lazy, cacheDir), nil
 }
 
 // ParseCommissionModel parses a commission model string into a model.CommissionModel.

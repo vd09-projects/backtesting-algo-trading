@@ -266,24 +266,18 @@
 
 ---
 
-### [TASK-0089] Tech debt — CachedProvider range-aware lookup (serve subset from disk, skip network)
+### [TASK-0090] Tech debt — CachedProvider test: add corrupt-superset fallback coverage
 
 - **Status:** todo
-- **Priority:** medium
+- **Priority:** low
 - **Created:** 2026-05-07
-- **Source:** user
-- **Context:** `CachedProvider.FetchCandles()` is keyed on exact `(instrument, timeframe, from, to)` tuples. If 2018–2024 is cached and caller requests 2019–2022, it's a cache miss — triggers a fresh Zerodha network call despite all the data being on disk. Every unique date range = separate network round-trip + duplicate storage. Fix: scan existing cache files for `(instrument, tf)`, check if any cover `[from, to]` as a superset, and slice from disk if so.
+- **Source:** discovery
+- **Context:** TASK-0089 added range-aware superset lookup to `CachedProvider.FetchCandles`. The fallback path — where `findSupersetFile` returns a match but `readCache` fails (corrupt or TTL-expired superset file) — is not covered by any test. The existing `TestCorruptCacheFile` only exercises the exact-match corrupt path. The fallback behavior (fall through to network) is correct but untested.
 - **Acceptance criteria:**
-  - [ ] `CachedProvider.FetchCandles()`: before hitting network, scan cache dir for any file covering `(instrument, tf)`; if found file's `[cachedFrom, cachedTo]` fully contains `[from, to]`, deserialize and return the filtered slice — no network call
-  - [ ] Cache file index (or filename convention) encodes `from` and `to` so superset check requires only filename parsing, no file open
-  - [ ] On cache miss (no superset found): fetch from network, write full result to cache, return — existing behavior unchanged
-  - [ ] Superset check handles edge cases: exact match, `from` equal to cached start, `to` equal to cached end — all treated as hits
-  - [ ] No duplicate file written when a superset file already exists and covers the requested range
-  - [ ] Golden test: write a wide cache file (2018–2024); request a narrower range (2020–2022); assert zero network calls made and returned candles are within `[2020-01-01, 2022-12-31]`
-  - [ ] Existing `CachedProvider` tests still pass (exact-match path unchanged)
-  - [ ] `golangci-lint run ./pkg/provider/zerodha/cache/...` passes
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Filename convention for range encoding: `{instrument}_{tf}_{from}_{to}.json` or similar — inspect existing cache format before implementing. Related but distinct from TASK-0080 (which adds a manifest for `LastCachedTime` to support incremental CLI fetching — that's a write-side concern; this is read-side subset lookup). Both can coexist. Do not change `RecordFetch` / manifest logic when implementing this task.
+  - [ ] `TestSupersetHit_CorruptSupersetFallback` added to `pkg/provider/zerodha/cache/cache_test.go`: write a corrupt wide cache file (non-JSON bytes), request a narrow range, assert inner provider is called exactly once (fallback to network), and correct candles are returned
+  - [ ] `go1.25.0 test -race ./pkg/provider/zerodha/cache/...` passes
+  - [ ] `golangci-lint run ./pkg/provider/zerodha/cache/...` still passes
+- **Notes:** Discovered during go-quality-review standard gate on TASK-0089. Low priority: fallback behavior is identical to a regular cache miss; this is a coverage gap on a defensive path, not a behavioral gap. Single test in `cache_test.go` — no production code changes needed. **Session context (2026-05-07):** The same session also implemented lazy auth in `internal/cmdutil/cmdutil.go` — `lazyProvider` wraps the Zerodha client init behind `sync.Once` so token load is deferred to first cache miss; full cache hits now bypass auth entirely. Decisions recorded: `decisions/architecture/2026-05-07-lazy-provider-pattern-defer-auth-to-cache-miss.md` and `decisions/tradeoff/2026-05-07-init-fn-uses-background-context-not-caller-ctx.md`.
 
 ---
 
@@ -373,9 +367,10 @@
   - [ ] `timeframeToInterval` and `SupportedTimeframes` in `pkg/provider/zerodha/provider.go` updated
   - [ ] `provider_test.go` updated: supported timeframe count increases from 4 to 6
   - [ ] `pkg/provider/zerodha/chunk_test.go` updated to include 30-min and 60-min chunk-window cases
+  - [ ] `lazyProvider.SupportedTimeframes()` in `internal/cmdutil/cmdutil.go` updated to include `Timeframe30Min` and `Timeframe60Min` — this hardcoded list does not auto-update from the Zerodha provider; missing entries here means cached runs will not advertise the new timeframes
   - [ ] `golangci-lint run ./...` and `go1.25.0 test -race ./...` pass
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Small change — 3 files, ~20 lines total. Verify exact Kite API limits for 30-min and 60-min before setting chunk sizes.
+- **Notes:** Owner: Priya (dev). Small change — 3 files, ~20 lines total. Verify exact Kite API limits for 30-min and 60-min before setting chunk sizes. The `lazyProvider` AC above is a maintenance trap introduced in 2026-05-07 (lazy auth fix) — the hardcoded list in `cmdutil.go` is the only place that doesn't derive from `provider.go`.
 
 ---
 

@@ -8,6 +8,51 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-07-init-fn-uses-background-context-not-caller-ctx
+    title: "lazyProvider initFn uses context.Background(), not the caller's context"
+    date: 2026-05-07
+    status: experimental
+    category: tradeoff
+    tags: [context, lazy-init, BuildProvider, auth, zerodha, cmdutil]
+    path: tradeoff/2026-05-07-init-fn-uses-background-context-not-caller-ctx.md
+    summary: "initFn creates its own context.Background() instead of capturing the outer ctx from BuildProvider. Auth and instruments-CSV fetch are one-time startup ops that must not be cancelled by a request-scoped context; capturing caller ctx would cause spurious failures if the context expires before the first cache miss."
+
+  - id: 2026-05-07-lazy-provider-pattern-defer-auth-to-cache-miss
+    title: "lazyProvider: defer Zerodha auth and client init to first cache miss"
+    date: 2026-05-07
+    status: experimental
+    category: architecture
+    tags: [lazy-init, auth, CachedProvider, cmdutil, BuildProvider, token, zerodha]
+    path: architecture/2026-05-07-lazy-provider-pattern-defer-auth-to-cache-miss.md
+    summary: "Introduced private lazyProvider in cmdutil wrapping initFn behind sync.Once. BuildProvider returns a CachedProvider backed by lazyProvider; Zerodha token load and client init are deferred until the first FetchCandles that is not served from disk. Full cache hits bypass auth entirely."
+
+  - id: 2026-05-07-no-narrower-file-written-on-superset-hit
+    title: "No narrower cache file written on superset hit"
+    date: 2026-05-07
+    status: experimental
+    category: tradeoff
+    tags: [cache, CachedProvider, write-behavior, no-duplicate, tradeoff, TASK-0089]
+    path: tradeoff/2026-05-07-no-narrower-file-written-on-superset-hit.md
+    summary: "When a CachedProvider request is served from a superset file, no narrower exact-match file is written. The superset file covers all future requests within its range; writing a duplicate would create redundant storage and stale-data risk with no meaningful performance benefit given call frequency."
+
+  - id: 2026-05-07-candle-subset-filter-on-timestamp-half-open
+    title: "Candle subset filter uses Timestamp field with half-open [from, to) interval"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [cache, CachedProvider, filterCandles, Timestamp, half-open-interval, convention, TASK-0089]
+    path: convention/2026-05-07-candle-subset-filter-on-timestamp-half-open.md
+    summary: "filterCandles uses Candle.Timestamp with half-open [from, to) interval (!ts.Before(from) && ts.Before(to)). Timestamp is the bar identity field; half-open convention matches FetchCandles API semantics (to is always exclusive) throughout the codebase."
+
+  - id: 2026-05-07-superset-lookup-via-filename-parsing-no-index
+    title: "Superset-lookup via filename parsing — no separate index file"
+    date: 2026-05-07
+    status: experimental
+    category: architecture
+    tags: [cache, CachedProvider, filename-parsing, no-index, architecture, TASK-0089]
+    path: architecture/2026-05-07-superset-lookup-via-filename-parsing-no-index.md
+    summary: "Range-aware superset lookup in CachedProvider uses os.ReadDir + filename parsing ({tf}_{from}_{to}.json) instead of a separate index file. Existing filename format encodes the full range; no index means no out-of-sync failure mode. O(n) over cache files per call; n is typically 1–10 and the call is non-hot-loop."
+
   - id: 2026-05-07-macd-crossover-icicibank-correlation-gate-kill
     title: "macd-crossover × NSE:ICICIBANK — killed at correlation-gate-stress-covid"
     date: 2026-05-07
