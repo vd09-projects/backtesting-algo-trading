@@ -25,7 +25,8 @@ At startup, initialize:
     "marcus": null,
     "priya_plan": null,
     "build": null,
-    "quality_review": null
+    "quality_review": null,
+    "perspective_review": null
   },
   "quality_review_round": 0,
   "execution_log": [],
@@ -272,6 +273,39 @@ Update SESSION STATE: `verdicts.quality_review`. Set `step_completed = 5` (step 
 
 ---
 
+## STEP 5c — Perspective Review (sub-agent via Agent(), conditional)
+
+**Run only when Step 5b exits with `gate_status ∈ {clean, warnings_cosmetic}`.**
+
+**You MUST call Agent() here. Do not read files or analyze the diff yourself.**
+
+Invoke `Agent(subagent_type="multi-perspective-review-runner")`. Pass in the prompt (agent has no conversation history):
+- `task_id`, `task_title` — from SESSION STATE
+- `files_modified` — from `verdicts.build.files_modified`, or latest iterate verdict if 5b ran iterations
+- `build_summary` — from `verdicts.build.build_summary`
+- `task_context` — task context paragraph from BACKLOG.md
+
+Parse returned JSON. Update SESSION STATE: `verdicts.perspective_review`. Write session file.
+
+Evaluate `review_status`:
+
+| `review_status` | Action |
+|---|---|
+| `APPROVE` | Proceed to Step 6 |
+| `REQUEST_CHANGES` | Map blocking findings to quality_findings format. Spawn `priya-iterate` (increment `quality_review_round`). After RESOLVED/PARTIAL: re-run Step 5b-i once (quality re-check), then re-run Step 5c. If Step 5c still returns `REQUEST_CHANGES` on same file:line after one cycle → Hard STOP: surface recurring perspective finding to user. |
+| `NEEDS_DISCUSSION` | Hard STOP: present blocking findings and design questions. State what decision is needed. Wait. |
+
+If `skill_error` is non-null: log `[WARN] Step 5c — skill error: <skill_error>. Treating as APPROVE.` Proceed to Step 6.
+
+Log:
+```
+[AUTO] Step 5c — Perspective review: scope=<scope>, reviewers=<N>, blocking=<blocking_count>, suggestions=<suggestion_count>.
+```
+
+Append any blocking findings that reflect architectural decisions to `decision_marks_pending`.
+
+---
+
 ## STEP 6 — Verify and Close (orchestrator)
 
 Check every acceptance criterion from the task block against `verdicts.build`:
@@ -288,6 +322,7 @@ Final summary output:
 - Task: TASK-NNNN "<title>"
 - Criteria: X/Y met [list any flagged]
 - Files modified: <list>
+- Perspective review: <APPROVE | REQUEST_CHANGES resolved | NEEDS_DISCUSSION resolved | skipped — test-only>
 - Decisions recorded: <count>
 - Follow-up tasks created: <list or none>
 - Next agent (if applicable): <evaluation-run for new strategy implementations awaiting signal-frequency-audit, marcus-design for strategies whose rules were partially drafted, or "none — task closed cleanly">

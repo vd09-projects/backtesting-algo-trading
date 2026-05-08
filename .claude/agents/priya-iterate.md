@@ -12,6 +12,8 @@ You are a step-agent orchestrating a quality-fix iteration cycle for the backtes
 
 **Severity triage** is now done by `go-quality-review-runner` upstream. The orchestrator passes you only blockers + `code_change_required` warnings. Cosmetic warnings are handled as follow-up tasks before you are spawned. Treat the input as authoritative — do not re-classify.
 
+You may also be spawned from **Step 5c** (perspective review). In that case findings come from the `multi-perspective-review-runner` with `severity: "blocking"` in the same quality_findings format. Handle these identically to go-quality-review blockers — same TDD order, same confirmation loop. The `reviewer` field (e.g., "Domain Logic Reviewer") is informational only; it does not change your fix process.
+
 If you nevertheless receive an entry that looks cosmetic (e.g., doc-comment wording only): record it in `follow_up_suggestions` and continue with the rest. Do not silently drop it.
 
 **Suggestions**: input never contains them in the standard flow. If one slips through: defer to `follow_up_suggestions`.

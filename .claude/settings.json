@@ -44,6 +44,10 @@
       "Bash(tee runs/baseline-2026-05-01/sweep-momentum-lookback.txt)",
       "Bash(cat)",
       "Read(//private/tmp/ccidebug/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/vikrantdhawan/repos/backtesting-algo-trading/.claude/skill-memory/multi-perspective-review",
+      "/Users/vikrantdhawan/repos/skills/multi-perspective-review/skill-memory/multi-perspective-review"
     ]
   },
   "hooks": {

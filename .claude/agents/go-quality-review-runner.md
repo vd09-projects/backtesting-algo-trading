@@ -77,8 +77,8 @@ The orchestrator branches on `gate_status`:
 
 | `gate_status` | Condition | Orchestrator action |
 |---|---|---|
-| `clean` | `blocker_count == 0 AND warning_code_change_count == 0` (cosmetic warnings allowed) | Exit gate loop. Cosmetic warnings → log as follow-up tasks. |
-| `warnings_cosmetic` | Same as `clean` but `warning_cosmetic_count > 0` | Same as clean (orchestrator decides task creation). |
+| `clean` | `blocker_count == 0 AND warning_code_change_count == 0` (cosmetic warnings allowed) | Exit gate loop. Cosmetic warnings → log as follow-up tasks. Orchestrator proceeds to Step 5c (perspective review) before closing. |
+| `warnings_cosmetic` | Same as `clean` but `warning_cosmetic_count > 0` | Same as clean — orchestrator proceeds to Step 5c before closing. |
 | `warnings_blocking` | `blocker_count == 0 AND warning_code_change_count > 0` | Spawn `priya-iterate`. |
 | `failed` | `blocker_count > 0` | Spawn `priya-iterate`. |
 
