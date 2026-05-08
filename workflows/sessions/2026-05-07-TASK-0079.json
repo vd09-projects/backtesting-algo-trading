@@ -1,0 +1,89 @@
+{
+  "session_date": "2026-05-07",
+  "workflow": "build",
+  "task_id": "TASK-0079",
+  "task_title": "Tech debt — centralized strategy registry",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/architecture/2026-04-22-buildprovider-extracted-to-cmdutil.md",
+        "decisions/convention/2026-04-29-parse-commission-model-extracted-to-cmdutil.md"
+      ],
+      "context_files": [
+        "decisions/architecture/2026-05-03-strategyfactory-table-dispatch-replaces-flat.md",
+        "decisions/architecture/2026-05-01-signalaudit-strategy-factory-decoupling.md"
+      ]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Create StrategyRegistry type in internal/cmdutil/registry.go with Register/MustGet/ListStrategies methods. Create internal/cmdutil/strategies.go as single authoritative registration file (buildRegistry() function, no init()). Write registry_test.go first. Migrate cmd/backtest, cmd/universe-sweep, cmd/walk-forward, cmd/sweep to use central registry.",
+      "files_to_create": [
+        "internal/cmdutil/registry.go",
+        "internal/cmdutil/registry_test.go",
+        "internal/cmdutil/strategies.go"
+      ],
+      "files_to_modify": [
+        "cmd/backtest/main.go",
+        "cmd/universe-sweep/main.go",
+        "cmd/walk-forward/main.go",
+        "cmd/sweep/main.go"
+      ],
+      "approach": "Build StrategyRegistry as map[string]func() strategy.Strategy with Register, MustGet (panics on unknown name), and ListStrategies. GlobalRegistry populated by buildRegistry() — no init(). Each cmd binary calls GlobalRegistry.MustGet(stratName) for fail-fast name validation, then constructs with parsed CLI params inline, removing local switch/map dispatchers."
+    },
+    "build": {
+      "build_summary": "Created StrategyRegistry in internal/cmdutil/registry.go, strategies.go as single authoritative file, registry_test.go. Migrated 4 cmd binaries. Added cci-mean-reversion to cmd/backtest. Updated walk-forward tests for panic-based validation.",
+      "files_modified": [
+        "internal/cmdutil/registry.go",
+        "internal/cmdutil/registry_test.go",
+        "internal/cmdutil/strategies.go",
+        "cmd/backtest/main.go",
+        "cmd/universe-sweep/main.go",
+        "cmd/walk-forward/main.go",
+        "cmd/walk-forward/main_test.go",
+        "cmd/sweep/main.go"
+      ],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "gate_status": "warnings_cosmetic",
+      "blocker_count": 0,
+      "warning_count": 1,
+      "cosmetic_count": 1,
+      "findings": [
+        {
+          "file": "cmd/sweep/main.go",
+          "line": 220,
+          "description": "MustGet validates cci-mean-reversion as known but local switch falls through to error — pre-existing gap, TASK-0061 tracks",
+          "severity": "warning",
+          "code_change_required": false
+        },
+        {
+          "file": "cmd/backtest/main.go",
+          "line": 159,
+          "description": "Discarded MustGet return value — cosmetic readability issue",
+          "severity": "cosmetic",
+          "code_change_required": false
+        }
+      ]
+    }
+  },
+  "quality_review_round": 0,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0079 'Tech debt — centralized strategy registry' picked from Todo. Source: discovery.",
+    "[AUTO] Step 1.5a — No wrong-agent redirect: pure implementation task.",
+    "[AUTO] Step 1.5b — Not a bugfix; full plan step proceeds.",
+    "[AUTO] Step 1.5c — TASK-0079 is the central registry build itself; strategy registration preflight skipped.",
+    "[AUTO] Step 1.5d — Quality gate sentinel: 2026-05-07T13:10:13Z; considered fresh."
+  ],
+  "decision_marks_pending": [
+    "**Decision (StrategyRegistry populated by buildRegistry() not init()) — architecture: experimental**",
+    "**Decision (MustGet panics at startup for unknown strategy name) — convention: experimental**",
+    "**Decision (GlobalRegistry is immutable after package init — not global mutable state) — architecture: experimental**"
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

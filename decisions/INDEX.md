@@ -8,6 +8,69 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-08-strategy-wiring-fully-centralized-in-cmdutil
+    title: "Strategy wiring fully centralized in internal/cmdutil — Build, WalkForwardFactory, SweepFactory"
+    date: 2026-05-08
+    status: experimental
+    category: architecture
+    tags: [strategy, registry, cmdutil, DRY, cmd-layer-plumbing, StrategyEntry, Build, WalkForwardFactory, SweepFactory, RegisterFlags]
+    path: architecture/2026-05-08-strategy-wiring-fully-centralized-in-cmdutil.md
+    summary: "StrategyEntry extended with Params, Build, SweepParams. All strategy-package imports and construction logic move to strategies.go. Adding a strategy = one block in one file. cmd/sweep2d and cmd/signal-audit excluded. Supersedes walk-forward-local-builders-map-retained."
+
+  - id: 2026-05-08-sweep-registration-pattern-cmd-sweep-only
+    title: "Sweep-only strategy registration pattern — rejected in favour of full cmdutil centralization"
+    date: 2026-05-08
+    status: rejected
+    category: architecture
+    tags: [strategy, registry, cmd/sweep, registration, DRY, rejected]
+    path: architecture/2026-05-08-sweep-registration-pattern-cmd-sweep-only.md
+    summary: "Plan to consolidate cmd/sweep strategy construction into a registration slice. Rejected mid-session — user observed same duplication exists in all cmd mains. Full cmdutil centralization adopted instead."
+
+  - id: 2026-05-08-year-to-duration-365-days-not-adddate
+    title: "Walk-forward year-to-duration uses 365×24h, not time.AddDate"
+    date: 2026-05-08
+    status: experimental
+    category: convention
+    tags: [walk-forward, time, duration, year, 365-days, AddDate, fold-count, determinism]
+    path: convention/2026-05-08-year-to-duration-365-days-not-adddate.md
+    summary: "n * 365 * 24h per year, not time.AddDate(n,0,0). Keeps fold count predictable across windows with different leap-year counts. Matches internal/walkforward test suite convention. Error (~1 day per 4 years) immaterial for daily-bar evaluation."
+
+  - id: 2026-05-07-walk-forward-local-builders-map-retained
+    title: "cmd/walk-forward retains local dispatch table for per-fold factory construction"
+    date: 2026-05-07
+    status: superseded
+    category: architecture
+    tags: [strategy, factory, walk-forward, per-fold, local-dispatch, cmdutil, TASK-0079]
+    path: architecture/2026-05-07-walk-forward-local-builders-map-retained.md
+    summary: "cmd/walk-forward retains localBuilders map for per-fold zero-arg factory construction. Name validation delegated to GlobalRegistry.MustGet; local map handles construction only. Superseded 2026-05-08 by full cmdutil centralization — localBuilders eliminated."
+
+  - id: 2026-05-07-mustget-panics-unknown-strategy-name
+    title: "MustGet panics on unknown strategy name — fail-fast at startup"
+    date: 2026-05-07
+    status: experimental
+    category: convention
+    tags: [strategy, registry, mustget, fail-fast, startup-validation, panic, cmdutil, TASK-0079]
+    path: convention/2026-05-07-mustget-panics-unknown-strategy-name.md
+    summary: "MustGet panics with 'unknown strategy X; available: ...' rather than returning an error. Consistent with Must* naming convention. Fires at flag-parse time before any I/O. Cannot be silently ignored. Existing walk-forward tests updated to expect panic instead of error."
+
+  - id: 2026-05-07-globalregistry-immutable-package-level-var
+    title: "GlobalRegistry as immutable package-level var populated by buildRegistry(), not init()"
+    date: 2026-05-07
+    status: experimental
+    category: architecture
+    tags: [strategy, registry, no-init, no-global-mutable-state, cmdutil, package-level-var, TASK-0079]
+    path: architecture/2026-05-07-globalregistry-immutable-package-level-var.md
+    summary: "var GlobalRegistry = buildRegistry() — pure constructor call, no init(). Read-only after package initialization; safe for concurrent reads. Follows the ist timezone var precedent. buildRegistry() panics at startup if any default-param constructor fails."
+
+  - id: 2026-05-07-strategy-registry-in-internal-cmdutil
+    title: "StrategyRegistry type in internal/cmdutil — centralized strategy name registration"
+    date: 2026-05-07
+    status: experimental
+    category: architecture
+    tags: [strategy, registry, cmdutil, DRY, cmd-layer-plumbing, TASK-0079]
+    path: architecture/2026-05-07-strategy-registry-in-internal-cmdutil.md
+    summary: "StrategyRegistry struct with Register, MustGet, ListStrategies in internal/cmdutil. GlobalRegistry in strategies.go is the single authoritative source — one file to edit when adding a strategy. Follows BuildProvider and ParseCommissionModel cmdutil precedent. cmd/sweep has latent inconsistency (MustGet accepts cci-mean-reversion but local switch has no case); TASK-0061 resolves it."
+
   - id: 2026-05-07-nolint-gocritic-hugeparam-candle-pkg-strategy
     title: "nolint:gocritic for hugeParam on model.Candle in pkg/strategy functions"
     date: 2026-05-07

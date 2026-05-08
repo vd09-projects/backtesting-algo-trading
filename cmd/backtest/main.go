@@ -34,11 +34,15 @@
 //	    --out runs/sma-crossover.json \
 //	    --output-curve runs/sma-crossover-curve.csv
 //
-// Available strategies:
+// Strategy-specific flags (all optional, defaulting to registered defaults):
 //
-//	stub              — always holds; useful for smoke-testing the pipeline
-//	sma-crossover     — SMA crossover; --fast-period / --slow-period
-//	rsi-mean-reversion — RSI mean-reversion; --rsi-period / --oversold / --overbought
+//	--fast-period / --slow-period          (sma-crossover)
+//	--rsi-period / --oversold / --overbought (rsi-mean-reversion)
+//	--donchian-period                       (donchian-breakout)
+//	--macd-fast-period / --macd-slow-period / --macd-signal-period (macd-crossover)
+//	--bb-period / --bb-num-std-dev          (bollinger-mean-reversion)
+//	--momentum-lookback / --momentum-threshold (momentum)
+//	--cci-period / --cci-entry-threshold / --cci-exit-threshold (cci-mean-reversion)
 //
 // Sizing models:
 //
@@ -60,6 +64,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/analytics"
@@ -68,47 +73,25 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/montecarlo"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
-	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/momentum"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
-	stubstrategy "github.com/vikrantdhawan/backtesting-algo-trading/strategies/stub"
 )
 
-// flags holds all parsed CLI flag values for cmd/backtest.
 type flags struct {
-	instrument        string
-	fromStr           string
-	toStr             string
-	tfStr             string
-	cash              float64
-	stratName         string
-	fastPeriod        int
-	slowPeriod        int
-	rsiPeriod         int
-	oversold          float64
-	overbought        float64
-	donchianPeriod    int
-	macdFastPeriod    int
-	macdSlowPeriod    int
-	macdSignalPeriod  int
-	bbPeriod          int
-	bbNumStdDev       float64
-	momentumLookback  int
-	momentumThreshold float64
-	commissionStr     string
-	outPath           string
-	curvePath         string
-	sizingModel       string
-	volTarget         float64
-	gateThreshold     float64
-	doBootstrap       bool
-	bootstrapSeed     int64
-	bootstrapN        int
-	doRegimeGate      bool
+	instrument    string
+	fromStr       string
+	toStr         string
+	tfStr         string
+	cash          float64
+	stratName     string
+	commissionStr string
+	outPath       string
+	curvePath     string
+	sizingModel   string
+	volTarget     float64
+	gateThreshold float64
+	doBootstrap   bool
+	bootstrapSeed int64
+	bootstrapN    int
+	doRegimeGate  bool
 }
 
 func main() {
@@ -118,20 +101,7 @@ func main() {
 	flag.StringVar(&f.toStr, "to", "", "End date in YYYY-MM-DD (exclusive)")
 	flag.StringVar(&f.tfStr, "timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
 	flag.Float64Var(&f.cash, "cash", 100000, "Starting cash in ₹")
-	flag.StringVar(&f.stratName, "strategy", "stub", "Strategy name: stub, sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum")
-	flag.IntVar(&f.fastPeriod, "fast-period", 10, "sma-crossover: fast SMA period")
-	flag.IntVar(&f.slowPeriod, "slow-period", 50, "sma-crossover: slow SMA period")
-	flag.IntVar(&f.rsiPeriod, "rsi-period", 14, "rsi-mean-reversion: RSI period")
-	flag.Float64Var(&f.oversold, "oversold", 30, "rsi-mean-reversion: oversold threshold (buy below)")
-	flag.Float64Var(&f.overbought, "overbought", 70, "rsi-mean-reversion: overbought threshold (sell above)")
-	flag.IntVar(&f.donchianPeriod, "donchian-period", 20, "donchian-breakout: channel lookback period")
-	flag.IntVar(&f.macdFastPeriod, "macd-fast-period", 12, "macd-crossover: fast EMA period")
-	flag.IntVar(&f.macdSlowPeriod, "macd-slow-period", 26, "macd-crossover: slow EMA period")
-	flag.IntVar(&f.macdSignalPeriod, "macd-signal-period", 9, "macd-crossover: signal EMA period")
-	flag.IntVar(&f.bbPeriod, "bb-period", 20, "bollinger-mean-reversion: Bollinger Band period")
-	flag.Float64Var(&f.bbNumStdDev, "bb-num-std-dev", 2.0, "bollinger-mean-reversion: number of standard deviations")
-	flag.IntVar(&f.momentumLookback, "momentum-lookback", 231, "momentum: ROC lookback period (default 231 = 252-21, skip-last-month convention)")
-	flag.Float64Var(&f.momentumThreshold, "momentum-threshold", 10.0, "momentum: ROC threshold in percent (buy above, sell below negative)")
+	flag.StringVar(&f.stratName, "strategy", "stub", "Strategy name: "+strings.Join(cmdutil.GlobalRegistry.ListStrategies(), ", "))
 	flag.StringVar(&f.commissionStr, "commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
 	flag.StringVar(&f.outPath, "out", "", "Path for JSON results export; when omitted a default name is generated from the run params")
 	flag.StringVar(&f.curvePath, "output-curve", "", "Path for equity curve CSV export (omit to skip)")
@@ -142,12 +112,21 @@ func main() {
 	flag.Int64Var(&f.bootstrapSeed, "bootstrap-seed", 42, "RNG seed for bootstrap (logged with results for reproducibility)")
 	flag.IntVar(&f.bootstrapN, "bootstrap-n", 0, "Bootstrap simulation count (0 = default 10,000)")
 	flag.BoolVar(&f.doRegimeGate, "regime-gate", false, "Compute per-regime per-trade Sharpe gate using NSE regime windows (2018-2024)")
+
+	// Strategy-specific parameters registered centrally from GlobalRegistry.
+	stratParamPtrs := cmdutil.GlobalRegistry.RegisterFlags(flag.CommandLine)
+
 	flag.Parse()
 
 	from, to, tf := parseAndValidateFlags(&f)
 
-	p := collectStrategyParams(&f)
-	selectedStrategy, err := strategyRegistry(f.stratName, tf, p)
+	// Validate strategy name early: MustGet panics with a descriptive message if
+	// the name is unknown.
+	cmdutil.GlobalRegistry.MustGet(f.stratName)
+
+	stratParams := cmdutil.BuildParamMap(stratParamPtrs)
+
+	selectedStrategy, err := cmdutil.GlobalRegistry.Build(f.stratName, tf, stratParams)
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
 	}
@@ -171,8 +150,6 @@ func main() {
 		cmdutil.Fatalf("--commission: %v", err)
 	}
 
-	// Auto-generate default output path when --out is not supplied.
-	// The generated name includes timeframe so daily and intraday runs are distinguishable.
 	if f.outPath == "" {
 		f.outPath = cmdutil.DefaultOutPath(f.stratName, f.instrument, f.tfStr,
 			from.Format("2006-01-02"), to.Format("2006-01-02"))
@@ -219,7 +196,15 @@ func main() {
 		regimeGateReport = &r
 	}
 
-	runCfg := buildRunConfig(f.stratName, f.instrument, f.tfStr, f.fromStr, f.toStr, f.commissionStr, p)
+	runCfg := output.RunConfig{
+		Instrument:      f.instrument,
+		Timeframe:       f.tfStr,
+		From:            f.fromStr,
+		To:              f.toStr,
+		Strategy:        f.stratName,
+		CommissionModel: f.commissionStr,
+		Parameters:      cmdutil.GlobalRegistry.ParamsMap(f.stratName, stratParams),
+	}
 
 	if err := output.Write(report, output.Config{
 		PrintToStdout:  true,
@@ -239,8 +224,6 @@ func main() {
 	}
 }
 
-// parseAndValidateFlags validates required flags, parses dates and timeframe,
-// and calls cmdutil.Fatalf on any error.
 func parseAndValidateFlags(f *flags) (from, to time.Time, tf model.Timeframe) {
 	if f.fromStr == "" {
 		cmdutil.Fatalf("--from is required (e.g. 2024-01-01)")
@@ -272,25 +255,6 @@ func parseAndValidateFlags(f *flags) (from, to time.Time, tf model.Timeframe) {
 	return from, to, tf
 }
 
-// collectStrategyParams builds a strategyParams from the flags struct.
-func collectStrategyParams(f *flags) *strategyParams {
-	return &strategyParams{
-		fastPeriod:        f.fastPeriod,
-		slowPeriod:        f.slowPeriod,
-		rsiPeriod:         f.rsiPeriod,
-		oversold:          f.oversold,
-		overbought:        f.overbought,
-		donchianPeriod:    f.donchianPeriod,
-		macdFastPeriod:    f.macdFastPeriod,
-		macdSlowPeriod:    f.macdSlowPeriod,
-		macdSignalPeriod:  f.macdSignalPeriod,
-		bbPeriod:          f.bbPeriod,
-		bbNumStdDev:       f.bbNumStdDev,
-		momentumLookback:  f.momentumLookback,
-		momentumThreshold: f.momentumThreshold,
-	}
-}
-
 func runBootstrap(enabled bool, trades []model.Trade, seed int64, nSims int) *montecarlo.BootstrapResult {
 	if !enabled {
 		return nil
@@ -301,100 +265,6 @@ func runBootstrap(enabled bool, trades []model.Trade, seed int64, nSims int) *mo
 	}
 	r := montecarlo.Bootstrap(trades, montecarlo.BootstrapConfig{NSimulations: nSims, Seed: seed})
 	return &r
-}
-
-type strategyParams struct {
-	fastPeriod        int
-	slowPeriod        int
-	rsiPeriod         int
-	oversold          float64
-	overbought        float64
-	donchianPeriod    int
-	macdFastPeriod    int
-	macdSlowPeriod    int
-	macdSignalPeriod  int
-	bbPeriod          int
-	bbNumStdDev       float64
-	momentumLookback  int
-	momentumThreshold float64
-}
-
-func strategyRegistry(name string, tf model.Timeframe, p *strategyParams) (strategy.Strategy, error) {
-	switch name {
-	case "stub":
-		return stubstrategy.New(tf), nil
-	case "sma-crossover":
-		return smacrossover.New(tf, p.fastPeriod, p.slowPeriod)
-	case "rsi-mean-reversion":
-		return rsimeanrev.New(tf, p.rsiPeriod, p.oversold, p.overbought)
-	case "donchian-breakout":
-		return donchian.New(tf, p.donchianPeriod)
-	case "macd-crossover":
-		return macd.New(tf, p.macdFastPeriod, p.macdSlowPeriod, p.macdSignalPeriod)
-	case "bollinger-mean-reversion":
-		return bollinger.New(tf, p.bbPeriod, p.bbNumStdDev)
-	case "momentum":
-		return momentum.New(tf, p.momentumLookback, p.momentumThreshold)
-	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: stub, sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum", name)
-	}
-}
-
-// buildRunConfig assembles the output.RunConfig metadata for a backtest run from the
-// strategy name, instrument, timeframe, date range, commission model, and strategy params.
-// Only the parameters relevant to the selected strategy are included in the Parameters map.
-func buildRunConfig(stratName, instrument, tf, from, to, commissionStr string, p *strategyParams) output.RunConfig {
-	params := strategyParamsMap(stratName, p)
-	return output.RunConfig{
-		Instrument:      instrument,
-		Timeframe:       tf,
-		From:            from,
-		To:              to,
-		Strategy:        stratName,
-		CommissionModel: commissionStr,
-		Parameters:      params,
-	}
-}
-
-// strategyParamsMap returns the strategy-specific parameters as a string map for
-// embedding in the run metadata. Only the parameters relevant to the named strategy
-// are included to avoid cluttering the metadata with irrelevant defaults.
-func strategyParamsMap(stratName string, p *strategyParams) map[string]string {
-	switch stratName {
-	case "sma-crossover":
-		return map[string]string{
-			"fast_period": fmt.Sprintf("%d", p.fastPeriod),
-			"slow_period": fmt.Sprintf("%d", p.slowPeriod),
-		}
-	case "rsi-mean-reversion":
-		return map[string]string{
-			"rsi_period": fmt.Sprintf("%d", p.rsiPeriod),
-			"oversold":   fmt.Sprintf("%.4g", p.oversold),
-			"overbought": fmt.Sprintf("%.4g", p.overbought),
-		}
-	case "donchian-breakout":
-		return map[string]string{
-			"donchian_period": fmt.Sprintf("%d", p.donchianPeriod),
-		}
-	case "macd-crossover":
-		return map[string]string{
-			"fast_period":   fmt.Sprintf("%d", p.macdFastPeriod),
-			"slow_period":   fmt.Sprintf("%d", p.macdSlowPeriod),
-			"signal_period": fmt.Sprintf("%d", p.macdSignalPeriod),
-		}
-	case "bollinger-mean-reversion":
-		return map[string]string{
-			"bb_period":      fmt.Sprintf("%d", p.bbPeriod),
-			"bb_num_std_dev": fmt.Sprintf("%.4g", p.bbNumStdDev),
-		}
-	case "momentum":
-		return map[string]string{
-			"lookback":  fmt.Sprintf("%d", p.momentumLookback),
-			"threshold": fmt.Sprintf("%.4g", p.momentumThreshold),
-		}
-	default:
-		return nil
-	}
 }
 
 func parseSizingModel(s string) (model.SizingModel, error) {

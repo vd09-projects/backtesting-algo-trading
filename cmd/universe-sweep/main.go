@@ -38,25 +38,18 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/engine"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/universesweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
-	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/ccimeanrev"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/momentum"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 )
 
 func main() {
 	universeFile := flag.String("universe", "", "Path to YAML universe file (required)")
-	stratName := flag.String("strategy", "", "Strategy name: sma-crossover, rsi-mean-reversion, donchian-breakout (required)")
+	stratName := flag.String("strategy", "", "Strategy name: "+strings.Join(cmdutil.GlobalRegistry.ListStrategies(), ", ")+" (required)")
 	fromStr := flag.String("from", "", "Start date in YYYY-MM-DD (inclusive, required)")
 	toStr := flag.String("to", "", "End date in YYYY-MM-DD (exclusive, required)")
 	tfStr := flag.String("timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
@@ -65,23 +58,8 @@ func main() {
 	slippage := flag.Float64("slippage", 0.0005, "Slippage as decimal fraction (e.g. 0.0005 = 0.05%)")
 	commissionStr := flag.String("commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
 
-	// Strategy-specific parameters.
-	fastPeriod := flag.Int("fast-period", 20, "sma-crossover: fast SMA period")
-	slowPeriod := flag.Int("slow-period", 50, "sma-crossover: slow SMA period")
-	rsiPeriod := flag.Int("rsi-period", 14, "rsi-mean-reversion: RSI period")
-	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold")
-	overbought := flag.Float64("overbought", 70, "rsi-mean-reversion: overbought threshold")
-	donchianPeriod := flag.Int("donchian-period", 20, "donchian-breakout: channel lookback period")
-	macdFastPeriod := flag.Int("macd-fast-period", 12, "macd-crossover: fast EMA period")
-	macdSlowPeriod := flag.Int("macd-slow-period", 26, "macd-crossover: slow EMA period")
-	macdSignalPeriod := flag.Int("macd-signal-period", 9, "macd-crossover: signal EMA period")
-	bbPeriod := flag.Int("bb-period", 20, "bollinger-mean-reversion: Bollinger Band period")
-	bbNumStdDev := flag.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: number of standard deviations")
-	momentumLookback := flag.Int("momentum-lookback", 231, "momentum: ROC lookback period (default 231 = 252-21, skip-last-month convention)")
-	momentumThreshold := flag.Float64("momentum-threshold", 10.0, "momentum: ROC threshold in percent (buy above, sell below negative)")
-	cciPeriod := flag.Int("cci-period", 20, "cci-mean-reversion: CCI period")
-	cciEntry := flag.Int("cci-entry", -100, "cci-mean-reversion: entry threshold (buy when CCI < this)")
-	cciExit := flag.Int("cci-exit", 0, "cci-mean-reversion: exit threshold (sell when CCI crosses above this)")
+	// Strategy-specific parameters registered centrally from GlobalRegistry.
+	stratParamPtrs := cmdutil.GlobalRegistry.RegisterFlags(flag.CommandLine)
 
 	flag.Parse()
 
@@ -89,7 +67,7 @@ func main() {
 		cmdutil.Fatalf("--universe is required (e.g. universes/nifty50-large-cap.yaml)")
 	}
 	if *stratName == "" {
-		cmdutil.Fatalf("--strategy is required (sma-crossover | rsi-mean-reversion)")
+		cmdutil.Fatalf("--strategy is required (%s)", strings.Join(cmdutil.GlobalRegistry.ListStrategies(), " | "))
 	}
 	if *fromStr == "" {
 		cmdutil.Fatalf("--from is required (e.g. 2020-01-01)")
@@ -110,24 +88,13 @@ func main() {
 		cmdutil.Fatalf("universe file: %v", err)
 	}
 
-	selectedStrategy, err := strategyRegistry(*stratName, tf, &strategyParams{
-		fastPeriod:        *fastPeriod,
-		slowPeriod:        *slowPeriod,
-		rsiPeriod:         *rsiPeriod,
-		oversold:          *oversold,
-		overbought:        *overbought,
-		donchianPeriod:    *donchianPeriod,
-		macdFastPeriod:    *macdFastPeriod,
-		macdSlowPeriod:    *macdSlowPeriod,
-		macdSignalPeriod:  *macdSignalPeriod,
-		bbPeriod:          *bbPeriod,
-		bbNumStdDev:       *bbNumStdDev,
-		momentumLookback:  *momentumLookback,
-		momentumThreshold: *momentumThreshold,
-		cciPeriod:         *cciPeriod,
-		cciEntry:          *cciEntry,
-		cciExit:           *cciExit,
-	})
+	// Validate strategy name early: MustGet panics with a descriptive message if
+	// the name is unknown.
+	cmdutil.GlobalRegistry.MustGet(*stratName)
+
+	stratParams := cmdutil.BuildParamMap(stratParamPtrs)
+
+	selectedStrategy, err := cmdutil.GlobalRegistry.Build(*stratName, tf, stratParams)
 	if err != nil {
 		cmdutil.Fatalf("--strategy: %v", err)
 	}
@@ -170,8 +137,6 @@ func main() {
 	}
 }
 
-// parseDateRangeAndTimeframe validates --from, --to, and --timeframe flags and
-// returns the parsed values. It calls cmdutil.Fatalf and exits on any error.
 func parseDateRangeAndTimeframe(fromStr, toStr, tfStr string) (from, to time.Time, tf model.Timeframe) {
 	var err error
 	from, err = time.Parse("2006-01-02", fromStr)
@@ -193,44 +158,4 @@ func parseDateRangeAndTimeframe(fromStr, toStr, tfStr string) (from, to time.Tim
 		cmdutil.Fatalf("--timeframe %q is not valid; choose one of: 1min, 5min, 15min, daily, weekly", tfStr)
 	}
 	return
-}
-
-type strategyParams struct {
-	fastPeriod        int
-	slowPeriod        int
-	rsiPeriod         int
-	oversold          float64
-	overbought        float64
-	donchianPeriod    int
-	macdFastPeriod    int
-	macdSlowPeriod    int
-	macdSignalPeriod  int
-	bbPeriod          int
-	bbNumStdDev       float64
-	momentumLookback  int
-	momentumThreshold float64
-	cciPeriod         int
-	cciEntry          int
-	cciExit           int
-}
-
-func strategyRegistry(name string, tf model.Timeframe, p *strategyParams) (strategy.Strategy, error) {
-	switch name {
-	case "sma-crossover":
-		return smacrossover.New(tf, p.fastPeriod, p.slowPeriod)
-	case "rsi-mean-reversion":
-		return rsimeanrev.New(tf, p.rsiPeriod, p.oversold, p.overbought)
-	case "donchian-breakout":
-		return donchian.New(tf, p.donchianPeriod)
-	case "macd-crossover":
-		return macd.New(tf, p.macdFastPeriod, p.macdSlowPeriod, p.macdSignalPeriod)
-	case "bollinger-mean-reversion":
-		return bollinger.New(tf, p.bbPeriod, p.bbNumStdDev)
-	case "momentum":
-		return momentum.New(tf, p.momentumLookback, p.momentumThreshold)
-	case "cci-mean-reversion":
-		return ccimeanrev.New(tf, p.cciPeriod, p.cciEntry, p.cciExit)
-	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum, cci-mean-reversion", name)
-	}
 }

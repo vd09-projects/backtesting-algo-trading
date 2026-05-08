@@ -57,19 +57,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/walkforward"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
-	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/ccimeanrev"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/momentum"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 )
 
 func main() {
@@ -105,7 +98,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	instrument := fs.String("instrument", "", "Instrument identifier, e.g. \"NSE:TCS\" (required)")
 	fromStr := fs.String("from", "", "Outer window start date YYYY-MM-DD (inclusive, required)")
 	toStr := fs.String("to", "", "Outer window end date YYYY-MM-DD (exclusive upper bound, required) — e.g. 2025-01-01 covers data through 2024-12-31")
-	stratName := fs.String("strategy", "", "Strategy name: sma-crossover | rsi-mean-reversion | donchian-breakout | macd-crossover | bollinger-mean-reversion | momentum | cci-mean-reversion (required)")
+	stratName := fs.String("strategy", "", "Strategy name: "+strings.Join(cmdutil.GlobalRegistry.ListStrategies(), " | ")+" (required)")
 
 	// Walk-forward window flags — defaults per 2026-04-22 decision.
 	isYears := fs.Int("is-years", 2, "In-sample window length in years (default 2)")
@@ -121,23 +114,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 	// Output flags.
 	outPath := fs.String("out", "", "Optional path for fold-level CSV output (default: no CSV)")
 
-	// Strategy-specific parameters — same set as cmd/sweep and cmd/universe-sweep.
-	fastPeriod := fs.Int("fast-period", 20, "sma-crossover: fast SMA period")
-	slowPeriod := fs.Int("slow-period", 50, "sma-crossover: slow SMA period")
-	rsiPeriod := fs.Int("rsi-period", 14, "rsi-mean-reversion: RSI period")
-	oversold := fs.Float64("oversold", 30, "rsi-mean-reversion: oversold threshold")
-	overbought := fs.Float64("overbought", 70, "rsi-mean-reversion: overbought threshold")
-	donchianPeriod := fs.Int("donchian-period", 20, "donchian-breakout: channel lookback period")
-	macdFastPeriod := fs.Int("macd-fast-period", 12, "macd-crossover: fast EMA period")
-	macdSlowPeriod := fs.Int("macd-slow-period", 26, "macd-crossover: slow EMA period")
-	macdSignalPeriod := fs.Int("macd-signal-period", 9, "macd-crossover: signal EMA period")
-	bbPeriod := fs.Int("bb-period", 20, "bollinger-mean-reversion: Bollinger Band period")
-	bbNumStdDev := fs.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: number of standard deviations")
-	momentumLookback := fs.Int("momentum-lookback", 231, "momentum: ROC lookback period (default 231 = 252-21, skip-last-month convention)")
-	momentumThreshold := fs.Float64("momentum-threshold", 10.0, "momentum: ROC threshold in percent")
-	cciPeriod := fs.Int("cci-period", 20, "cci-mean-reversion: CCI period")
-	cciEntry := fs.Int("cci-entry", -100, "cci-mean-reversion: entry threshold (buy when CCI < this)")
-	cciExit := fs.Int("cci-exit", 0, "cci-mean-reversion: exit threshold (sell when CCI crosses above this)")
+	// Strategy-specific parameters — registered centrally from GlobalRegistry so
+	// adding a new strategy only requires a change to internal/cmdutil/strategies.go.
+	stratParamPtrs := cmdutil.GlobalRegistry.RegisterFlags(fs)
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -153,26 +132,13 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("--commission: %w", err)
 	}
 
-	params := &strategyParams{
-		fastPeriod:        *fastPeriod,
-		slowPeriod:        *slowPeriod,
-		rsiPeriod:         *rsiPeriod,
-		oversold:          *oversold,
-		overbought:        *overbought,
-		donchianPeriod:    *donchianPeriod,
-		macdFastPeriod:    *macdFastPeriod,
-		macdSlowPeriod:    *macdSlowPeriod,
-		macdSignalPeriod:  *macdSignalPeriod,
-		bbPeriod:          *bbPeriod,
-		bbNumStdDev:       *bbNumStdDev,
-		momentumLookback:  *momentumLookback,
-		momentumThreshold: *momentumThreshold,
-		cciPeriod:         *cciPeriod,
-		cciEntry:          *cciEntry,
-		cciExit:           *cciExit,
-	}
+	// Validate strategy name early: MustGet panics with a descriptive message if
+	// the name is unknown — fail-fast at startup before any provider I/O.
+	cmdutil.GlobalRegistry.MustGet(*stratName)
 
-	factory, err := strategyFactory(*stratName, model.TimeframeDaily, params)
+	stratParams := cmdutil.BuildParamMap(stratParamPtrs)
+
+	factory, err := cmdutil.GlobalRegistry.WalkForwardFactory(*stratName, model.TimeframeDaily, stratParams)
 	if err != nil {
 		return fmt.Errorf("--strategy: %w", err)
 	}
@@ -234,7 +200,6 @@ func (e *exitCodeError) Error() string {
 }
 
 // parseAndValidateFlags validates the four required flags and parses dates.
-// Returns (from, to time.Time, error).
 func parseAndValidateFlags(instrument, fromStr, toStr, stratName string) (from, to time.Time, err error) {
 	if instrument == "" {
 		return time.Time{}, time.Time{}, fmt.Errorf("--instrument is required (e.g. \"NSE:TCS\")")
@@ -246,7 +211,8 @@ func parseAndValidateFlags(instrument, fromStr, toStr, stratName string) (from, 
 		return time.Time{}, time.Time{}, fmt.Errorf("--to is required (e.g. 2025-01-01, exclusive upper bound)")
 	}
 	if stratName == "" {
-		return time.Time{}, time.Time{}, fmt.Errorf("--strategy is required: sma-crossover | rsi-mean-reversion | donchian-breakout | macd-crossover | bollinger-mean-reversion | momentum | cci-mean-reversion")
+		return time.Time{}, time.Time{}, fmt.Errorf("--strategy is required: %s",
+			strings.Join(cmdutil.GlobalRegistry.ListStrategies(), " | "))
 	}
 
 	from, err = time.Parse("2006-01-02", fromStr)
@@ -261,154 +227,6 @@ func parseAndValidateFlags(instrument, fromStr, toStr, stratName string) (from, 
 		return time.Time{}, time.Time{}, fmt.Errorf("--to (%s) must be strictly after --from (%s)", toStr, fromStr)
 	}
 	return from, to, nil
-}
-
-// strategyParams holds all strategy-specific parameters resolved from CLI flags.
-type strategyParams struct {
-	fastPeriod        int
-	slowPeriod        int
-	rsiPeriod         int
-	oversold          float64
-	overbought        float64
-	donchianPeriod    int
-	macdFastPeriod    int
-	macdSlowPeriod    int
-	macdSignalPeriod  int
-	bbPeriod          int
-	bbNumStdDev       float64
-	momentumLookback  int
-	momentumThreshold float64
-	cciPeriod         int
-	cciEntry          int
-	cciExit           int
-}
-
-// strategyBuilder is a function that validates params eagerly and returns a
-// closure that constructs a fresh strategy instance on each call.
-type strategyBuilder func(tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error)
-
-// strategyRegistry maps strategy names to their builder functions.
-// Each builder validates params once at startup and returns a panic-free closure.
-//
-// **Decision (strategyFactory table dispatch replaces flat switch) — architecture: experimental**
-// scope: cmd/walk-forward
-// tags: factory, panic-free, cyclop, error-handling
-// owner: priya
-//
-// The flat switch over 7 strategies hit the cyclop complexity limit (max=15).
-// A dispatch table reduces strategyFactory complexity to O(1) map lookup while
-// keeping each builder self-contained. Builders validate params eagerly — errors
-// surface before any fold runs, never inside a goroutine closure.
-var strategyRegistry = map[string]strategyBuilder{
-	"sma-crossover":            buildSMAFactory,
-	"rsi-mean-reversion":       buildRSIFactory,
-	"donchian-breakout":        buildDonchianFactory,
-	"macd-crossover":           buildMACDFactory,
-	"bollinger-mean-reversion": buildBollingerFactory,
-	"momentum":                 buildMomentumFactory,
-	"cci-mean-reversion":       buildCCIFactory,
-}
-
-// strategyFactory looks up the named strategy in strategyRegistry, validates
-// params eagerly, and returns a closure that constructs a fresh strategy instance
-// on each call. Returns an error if the name is unknown or params are invalid.
-func strategyFactory(name string, tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error) {
-	builder, ok := strategyRegistry[name]
-	if !ok {
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum, cci-mean-reversion", name)
-	}
-	return builder(tf, params)
-}
-
-func buildSMAFactory(tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error) {
-	if _, err := smacrossover.New(tf, params.fastPeriod, params.slowPeriod); err != nil {
-		return nil, fmt.Errorf("sma-crossover params: %w", err)
-	}
-	return func() strategy.Strategy {
-		s, err := smacrossover.New(tf, params.fastPeriod, params.slowPeriod)
-		if err != nil {
-			panic(fmt.Sprintf("sma-crossover: params validated at startup, unexpected error: %v", err))
-		}
-		return s
-	}, nil
-}
-
-func buildRSIFactory(tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error) {
-	if _, err := rsimeanrev.New(tf, params.rsiPeriod, params.oversold, params.overbought); err != nil {
-		return nil, fmt.Errorf("rsi-mean-reversion params: %w", err)
-	}
-	return func() strategy.Strategy {
-		s, err := rsimeanrev.New(tf, params.rsiPeriod, params.oversold, params.overbought)
-		if err != nil {
-			panic(fmt.Sprintf("rsi-mean-reversion: params validated at startup, unexpected error: %v", err))
-		}
-		return s
-	}, nil
-}
-
-func buildDonchianFactory(tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error) {
-	if _, err := donchian.New(tf, params.donchianPeriod); err != nil {
-		return nil, fmt.Errorf("donchian-breakout params: %w", err)
-	}
-	return func() strategy.Strategy {
-		s, err := donchian.New(tf, params.donchianPeriod)
-		if err != nil {
-			panic(fmt.Sprintf("donchian-breakout: params validated at startup, unexpected error: %v", err))
-		}
-		return s
-	}, nil
-}
-
-func buildMACDFactory(tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error) {
-	if _, err := macd.New(tf, params.macdFastPeriod, params.macdSlowPeriod, params.macdSignalPeriod); err != nil {
-		return nil, fmt.Errorf("macd-crossover params: %w", err)
-	}
-	return func() strategy.Strategy {
-		s, err := macd.New(tf, params.macdFastPeriod, params.macdSlowPeriod, params.macdSignalPeriod)
-		if err != nil {
-			panic(fmt.Sprintf("macd-crossover: params validated at startup, unexpected error: %v", err))
-		}
-		return s
-	}, nil
-}
-
-func buildBollingerFactory(tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error) {
-	if _, err := bollinger.New(tf, params.bbPeriod, params.bbNumStdDev); err != nil {
-		return nil, fmt.Errorf("bollinger-mean-reversion params: %w", err)
-	}
-	return func() strategy.Strategy {
-		s, err := bollinger.New(tf, params.bbPeriod, params.bbNumStdDev)
-		if err != nil {
-			panic(fmt.Sprintf("bollinger-mean-reversion: params validated at startup, unexpected error: %v", err))
-		}
-		return s
-	}, nil
-}
-
-func buildMomentumFactory(tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error) {
-	if _, err := momentum.New(tf, params.momentumLookback, params.momentumThreshold); err != nil {
-		return nil, fmt.Errorf("momentum params: %w", err)
-	}
-	return func() strategy.Strategy {
-		s, err := momentum.New(tf, params.momentumLookback, params.momentumThreshold)
-		if err != nil {
-			panic(fmt.Sprintf("momentum: params validated at startup, unexpected error: %v", err))
-		}
-		return s
-	}, nil
-}
-
-func buildCCIFactory(tf model.Timeframe, params *strategyParams) (func() strategy.Strategy, error) {
-	if _, err := ccimeanrev.New(tf, params.cciPeriod, params.cciEntry, params.cciExit); err != nil {
-		return nil, fmt.Errorf("cci-mean-reversion params: %w", err)
-	}
-	return func() strategy.Strategy {
-		s, err := ccimeanrev.New(tf, params.cciPeriod, params.cciEntry, params.cciExit)
-		if err != nil {
-			panic(fmt.Sprintf("cci-mean-reversion: params validated at startup, unexpected error: %v", err))
-		}
-		return s
-	}, nil
 }
 
 // buildWalkForwardConfig constructs a WalkForwardConfig from the outer window
@@ -440,7 +258,6 @@ func buildWalkForwardConfig(instrument string, from, to time.Time, isYears, oosY
 }
 
 // determineExitCode returns 1 if the report has any flag set, 0 otherwise.
-// This enables shell scripting: callers can check $? to branch on walk-forward result.
 func determineExitCode(report walkforward.Report) int {
 	if report.OverfitFlag || report.NegativeFoldFlag {
 		return 1
@@ -464,8 +281,6 @@ func writeReportJSON(w io.Writer, report walkforward.Report) error {
 }
 
 // writeFoldsCSVFile opens path, writes a fold-level CSV, and closes the file.
-// Separate from writeFoldsCSV so that main() does not hold a deferred close
-// across an os.Exit call.
 func writeFoldsCSVFile(path string, windows []walkforward.WindowResult) error {
 	f, err := os.Create(path)
 	if err != nil {
@@ -485,9 +300,6 @@ func writeFoldsCSVFile(path string, windows []walkforward.WindowResult) error {
 // writeFoldsCSV writes a fold-level CSV to w. Columns:
 //
 //	fold_index, is_start, is_end, oos_start, oos_end, is_sharpe, oos_sharpe, trade_count, degenerate
-//
-// Dates are formatted as YYYY-MM-DD (UTC). Degenerate is "true" or "false".
-// An empty windows slice writes only the header row.
 func writeFoldsCSV(w io.Writer, windows []walkforward.WindowResult) error {
 	var buf bytes.Buffer
 	buf.WriteString("fold_index,is_start,is_end,oos_start,oos_end,is_sharpe,oos_sharpe,trade_count,degenerate\n")

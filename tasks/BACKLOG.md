@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-07 | **Open tasks:** 21 | **Next up:** TASK-0070
+**Last updated:** 2026-05-08 | **Open tasks:** 20 | **Next up:** TASK-0070
 
 ---
 
@@ -160,6 +160,22 @@
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
 
+### [TASK-0092] Tech debt — add `TestSignalAuditCoversAllStrategies` to `cmd/signal-audit`
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-05-08
+- **Source:** session
+- **Context:** `cmd/signal-audit/allStrategyFactories()` is manually maintained — new strategies added to `cmdutil.GlobalRegistry` do not automatically appear in the audit. The strategy wiring centralization (2026-05-08) makes all other cmd mains auto-update; signal-audit is the only one that can silently fall behind. A coverage test is the only enforcement mechanism.
+- **Acceptance criteria:**
+  - [ ] `TestSignalAuditCoversAllStrategies` added to `cmd/signal-audit/main_test.go` (or a new `_test.go` file): iterates `cmdutil.GlobalRegistry.ListStrategies()`, skips `"stub"`, asserts each name appears in the slice returned by `allStrategyFactories(model.TimeframeDaily)`
+  - [ ] Test fails if a new strategy is registered in GlobalRegistry but not added to `allStrategyFactories`
+  - [ ] `go1.25.0 test -race ./cmd/signal-audit/...` passes
+  - [ ] `golangci-lint run ./cmd/signal-audit/...` passes
+- **Notes:** Signal-audit is intentionally excluded from the centralized registry Build path because it uses audit-tuned non-default params (e.g. donchian period=10, macd fast=17) verified by Marcus for signal frequency. Auto-populating from GlobalRegistry defaults would silently change audit results. The test enforces coverage without changing the construction approach. Single test, no production code changes.
+
+---
+
 ### [TASK-0058] Tooling — fix cyclomatic complexity in `cmd/rsi-diagnostic/main.go`
 
 - **Status:** todo
@@ -190,25 +206,6 @@
   - [ ] Tests written before implementation (TDD); `go1.25.0 test -race ./pkg/provider/csv/...` passes
   - [ ] `golangci-lint run ./pkg/provider/csv/...` passes
 - **Notes:** `StaticCSVProvider` should satisfy `provider.DataProvider` at compile time via a `var _ provider.DataProvider = (*StaticCSVProvider)(nil)` check. NSE CSV columns: Date, Open, High, Low, Close (or just Index Value for TRI — inspect the actual download first). TRI values will be in the 9,000–28,000 range for 2015–2024. No chunking, no auth, no rate limits needed.
-
----
-
-### [TASK-0079] Tech debt — centralized strategy registry
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-05-05
-- **Source:** discovery
-- **Context:** Every new strategy requires manual registration in 4+ CLI files: `cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`, `cmd/sweep` (plus `cmd/sweep2d` per TASK-0061). Six strategies already, two more incoming (TASK-0074, TASK-0075). Forgetting any one registration produces silent wrong behaviour — strategy silently unavailable — not a compile error. Maintenance tax compounds with every addition.
-- **Acceptance criteria:**
-  - [ ] `internal/cmdutil/registry.go`: `StrategyRegistry` map type with `Register(name string, factory func() strategy.Strategy)` and `MustGet(name string) func() strategy.Strategy` (panics on unknown name at startup, not silently at runtime)
-  - [ ] `internal/cmdutil/strategies.go`: single authoritative list of all strategy registrations — one entry per strategy, one file to update when adding a new strategy
-  - [ ] `cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`, `cmd/sweep` all consume the central registry; local maps removed
-  - [ ] Adding a new strategy requires exactly one file change in one location; no `init()` auto-registration (violates CLAUDE.md no-global-state rule)
-  - [ ] `TestStrategyRegistry` covers: known strategies return non-nil factory, unknown strategy panics with descriptive message, `ListStrategies()` returns sorted names
-  - [ ] `golangci-lint run ./...` and `go1.25.0 test -race ./...` pass
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Tech debt. No new dependencies. `init()` pattern explicitly rejected per repo rules — use explicit registration in `internal/cmdutil/strategies.go`. Related: TASK-0061 extends sweep2d; that extension should also consume the central registry when done.
 
 ---
 
@@ -296,7 +293,7 @@
   - [ ] `fixedParams` struct duplication between `cmd/sweep` and `cmd/sweep2d` resolved — either extracted to shared location or duplication accepted with a comment
   - [ ] All new factory paths covered by `TestFactoryRegistry2D_KnownStrategies`
   - [ ] `golangci-lint run ./cmd/sweep2d/...` still passes
-- **Notes:** Donchian has only one meaningful sweep parameter (period) — its p2 axis is less obvious; defer the axis mapping decision until this task is picked up.
+- **Notes:** Donchian has only one meaningful sweep parameter (period) — its p2 axis is less obvious; defer the axis mapping decision until this task is picked up. **Remaining scope (updated 2026-05-08 after strategy wiring centralization):** `cmd/sweep` and all other cmd mains now use `cmdutil.GlobalRegistry` for construction — `fixedParams` duplication and `MustGet` discarded-return issues are resolved. `cmd/sweep2d` is the only remaining outlier: it still has a local `factoryRegistry2D` switch and doesn't use GlobalRegistry for name validation. The acceptance criteria for this task should focus on: (1) extending `factoryRegistry2D` to cover all strategies including `cci-mean-reversion`, and (2) wiring `GlobalRegistry.MustGet` for name validation in `cmd/sweep2d`, matching the pattern in all other cmd mains.
 
 ---
 
@@ -350,20 +347,6 @@
   - [ ] Stdout parsing of bootstrap block removed from agent logic
   - [ ] Agent still works correctly when `bootstrap` key is absent (non-bootstrap runs)
 - **Notes:** TASK-0082 is the prerequisite — it added the bootstrap fields to the JSON. The agent file to update is in `.claude/agents/` (evaluation-run agent). Low priority: stdout parsing still works; this is a fragility reduction.
-
----
-
-### [TASK-0063] Tooling — update `cmd/backtest` package doc comment to list all 6 strategies
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-04-29
-- **Source:** discovery
-- **Context:** The package-level doc comment in `cmd/backtest/main.go` lists only `stub`, `sma-crossover`, and `rsi-mean-reversion` under "Available strategies". The `strategyRegistry` and `--strategy` flag help text now correctly list all 6, but the doc comment at the top of the file is stale and would mislead someone reading the source. Discovered during TASK-0051 quality review.
-- **Acceptance criteria:**
-  - [ ] `cmd/backtest/main.go` package doc comment "Available strategies" section updated to list all 6 strategies with their flag descriptions
-  - [ ] `golangci-lint run ./cmd/backtest/...` still passes
-- **Notes:** Pure documentation change — no logic, no tests needed. Low priority; do alongside any other `cmd/backtest` touch.
 
 ---
 

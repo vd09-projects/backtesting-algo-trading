@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,13 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/testutil"
 )
+
+// errWriter always returns an error on Write.
+type errWriter struct{}
+
+func (e *errWriter) Write(_ []byte) (int, error) {
+	return 0, fmt.Errorf("simulated write error")
+}
 
 // minimalReport returns a small Report2D with two p1 values and one p2 value,
 // sufficient to exercise writeOutput and writeCSVToWriter without running a sweep.
@@ -259,5 +267,25 @@ func TestRunAndWriteCSV_SmokeTest(t *testing.T) {
 	// DSR should be populated.
 	if report.DSRCorrectedPeakSharpe == 0 && report.VariantCount > 1 {
 		t.Error("DSRCorrectedPeakSharpe is zero for multi-variant sweep")
+	}
+}
+
+func TestWriteCSVToWriter_WriteError(t *testing.T) {
+	t.Parallel()
+	report := minimalReport()
+	err := writeCSVToWriter(&errWriter{}, report)
+	if err == nil {
+		t.Fatal("expected error from write failure, got nil")
+	}
+}
+
+func TestWriteOutput_WriteError(t *testing.T) {
+	t.Parallel()
+	// writeOutput assembles CSV into a buffer via writeCSVToWriter (succeeds),
+	// then calls w.Write — that final write should fail here.
+	report := minimalReport()
+	err := writeOutput(&errWriter{}, report, "")
+	if err == nil {
+		t.Fatal("expected error when final stdout write fails, got nil")
 	}
 }

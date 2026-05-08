@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/walkforward"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
@@ -113,12 +114,11 @@ func TestParseAndValidateFlags_EqualFromTo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestStrategyFactory
+// TestWalkForwardFactory (replaces TestStrategyFactory — delegates to registry)
 // ---------------------------------------------------------------------------
 
-func TestStrategyFactory_KnownStrategies(t *testing.T) {
+func TestWalkForwardFactory_KnownStrategies(t *testing.T) {
 	t.Parallel()
-	params := defaultStrategyParams()
 	knownStrategies := []string{
 		"sma-crossover",
 		"rsi-mean-reversion",
@@ -129,17 +129,16 @@ func TestStrategyFactory_KnownStrategies(t *testing.T) {
 		"cci-mean-reversion",
 	}
 	for _, name := range knownStrategies {
-		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			factory, err := strategyFactory(name, model.TimeframeDaily, params)
+			p := cmdutil.GlobalRegistry.DefaultParams(name)
+			factory, err := cmdutil.GlobalRegistry.WalkForwardFactory(name, model.TimeframeDaily, p)
 			if err != nil {
 				t.Fatalf("%s: unexpected error: %v", name, err)
 			}
 			if factory == nil {
 				t.Fatalf("%s: factory must not be nil", name)
 			}
-			// Call factory() to ensure it produces a valid Strategy.
 			s := factory()
 			if s == nil {
 				t.Fatalf("%s: factory() returned nil", name)
@@ -148,27 +147,29 @@ func TestStrategyFactory_KnownStrategies(t *testing.T) {
 	}
 }
 
-func TestStrategyFactory_UnknownStrategy(t *testing.T) {
+func TestWalkForwardFactory_UnknownStrategy(t *testing.T) {
 	t.Parallel()
-	params := defaultStrategyParams()
-	_, err := strategyFactory("not-a-strategy", model.TimeframeDaily, params)
+	// WalkForwardFactory returns an error for unknown names (unlike MustGet which panics).
+	// The panic path is handled by the explicit MustGet call in run() before
+	// WalkForwardFactory is invoked.
+	_, err := cmdutil.GlobalRegistry.WalkForwardFactory("not-a-strategy", model.TimeframeDaily, nil)
 	if err == nil {
-		t.Fatal("expected error for unknown strategy")
+		t.Fatal("expected error for unknown strategy, got nil")
 	}
 	if !strings.Contains(err.Error(), "not-a-strategy") {
 		t.Errorf("error should mention the unknown strategy name, got: %v", err)
 	}
 }
 
-func TestStrategyFactory_InvalidParams_EagerValidation(t *testing.T) {
+func TestWalkForwardFactory_InvalidParams_EagerValidation(t *testing.T) {
 	t.Parallel()
-	// fastPeriod >= slowPeriod is invalid for sma-crossover; should error at factory
-	// construction time, not panic inside the closure.
-	badParams := &strategyParams{
-		fastPeriod: 50,
-		slowPeriod: 10, // slow < fast — invalid
+	// fast-period >= slow-period is invalid for sma-crossover; should error at
+	// factory construction time (eager validation), not panic inside the closure.
+	bad := map[string]float64{
+		"fast-period": 50,
+		"slow-period": 10,
 	}
-	_, err := strategyFactory("sma-crossover", model.TimeframeDaily, badParams)
+	_, err := cmdutil.GlobalRegistry.WalkForwardFactory("sma-crossover", model.TimeframeDaily, bad)
 	if err == nil {
 		t.Fatal("expected error for invalid sma-crossover params (fast >= slow), got nil")
 	}
@@ -185,7 +186,6 @@ func TestBuildWalkForwardConfig_YearsToDuration(t *testing.T) {
 
 	cfg := buildWalkForwardConfig("NSE:TCS", from, to, 2, 1, 1)
 
-	// 2 years = 2 * 365 * 24 * time.Hour
 	wantIS := 2 * 365 * 24 * time.Hour
 	wantOOS := 365 * 24 * time.Hour
 	wantStep := 365 * 24 * time.Hour
@@ -215,7 +215,6 @@ func TestBuildWalkForwardConfig_Defaults(t *testing.T) {
 	from := time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	// Default: 2yr IS / 1yr OOS / 1yr step.
 	cfg := buildWalkForwardConfig("NSE:INFY", from, to, 2, 1, 1)
 	if cfg.InSampleWindow != 2*365*24*time.Hour {
 		t.Errorf("default IS window wrong: got %v", cfg.InSampleWindow)
@@ -313,7 +312,6 @@ func TestFormatFoldsCSV_DataRow(t *testing.T) {
 		t.Fatalf("writeFoldsCSV: %v", err)
 	}
 	output := buf.String()
-	// Fold index should be 0-based.
 	if !strings.Contains(output, "0,") {
 		t.Errorf("expected fold_index=0 in output; got:\n%s", output)
 	}
@@ -380,16 +378,13 @@ func TestWriteReportJSON_ValidReport(t *testing.T) {
 	}
 
 	output := buf.String()
-	// Must be valid JSON.
 	var decoded map[string]any
 	if err := json.Unmarshal([]byte(output), &decoded); err != nil {
 		t.Fatalf("output is not valid JSON: %v\noutput:\n%s", err, output)
 	}
-	// Must end with a newline.
 	if output[len(output)-1] != '\n' {
 		t.Errorf("output must end with newline; got last byte %q", output[len(output)-1])
 	}
-	// Must contain OverfitFlag field.
 	if _, ok := decoded["OverfitFlag"]; !ok {
 		t.Errorf("JSON missing OverfitFlag field; got:\n%s", output)
 	}
@@ -397,14 +392,12 @@ func TestWriteReportJSON_ValidReport(t *testing.T) {
 
 func TestWriteReportJSON_WriteError(t *testing.T) {
 	t.Parallel()
-	// errWriter always returns an error on Write.
 	report := walkforward.Report{}
 	if err := writeReportJSON(&errWriter{}, report); err == nil {
 		t.Fatal("expected error from write failure, got nil")
 	}
 }
 
-// errWriter is an io.Writer that always returns an error.
 type errWriter struct{}
 
 func (e *errWriter) Write(_ []byte) (int, error) {
@@ -422,7 +415,6 @@ func TestWriteFoldsCSVFile_HappyPath(t *testing.T) {
 		t.Fatalf("CreateTemp: %v", err)
 	}
 	path := f.Name()
-	// Close before passing to writeFoldsCSVFile so it can re-open via os.Create.
 	if err := f.Close(); err != nil {
 		t.Fatalf("Close temp file: %v", err)
 	}
@@ -464,7 +456,6 @@ func TestWriteFoldsCSVFile_HappyPath(t *testing.T) {
 
 func TestWriteFoldsCSVFile_CreateFailure(t *testing.T) {
 	t.Parallel()
-	// Directory does not exist — os.Create must fail.
 	err := writeFoldsCSVFile("/nonexistent/dir/out.csv", nil)
 	if err == nil {
 		t.Fatal("expected error for invalid path, got nil")
@@ -478,7 +469,6 @@ func TestWriteFoldsCSVFile_CreateFailure(t *testing.T) {
 func TestRun_MissingRequiredFlags(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	// No flags supplied — parseAndValidateFlags should return an error.
 	err := run([]string{}, &stdout, &stderr)
 	if err == nil {
 		t.Fatal("expected error when required flags are missing, got nil")
@@ -490,6 +480,19 @@ func TestRun_MissingRequiredFlags(t *testing.T) {
 
 func TestRun_UnknownStrategy(t *testing.T) {
 	t.Parallel()
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic for unknown strategy, got none")
+		}
+		msg, ok := r.(string)
+		if !ok {
+			t.Fatalf("panic value is not a string: %T: %v", r, r)
+		}
+		if !strings.Contains(msg, "no-such-strategy") {
+			t.Errorf("panic message should mention the strategy name; got: %v", msg)
+		}
+	}()
 	var stdout, stderr bytes.Buffer
 	args := []string{
 		"--instrument", "NSE:TCS",
@@ -497,13 +500,7 @@ func TestRun_UnknownStrategy(t *testing.T) {
 		"--to", "2023-01-01",
 		"--strategy", "no-such-strategy",
 	}
-	err := run(args, &stdout, &stderr)
-	if err == nil {
-		t.Fatal("expected error for unknown strategy, got nil")
-	}
-	if !strings.Contains(err.Error(), "no-such-strategy") {
-		t.Errorf("error should mention the strategy name; got: %v", err)
-	}
+	_ = run(args, &stdout, &stderr) //nolint:errcheck // expect panic before return
 }
 
 func TestRun_InvalidCommission(t *testing.T) {
@@ -537,27 +534,74 @@ func TestRun_ToNotAfterFrom(t *testing.T) {
 	}
 }
 
+func TestRun_InvalidStrategyParams(t *testing.T) {
+	t.Parallel()
+	// fast-period >= slow-period is rejected by smacrossover.New; WalkForwardFactory
+	// validates params eagerly and returns an error before any I/O.
+	var stdout, stderr bytes.Buffer
+	args := []string{
+		"--instrument", "NSE:TCS",
+		"--from", "2020-01-01",
+		"--to", "2023-01-01",
+		"--strategy", "sma-crossover",
+		"--fast-period", "50",
+		"--slow-period", "10",
+	}
+	err := run(args, &stdout, &stderr)
+	if err == nil {
+		t.Fatal("expected error for invalid sma-crossover params (fast >= slow), got nil")
+	}
+	if !strings.Contains(err.Error(), "--strategy") {
+		t.Errorf("error should mention --strategy; got: %v", err)
+	}
+}
+
 // ---------------------------------------------------------------------------
-// Helpers
+// exitCodeError
 // ---------------------------------------------------------------------------
 
-func defaultStrategyParams() *strategyParams {
-	return &strategyParams{
-		fastPeriod:        10,
-		slowPeriod:        50,
-		rsiPeriod:         14,
-		oversold:          30.0,
-		overbought:        70.0,
-		donchianPeriod:    20,
-		macdFastPeriod:    12,
-		macdSlowPeriod:    26,
-		macdSignalPeriod:  9,
-		bbPeriod:          20,
-		bbNumStdDev:       2.0,
-		momentumLookback:  231,
-		momentumThreshold: 10.0,
-		cciPeriod:         20,
-		cciEntry:          -100,
-		cciExit:           0,
+func TestExitCodeError_Error(t *testing.T) {
+	t.Parallel()
+	e := &exitCodeError{code: 1}
+	got := e.Error()
+	if !strings.Contains(got, "1") {
+		t.Errorf("Error() = %q, want it to contain the exit code", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// writeReportJSON newline error path
+// ---------------------------------------------------------------------------
+
+// afterFirstWriter succeeds on the first Write call and fails on all subsequent.
+type afterFirstWriter struct{ calls int }
+
+func (w *afterFirstWriter) Write(p []byte) (int, error) {
+	w.calls++
+	if w.calls > 1 {
+		return 0, fmt.Errorf("simulated write error on call %d", w.calls)
+	}
+	return len(p), nil
+}
+
+func TestWriteReportJSON_NewlineError(t *testing.T) {
+	t.Parallel()
+	// First Write (JSON body) succeeds; second Write (trailing newline) fails.
+	w := &afterFirstWriter{}
+	err := writeReportJSON(w, walkforward.Report{})
+	if err == nil {
+		t.Fatal("expected error when newline write fails, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// writeFoldsCSV write-error path
+// ---------------------------------------------------------------------------
+
+func TestWriteFoldsCSV_WriteError(t *testing.T) {
+	t.Parallel()
+	err := writeFoldsCSV(&errWriter{}, []walkforward.WindowResult{})
+	if err == nil {
+		t.Fatal("expected error from write failure, got nil")
 	}
 }

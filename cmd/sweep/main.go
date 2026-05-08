@@ -12,12 +12,8 @@
 //	    --sweep-param rsi-period \
 //	    --min 7 --max 21 --step 1
 //
-// Supported strategy + sweep-param combinations:
-//
-//	sma-crossover     + fast-period   (--slow-period sets the fixed slow period)
-//	sma-crossover     + slow-period   (--fast-period sets the fixed fast period)
-//	rsi-mean-reversion + rsi-period   (--oversold / --overbought set fixed thresholds)
-//	rsi-mean-reversion + oversold     (overbought = 100 − oversold; --rsi-period sets fixed period)
+// Sweepable strategy+param combinations are registered in internal/cmdutil/strategies.go.
+// Run with --help to see all available flags and their defaults.
 //
 // Credentials are read from KITE_API_KEY and KITE_API_SECRET environment
 // variables (or a .env file in the working directory). Token handling is
@@ -28,8 +24,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"math"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
@@ -37,13 +33,6 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/sweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
-	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/bollinger"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/donchian"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/macd"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/momentum"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/rsimeanrev"
-	"github.com/vikrantdhawan/backtesting-algo-trading/strategies/smacrossover"
 )
 
 func main() {
@@ -52,28 +41,17 @@ func main() {
 	toStr := flag.String("to", "", "End date in YYYY-MM-DD (exclusive, required)")
 	tfStr := flag.String("timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
 	cash := flag.Float64("cash", 100000, "Starting cash in ₹")
-	stratName := flag.String("strategy", "", "Strategy to sweep: sma-crossover | rsi-mean-reversion | donchian-breakout | macd-crossover | bollinger-mean-reversion | momentum (required)")
-	sweepParam := flag.String("sweep-param", "", "Parameter to sweep (required; see supported combinations in usage)")
+	stratName := flag.String("strategy", "", "Strategy to sweep: "+strings.Join(cmdutil.GlobalRegistry.ListStrategies(), " | ")+" (required)")
+	sweepParam := flag.String("sweep-param", "", "Parameter to sweep (required; use --help to see available params per strategy)")
 	minVal := flag.Float64("min", 0, "Sweep range minimum (required)")
 	maxVal := flag.Float64("max", 0, "Sweep range maximum (required)")
 	stepVal := flag.Float64("step", 0, "Sweep step size (required, must be > 0)")
-
 	commissionStr := flag.String("commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
 
-	// Fixed parameters for the non-swept dimensions.
-	fastPeriod := flag.Int("fast-period", 10, "sma-crossover: fixed fast SMA period")
-	slowPeriod := flag.Int("slow-period", 50, "sma-crossover: fixed slow SMA period")
-	rsiPeriod := flag.Int("rsi-period", 14, "rsi-mean-reversion: fixed RSI period")
-	oversold := flag.Float64("oversold", 30, "rsi-mean-reversion: fixed oversold threshold")
-	overbought := flag.Float64("overbought", 70, "rsi-mean-reversion: fixed overbought threshold")
-	donchianPeriod := flag.Int("donchian-period", 20, "donchian-breakout: fixed channel period")
-	macdFastPeriod := flag.Int("macd-fast-period", 12, "macd-crossover: fixed fast EMA period")
-	macdSlowPeriod := flag.Int("macd-slow-period", 26, "macd-crossover: fixed slow EMA period")
-	macdSignalPeriod := flag.Int("macd-signal-period", 9, "macd-crossover: fixed signal EMA period")
-	bbPeriod := flag.Int("bb-period", 20, "bollinger-mean-reversion: fixed Bollinger Band period")
-	bbNumStdDev := flag.Float64("bb-num-std-dev", 2.0, "bollinger-mean-reversion: fixed number of standard deviations")
-	momentumLookback := flag.Int("momentum-lookback", 231, "momentum: fixed ROC lookback period")
-	momentumThreshold := flag.Float64("momentum-threshold", 10.0, "momentum: fixed ROC threshold in percent")
+	// Fixed parameters for the non-swept dimensions — registered centrally from
+	// GlobalRegistry so adding a new strategy only requires a change to
+	// internal/cmdutil/strategies.go.
+	stratParamPtrs := cmdutil.GlobalRegistry.RegisterFlags(flag.CommandLine)
 
 	flag.Parse()
 
@@ -87,21 +65,12 @@ func main() {
 		cmdutil.Fatalf("--commission: %v", err)
 	}
 
-	factory, err := factoryRegistry(*stratName, *sweepParam, tf, &fixedParams{
-		fastPeriod:        *fastPeriod,
-		slowPeriod:        *slowPeriod,
-		rsiPeriod:         *rsiPeriod,
-		oversold:          *oversold,
-		overbought:        *overbought,
-		donchianPeriod:    *donchianPeriod,
-		macdFastPeriod:    *macdFastPeriod,
-		macdSlowPeriod:    *macdSlowPeriod,
-		macdSignalPeriod:  *macdSignalPeriod,
-		bbPeriod:          *bbPeriod,
-		bbNumStdDev:       *bbNumStdDev,
-		momentumLookback:  *momentumLookback,
-		momentumThreshold: *momentumThreshold,
-	})
+	// Name validation: MustGet panics at startup with descriptive message if unknown.
+	cmdutil.GlobalRegistry.MustGet(*stratName)
+
+	fixedParams := cmdutil.BuildParamMap(stratParamPtrs)
+
+	factory, err := cmdutil.GlobalRegistry.SweepFactory(*stratName, *sweepParam, tf, fixedParams)
 	if err != nil {
 		cmdutil.Fatalf("--strategy / --sweep-param: %v", err)
 	}
@@ -116,30 +85,28 @@ func main() {
 	}
 
 	cfg := sweep.Config{
-		ParameterName: *sweepParam,
-		Min:           *minVal,
-		Max:           *maxVal,
-		Step:          *stepVal,
-		Timeframe:     tf,
+		ParameterName:   *sweepParam,
+		Min:             *minVal,
+		Max:             *maxVal,
+		Step:            *stepVal,
+		StrategyFactory: factory,
 		EngineConfig: engine.Config{
 			Instrument:           *instrument,
 			From:                 from,
 			To:                   to,
 			InitialCash:          *cash,
-			PositionSizeFraction: 0.1,
+			PositionSizeFraction: 0.10,
 			OrderConfig: model.OrderConfig{
 				SlippagePct:     0.0005,
 				CommissionModel: commissionModel,
 			},
 		},
-		StrategyFactory: factory,
+		Timeframe: tf,
 	}
 
-	fmt.Printf("Sweeping %s.%s [%.4g … %.4g step %.4g] on %s  %s → %s\n",
+	fmt.Fprintf(os.Stderr, "Sweeping %s.%s in [%.4g, %.4g] step=%.4g  %s → %s  timeframe=%s commission=%s\n",
 		*stratName, *sweepParam, *minVal, *maxVal, *stepVal,
-		*instrument, from.Format("2006-01-02"), to.Format("2006-01-02"))
-	fmt.Printf("Run config: strategy=%s instrument=%s timeframe=%s from=%s to=%s commission=%s\n",
-		*stratName, *instrument, *tfStr, from.Format("2006-01-02"), to.Format("2006-01-02"), *commissionStr)
+		from.Format("2006-01-02"), to.Format("2006-01-02"), *tfStr, *commissionStr)
 
 	report, err := sweep.Run(ctx, cfg, p)
 	if err != nil {
@@ -147,12 +114,11 @@ func main() {
 	}
 
 	if err := output.WriteSweep(os.Stdout, report); err != nil {
-		cmdutil.Fatalf("output: %v", err)
+		cmdutil.Fatalf("write results: %v", err)
 	}
 }
 
-// parseAndValidateFlags validates required flags and parses dates and timeframe.
-func parseAndValidateFlags(fromStr, toStr, tfStr, stratName, sweepParam string, stepVal, minVal, maxVal float64) (from, to time.Time, tf model.Timeframe, err error) { //nolint:gocritic // named returns document purpose of each position
+func parseAndValidateFlags(fromStr, toStr, tfStr, stratName, sweepParam string, stepVal, minVal, maxVal float64) (from, to time.Time, tf model.Timeframe, err error) {
 	if fromStr == "" {
 		return time.Time{}, time.Time{}, "", fmt.Errorf("--from is required (e.g. 2024-01-01)")
 	}
@@ -160,16 +126,17 @@ func parseAndValidateFlags(fromStr, toStr, tfStr, stratName, sweepParam string, 
 		return time.Time{}, time.Time{}, "", fmt.Errorf("--to is required (e.g. 2024-12-31)")
 	}
 	if stratName == "" {
-		return time.Time{}, time.Time{}, "", fmt.Errorf("--strategy is required: sma-crossover | rsi-mean-reversion | donchian-breakout | macd-crossover | bollinger-mean-reversion | momentum")
+		return time.Time{}, time.Time{}, "", fmt.Errorf("--strategy is required (%s)",
+			strings.Join(cmdutil.GlobalRegistry.ListStrategies(), " | "))
 	}
 	if sweepParam == "" {
 		return time.Time{}, time.Time{}, "", fmt.Errorf("--sweep-param is required (e.g. rsi-period, fast-period, oversold)")
 	}
 	if stepVal <= 0 {
-		return time.Time{}, time.Time{}, "", fmt.Errorf("--step must be > 0")
+		return time.Time{}, time.Time{}, "", fmt.Errorf("--step must be > 0 (got %.4g)", stepVal)
 	}
-	if maxVal < minVal {
-		return time.Time{}, time.Time{}, "", fmt.Errorf("--max must be >= --min")
+	if minVal >= maxVal {
+		return time.Time{}, time.Time{}, "", fmt.Errorf("--min (%.4g) must be < --max (%.4g)", minVal, maxVal)
 	}
 
 	from, err = time.Parse("2006-01-02", fromStr)
@@ -193,127 +160,4 @@ func parseAndValidateFlags(fromStr, toStr, tfStr, stratName, sweepParam string, 
 	}
 
 	return from, to, tf, nil
-}
-
-type fixedParams struct {
-	fastPeriod        int
-	slowPeriod        int
-	rsiPeriod         int
-	oversold          float64
-	overbought        float64
-	donchianPeriod    int
-	macdFastPeriod    int
-	macdSlowPeriod    int
-	macdSignalPeriod  int
-	bbPeriod          int
-	bbNumStdDev       float64
-	momentumLookback  int
-	momentumThreshold float64
-}
-
-// factoryRegistry returns a StrategyFactory for the given strategy and sweep-param combination.
-func factoryRegistry(stratName, sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
-	switch stratName {
-	case "sma-crossover":
-		return smaFactory(sweepParam, tf, fixed)
-	case "rsi-mean-reversion":
-		return rsiFactory(sweepParam, tf, fixed)
-	case "donchian-breakout":
-		return donchianFactory(sweepParam, tf, fixed)
-	case "macd-crossover":
-		return macdFactory(sweepParam, tf, fixed)
-	case "bollinger-mean-reversion":
-		return bollingerFactory(sweepParam, tf, fixed)
-	case "momentum":
-		return momentumFactory(sweepParam, tf, fixed)
-	default:
-		return nil, fmt.Errorf("unknown strategy %q; available: sma-crossover, rsi-mean-reversion, donchian-breakout, macd-crossover, bollinger-mean-reversion, momentum", stratName)
-	}
-}
-
-func smaFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
-	switch sweepParam {
-	case "fast-period":
-		return func(v float64) (strategy.Strategy, error) {
-			return smacrossover.New(tf, int(math.Round(v)), fixed.slowPeriod)
-		}, nil
-	case "slow-period":
-		return func(v float64) (strategy.Strategy, error) {
-			return smacrossover.New(tf, fixed.fastPeriod, int(math.Round(v)))
-		}, nil
-	default:
-		return nil, fmt.Errorf("sma-crossover does not support sweep-param %q; use fast-period or slow-period", sweepParam)
-	}
-}
-
-func rsiFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
-	switch sweepParam {
-	case "rsi-period":
-		return func(v float64) (strategy.Strategy, error) {
-			return rsimeanrev.New(tf, int(math.Round(v)), fixed.oversold, fixed.overbought)
-		}, nil
-	case "oversold":
-		// Symmetric convention: overbought = 100 − oversold.
-		return func(v float64) (strategy.Strategy, error) {
-			return rsimeanrev.New(tf, fixed.rsiPeriod, v, 100-v)
-		}, nil
-	default:
-		return nil, fmt.Errorf("rsi-mean-reversion does not support sweep-param %q; use rsi-period or oversold", sweepParam)
-	}
-}
-
-func donchianFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
-	switch sweepParam {
-	case "donchian-period":
-		return func(v float64) (strategy.Strategy, error) {
-			return donchian.New(tf, int(math.Round(v)))
-		}, nil
-	default:
-		return nil, fmt.Errorf("donchian-breakout does not support sweep-param %q; use donchian-period", sweepParam)
-	}
-}
-
-func macdFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
-	switch sweepParam {
-	case "macd-fast-period":
-		return func(v float64) (strategy.Strategy, error) {
-			return macd.New(tf, int(math.Round(v)), fixed.macdSlowPeriod, fixed.macdSignalPeriod)
-		}, nil
-	case "macd-slow-period":
-		return func(v float64) (strategy.Strategy, error) {
-			return macd.New(tf, fixed.macdFastPeriod, int(math.Round(v)), fixed.macdSignalPeriod)
-		}, nil
-	default:
-		return nil, fmt.Errorf("macd-crossover does not support sweep-param %q; use macd-fast-period or macd-slow-period", sweepParam)
-	}
-}
-
-func bollingerFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
-	switch sweepParam {
-	case "bb-period":
-		return func(v float64) (strategy.Strategy, error) {
-			return bollinger.New(tf, int(math.Round(v)), fixed.bbNumStdDev)
-		}, nil
-	case "bb-num-std-dev":
-		return func(v float64) (strategy.Strategy, error) {
-			return bollinger.New(tf, fixed.bbPeriod, v)
-		}, nil
-	default:
-		return nil, fmt.Errorf("bollinger-mean-reversion does not support sweep-param %q; use bb-period or bb-num-std-dev", sweepParam)
-	}
-}
-
-func momentumFactory(sweepParam string, tf model.Timeframe, fixed *fixedParams) (func(float64) (strategy.Strategy, error), error) {
-	switch sweepParam {
-	case "momentum-lookback":
-		return func(v float64) (strategy.Strategy, error) {
-			return momentum.New(tf, int(math.Round(v)), fixed.momentumThreshold)
-		}, nil
-	case "momentum-threshold":
-		return func(v float64) (strategy.Strategy, error) {
-			return momentum.New(tf, fixed.momentumLookback, v)
-		}, nil
-	default:
-		return nil, fmt.Errorf("momentum does not support sweep-param %q; use momentum-lookback or momentum-threshold", sweepParam)
-	}
 }
