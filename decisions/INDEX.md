@@ -8,6 +8,15 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-09-macd-crossover-midcap-correlation-killswitch-portfolio
+    title: "MACD crossover Nifty Midcap 150 — correlation screen, kill-switch thresholds, portfolio construction"
+    date: 2026-05-09
+    status: accepted
+    category: algorithm
+    tags: [macd-crossover, correlation, kill-switch, portfolio, nifty-midcap-150, midcap, TASK-0097, survivor]
+    path: algorithm/2026-05-09-macd-crossover-midcap-correlation-killswitch-portfolio.md
+    summary: "All 6 midcap bootstrap survivors pass correlation screen (0/15 pairs exceed 0.70). Kill-switch thresholds: 1.5x historical MaxDD per instrument (PERSISTENT 5.62%, TORNTPHARM 2.67%, COFORGE 12.57%, SUNDARMFIN 6.96%, INDHOTEL 8.70%, MUTHOOTFIN 6.27%). COFORGE early-warning at 8% DD. Portfolio: vol-target 10% annualized, Rs50k base notional per instrument, IT sector cap (PERSISTENT+COFORGE <=33%/Rs40k each when co-deployed). Pipeline complete for MACD crossover Nifty Midcap 150."
+
   - id: 2026-05-09-macd-crossover-midcap-bootstrap-gate
     title: "MACD crossover passes bootstrap gate — Nifty Midcap 150 (6 of 25 instruments)"
     date: 2026-05-09

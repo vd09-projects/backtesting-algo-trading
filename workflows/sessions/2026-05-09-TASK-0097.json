@@ -1,0 +1,46 @@
+{
+  "session_date": "2026-05-09",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0097",
+  "task_title": "Eval — Nifty Midcap 150 correlation screen + kill-switch derivation (MACD crossover, 6 bootstrap survivors)",
+  "step_completed": 1,
+  "gates": [
+    {
+      "name": "Correlation gate (full-period)",
+      "criteria": "Pairwise Pearson r < 0.7 (full-period 2018-01-01 to 2024-12-31)"
+    },
+    {
+      "name": "Correlation gate (stress-period)",
+      "criteria": "Pairwise Pearson r < 0.6 (COVID crash 2020-02-01 to 2020-06-30 AND rate-hike bear 2022-01-01 to 2022-12-31)"
+    }
+  ],
+  "command_run": null,
+  "results_file": null,
+  "results_row_count": null,
+  "project_state": {
+    "killed_strategies": [],
+    "prior_gate_survivors": [
+      "NSE:PERSISTENT",
+      "NSE:TORNTPHARM",
+      "NSE:COFORGE",
+      "NSE:SUNDARMFIN",
+      "NSE:MUTHOOTFIN",
+      "NSE:INDHOTEL"
+    ],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": null,
+    "marcus_design_ruling": null,
+    "marcus": null
+  },
+  "survivors": [],
+  "survivor_metrics": {},
+  "survivor_correlation_flags": [],
+  "killed": [],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "data_freshness_verified": true,
+  "results_completeness_verified": null
+}

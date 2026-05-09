@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-09 | **Open tasks:** 21 | **Next up:** TASK-0097
+**Last updated:** 2026-05-09 | **Open tasks:** 20 | **Next up:** TASK-0073
 
 ---
 
@@ -13,22 +13,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0097] Eval — Nifty Midcap 150 correlation screen + kill-switch derivation (MACD crossover, 6 bootstrap survivors)
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-09
-- **Source:** session
-- **Context:** MACD crossover (17/26/9) passed the Nifty Midcap 150 bootstrap gate (TASK-0096): 6 of 25 WF survivors pass SharpeP5>0 AND P(S>0)>80%. Next steps: (1) pairwise correlation screen among the 6 survivors, (2) kill-switch threshold derivation (p5 Sharpe per instrument = conservative drawdown trigger), (3) portfolio sizing recommendation.
-- **Acceptance criteria:**
-  - [ ] Correlation screen: run `cmd/correlate` on the 6 survivors; flag |r| > 0.70 pairs (informational, not kill per pipeline convention)
-  - [ ] Kill-switch thresholds derived: p5 per-trade Sharpe from bootstrap results (already computed in TASK-0096) — record per instrument
-  - [ ] Portfolio construction recommendation: equal-weight vs. vol-target sizing, max position count
-  - [ ] Results recorded in `decisions/algorithm/`
-- **Notes:** Bootstrap survivors from TASK-0096: NSE:PERSISTENT (P5=0.151), NSE:TORNTPHARM (0.146), NSE:COFORGE (0.041), NSE:SUNDARMFIN (0.035), NSE:MUTHOOTFIN (0.025), NSE:INDHOTEL (0.019). Results: `results/2026-05-09-TASK-0096/bootstrap-results.csv`.
-
----
 
 ### [TASK-0073] Tooling — end-to-end automated evaluation pipeline (`cmd/evaluate`)
 
