@@ -1,0 +1,53 @@
+{
+  "session_date": "2026-05-10",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0099",
+  "task_title": "Data — fetch and validate 5-min bar history for Nifty50 large-cap and Nifty Midcap 150 universes",
+  "step_completed": null,
+  "gates": [],
+  "command_run": null,
+  "results_file": null,
+  "results_row_count": null,
+  "project_state": {
+    "killed_strategies": [],
+    "prior_gate_survivors": [],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": null,
+    "marcus_design_ruling": null,
+    "marcus": null
+  },
+  "survivors": [],
+  "survivor_metrics": {},
+  "survivor_correlation_flags": [],
+  "killed": [],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [],
+  "hard_stop_active": "KITE_ACCESS_TOKEN not set in environment. cmd/fetch-history requires a valid Zerodha access token to call the Kite Connect API. The .env file has KITE_API_KEY and KITE_API_SECRET but no KITE_ACCESS_TOKEN. User must generate a daily access token via the browser OAuth flow and set KITE_ACCESS_TOKEN before fetch-history can run.",
+  "data_freshness_verified": null,
+  "classification": "operational_data_task",
+  "notes": {
+    "universes": {
+      "nifty50_large_cap": {
+        "file": "universes/nifty50-large-cap.yaml",
+        "instruments": 15
+      },
+      "nifty_midcap_liquid": {
+        "file": "universes/nifty-midcap-liquid.yaml",
+        "instruments": 48
+      }
+    },
+    "cache_state": {
+      "5min_populated": false,
+      "daily_progress_manifest": ".cache/zerodha/fetch-progress.json",
+      "note": "Progress manifest contains only daily timeframe completions. 5-min cache is empty — no files in any instrument subdirectory with 5-min prefix."
+    },
+    "auth": {
+      "api_key_present": true,
+      "api_secret_present": true,
+      "access_token_present": false,
+      "token_env_var": "KITE_ACCESS_TOKEN"
+    }
+  }
+}

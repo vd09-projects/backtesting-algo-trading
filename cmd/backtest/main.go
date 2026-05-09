@@ -49,10 +49,12 @@
 //	fixed      — deploy a fixed fraction of cash per trade (default; controlled by --position-size)
 //	vol-target — size each trade so annualized dollar vol = cash × --vol-target (default 10%)
 //
-// Credentials are read from KITE_API_KEY and KITE_API_SECRET environment
-// variables (or a .env file in the working directory). A saved access token is
-// reused when present at ~/.config/backtest/token.json and not expired;
-// otherwise the Kite Connect login flow is triggered.
+// Credentials are read from environment variables (or a .env file in the working
+// directory). Token resolution priority:
+//
+//  1. KITE_ACCESS_TOKEN — use directly; KITE_API_SECRET not required.
+//  2. Saved token file at ~/.config/backtest/token.json (or BACKTEST_TOKEN_PATH) — reused when not expired.
+//  3. Interactive Kite Connect login flow — requires KITE_API_KEY and KITE_API_SECRET; saves token for reuse.
 //
 // Optional overrides:
 //

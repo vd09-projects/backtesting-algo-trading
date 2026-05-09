@@ -91,6 +91,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/universesweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
@@ -276,9 +277,6 @@ func run(args []string, stdout, stderr io.Writer, providerFactory func(fetchFlag
 	if flags.apiKey == "" {
 		return fmt.Errorf("--api-key is required (or set KITE_API_KEY)")
 	}
-	if flags.accessToken == "" {
-		return fmt.Errorf("--access-token is required (or set KITE_ACCESS_TOKEN)")
-	}
 
 	p, err := providerFactory(flags)
 	if err != nil {
@@ -388,13 +386,49 @@ func fetchOne(
 	return nil
 }
 
+// resolveBatchToken resolves an access token for non-interactive (batch/CI) use.
+// Priority: explicit flagToken → saved token file at tokenFilePath → error.
+// Any error from the token file (absent, expired, corrupt) falls through to the
+// descriptive error. No interactive login flow is triggered.
+//
+// **Decision (resolveBatchToken in fetch-history to name non-interactive token resolution) — convention: experimental**
+// scope: cmd/fetch-history
+// tags: auth, token, batch, ci, non-interactive
+// owner: priya
+//
+// BuildProvider in cmdutil may trigger an interactive browser login as a last resort.
+// resolveBatchToken is limited to non-interactive sources — safe for CI, scripts,
+// and scheduled runs where stdin is absent. The name makes this explicit.
+func resolveBatchToken(flagToken, tokenFilePath string) (string, error) {
+	if flagToken != "" {
+		return flagToken, nil
+	}
+	tok, err := zerodha.LoadToken(tokenFilePath)
+	if err != nil {
+		return "", fmt.Errorf(
+			"no access token: set --access-token flag, KITE_ACCESS_TOKEN env var, or run cmd/backtest to generate a saved token at %s",
+			tokenFilePath,
+		)
+	}
+	return tok, nil
+}
+
 // buildProductionProvider constructs the real zerodha.Provider wrapped in CachedProvider.
 // Passed as the providerFactory to run() by main(). Tests inject a mock factory instead.
+//
+// Token resolution priority: --access-token flag → KITE_ACCESS_TOKEN env var (applied by
+// parseFlags before this is called) → saved token file at cmdutil.TokenFilePath().
+// No interactive login flow — use cmd/backtest to generate a saved token if needed.
 func buildProductionProvider(flags fetchFlags) (provider.DataProvider, error) { //nolint:gocritic // hugeParam: fetchFlags is a value at the cmd/main API boundary; pointer semantics not justified for a once-per-process call
+	accessToken, err := resolveBatchToken(flags.accessToken, cmdutil.TokenFilePath())
+	if err != nil {
+		return nil, err
+	}
+
 	ctx := context.Background()
 	p, err := zerodha.NewProvider(ctx, zerodha.Config{
 		APIKey:              flags.apiKey,
-		AccessToken:         flags.accessToken,
+		AccessToken:         accessToken,
 		InstrumentsCacheDir: flags.cacheDir,
 	})
 	if err != nil {

@@ -15,6 +15,22 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
 )
 
+// writeValidTokenFile writes a token fixture that will pass zerodha.LoadToken validation.
+// Uses the known TokenRecord JSON shape: access_token + expires_at (future).
+func writeValidTokenFile(t *testing.T, path, token string) {
+	t.Helper()
+	payload, err := json.Marshal(map[string]any{
+		"access_token": token,
+		"expires_at":   time.Now().Add(24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("marshal token fixture: %v", err)
+	}
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write token fixture: %v", err)
+	}
+}
+
 // mockProvider is a test double for provider.DataProvider.
 type mockProvider struct {
 	candles   []model.Candle
@@ -403,4 +419,97 @@ func (c *callCountProvider) FetchCandles(_ context.Context, instrument string, _
 
 func (c *callCountProvider) SupportedTimeframes() []model.Timeframe {
 	return []model.Timeframe{model.Timeframe5Min}
+}
+
+// ── resolveBatchToken ─────────────────────────────────────────────────────────
+
+func TestResolveBatchToken_usesFlagTokenWhenNonEmpty(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "token.json")
+	// No file written — would error if read.
+
+	got, err := resolveBatchToken("flag-token", tokenPath)
+	if err != nil {
+		t.Fatalf("resolveBatchToken: unexpected error: %v", err)
+	}
+	if got != "flag-token" {
+		t.Errorf("resolveBatchToken() = %q, want %q", got, "flag-token")
+	}
+}
+
+func TestResolveBatchToken_fallsBackToTokenFile_whenFlagEmpty(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "token.json")
+	writeValidTokenFile(t, tokenPath, "file-token")
+
+	got, err := resolveBatchToken("", tokenPath)
+	if err != nil {
+		t.Fatalf("resolveBatchToken: unexpected error: %v", err)
+	}
+	if got != "file-token" {
+		t.Errorf("resolveBatchToken() = %q, want %q", got, "file-token")
+	}
+}
+
+func TestResolveBatchToken_errorWhenFlagEmptyAndFileAbsent(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "no-token.json")
+
+	_, err := resolveBatchToken("", tokenPath)
+	if err == nil {
+		t.Fatal("resolveBatchToken: expected error when flag empty and file absent, got nil")
+	}
+	// Error must name the flag, env var, and file paths so users know all three options.
+	for _, want := range []string{"--access-token", "KITE_ACCESS_TOKEN", tokenPath} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error should mention %q; got: %v", want, err)
+		}
+	}
+}
+
+func TestResolveBatchToken_errorWhenFlagEmptyAndFileCorrupt(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "token.json")
+	if err := os.WriteFile(tokenPath, []byte("not-json"), 0o600); err != nil {
+		t.Fatalf("write corrupt token: %v", err)
+	}
+
+	_, err := resolveBatchToken("", tokenPath)
+	if err == nil {
+		t.Fatal("resolveBatchToken: expected error for corrupt token file, got nil")
+	}
+}
+
+// TestRun_PropagatesProviderFactoryError verifies that run() propagates errors returned
+// by the provider factory. This tests that removing the early accessToken == "" validation
+// from run() is safe — factory errors still surface.
+func TestRun_PropagatesProviderFactoryError(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	uPath := writeUniverseYAML(t, dir, []string{"NSE:RELIANCE"})
+
+	factoryErr := errors.New("no access token: set --access-token flag, KITE_ACCESS_TOKEN env var, or run cmd/backtest")
+	errFactory := func(_ fetchFlags) (provider.DataProvider, error) {
+		return nil, factoryErr
+	}
+
+	var stdout, stderr bytes.Buffer
+	err := run([]string{
+		"--universe", uPath,
+		"--from", "2024-01-01",
+		"--timeframe", "5min",
+		"--cache-dir", dir,
+		"--api-key", "testkey",
+	}, &stdout, &stderr, errFactory)
+
+	if err == nil {
+		t.Fatal("expected error propagated from factory, got nil")
+	}
+	if !strings.Contains(err.Error(), "no access token") {
+		t.Errorf("error should contain factory message; got: %v", err)
+	}
 }

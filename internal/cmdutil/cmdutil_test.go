@@ -391,3 +391,45 @@ func TestBuildProvider_MissingAPIKey(t *testing.T) {
 		t.Fatalf("expected exit code 1 when KITE_API_KEY is unset, got: %v", err)
 	}
 }
+
+// TestBuildProvider_skipsAPISecretWhenEnvTokenSet verifies that when KITE_ACCESS_TOKEN
+// is set and non-empty, BuildProvider succeeds without KITE_API_SECRET — the env token
+// bypasses the login flow, so the secret is never needed.
+// Uses the subprocess pattern because a failure path calls Fatalf (os.Exit).
+func TestBuildProvider_skipsAPISecretWhenEnvTokenSet(t *testing.T) {
+	if os.Getenv("CMDUTIL_RUN_BUILDPROVIDER_ENVTOKEN") == "1" {
+		// Subprocess: KITE_ACCESS_TOKEN set, KITE_API_SECRET absent.
+		// BuildProvider must return without fataling.
+		_, _ = cmdutil.BuildProvider(context.Background()) //nolint:errcheck // subprocess: verifying no Fatalf; return value unused
+		return
+	}
+	env := filterEnvKeys("KITE_API_SECRET", "KITE_API_KEY", "KITE_ACCESS_TOKEN")
+	env = append(env,
+		"CMDUTIL_RUN_BUILDPROVIDER_ENVTOKEN=1",
+		"KITE_API_KEY=test-key",
+		"KITE_ACCESS_TOKEN=test-token",
+		// KITE_API_SECRET intentionally absent — must not be required when env token is set.
+	)
+	cmd := exec.Command(os.Args[0], "-test.run=^TestBuildProvider_skipsAPISecretWhenEnvTokenSet$")
+	cmd.Env = env
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("BuildProvider fataled when KITE_ACCESS_TOKEN set, KITE_API_SECRET absent: %v", err)
+	}
+}
+
+// filterEnvKeys returns os.Environ() with the named keys stripped.
+// Used to build subprocess environments where specific vars must be absent.
+func filterEnvKeys(keys ...string) []string {
+	skip := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		skip[k] = true
+	}
+	result := make([]string, 0, len(os.Environ()))
+	for _, e := range os.Environ() {
+		k, _, _ := strings.Cut(e, "=")
+		if !skip[k] {
+			result = append(result, e)
+		}
+	}
+	return result
+}

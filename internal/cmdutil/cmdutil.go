@@ -120,13 +120,38 @@ func (l *lazyProvider) SupportedTimeframes() []model.Timeframe {
 // ctx is accepted for interface compatibility but unused; initFn runs under
 // context.Background() so a request-scoped ctx cannot cancel lazy init on first miss.
 //
+// Token resolution priority (evaluated eagerly at BuildProvider call time):
+//
+//   - Priority 1: KITE_ACCESS_TOKEN env var — set for CI/batch; KITE_API_SECRET not required.
+//   - Priority 2: saved token file at TokenFilePath() — written by a prior interactive login.
+//   - Priority 3: interactive browser login flow — requires KITE_API_SECRET; saves token for reuse.
+//
 // **Decision (BuildProvider extracted to cmdutil) — architecture: experimental**
 // scope: internal/cmdutil, cmd/backtest, cmd/sweep, cmd/universe-sweep
 // tags: provider, DRY, cmd, zerodha
 // owner: priya
+//
+// **Decision (KITE_ACCESS_TOKEN resolved eagerly in BuildProvider to preserve fast-fail) — tradeoff: experimental**
+// scope: internal/cmdutil
+// tags: auth, token, env-var, fast-fail, KITE_API_SECRET
+// owner: priya
+//
+// Resolving envToken at BuildProvider call time (not inside the lazy initFn) lets
+// KITE_API_SECRET remain an eager MustEnv check when no env token is present. All six
+// cmd/ callers preserve their fast-fail behavior: missing credentials are caught at
+// startup, not at the first cache miss. Alternative (fully lazy inside initFn) was
+// rejected: it silently delays auth errors until the first network call, making
+// debugging harder for the common case where the developer has the wrong environment.
 func BuildProvider(_ context.Context) (*cache.CachedProvider, error) {
 	apiKey := MustEnv("KITE_API_KEY")
-	apiSecret := MustEnv("KITE_API_SECRET")
+
+	// Resolve env token eagerly. Non-empty KITE_ACCESS_TOKEN bypasses the login flow,
+	// so KITE_API_SECRET is not required. When absent, require the secret now (fast-fail).
+	envToken := os.Getenv("KITE_ACCESS_TOKEN")
+	var apiSecret string
+	if envToken == "" {
+		apiSecret = MustEnv("KITE_API_SECRET")
+	}
 
 	cacheDir := os.Getenv("BACKTEST_CACHE_DIR")
 	if cacheDir == "" {
@@ -140,16 +165,24 @@ func BuildProvider(_ context.Context) (*cache.CachedProvider, error) {
 			// Use background context: auth and instruments-CSV fetch are one-time startup
 			// work that must not be canceled by a request-scoped context.
 			initCtx := context.Background()
-			accessToken, err := zerodha.LoadToken(tokenPath)
-			if err != nil {
-				fmt.Println("No valid saved token — starting Kite Connect login flow.")
-				accessToken, err = LoginFlow(initCtx, http.DefaultClient, "https://api.kite.trade", apiKey, apiSecret, tokenPath)
+
+			// Priority: KITE_ACCESS_TOKEN env var → saved token file → interactive login.
+			// Any LoadToken error (absent, expired, corrupt) falls through to login flow.
+			accessToken := envToken
+			if accessToken == "" {
+				var err error
+				accessToken, err = zerodha.LoadToken(tokenPath)
 				if err != nil {
-					return nil, fmt.Errorf("login: %w", err)
+					fmt.Println("No valid saved token — starting Kite Connect login flow.")
+					accessToken, err = LoginFlow(initCtx, http.DefaultClient, "https://api.kite.trade", apiKey, apiSecret, tokenPath)
+					if err != nil {
+						return nil, fmt.Errorf("login: %w", err)
+					}
+				} else {
+					fmt.Printf("Loaded saved token from %s\n", tokenPath)
 				}
-			} else {
-				fmt.Printf("Loaded saved token from %s\n", tokenPath)
 			}
+
 			p, err := zerodha.NewProvider(initCtx, zerodha.Config{
 				APIKey:              apiKey,
 				AccessToken:         accessToken,
