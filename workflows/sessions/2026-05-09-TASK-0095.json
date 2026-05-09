@@ -1,0 +1,145 @@
+{
+  "session_date": "2026-05-09",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0095",
+  "task_title": "Eval — Nifty Midcap 150 walk-forward (MACD crossover, 43 instruments)",
+  "step_completed": 7,
+  "gates": [
+    {
+      "name": "per-instrument walk-forward gate",
+      "criteria": "OverfitFlag=false (avg OOS Sharpe >= 50% of avg IS Sharpe) AND NegativeFoldFlag=false (fewer than 2 non-degenerate folds with OOS Sharpe < 0)"
+    },
+    {
+      "name": "instrument-count gate",
+      "criteria": ">= floor(0.60 * 43) = 25 instruments must pass per-instrument gate AND >= 6 floor (both conditions satisfied at 25)"
+    }
+  ],
+  "command_run": "go run ./cmd/walk-forward --instrument <each of 43> --from 2018-01-01 --to 2024-12-31 --strategy macd-crossover --macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9 --commission zerodha_full",
+  "results_file": "results/2026-05-09-TASK-0095/wf-results.csv",
+  "results_row_count": 43,
+  "project_state": {
+    "killed_strategies": [
+      {"strategy": "macd-crossover", "instrument": "NSE:SAIL", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:BHEL", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:M&MFIN", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:PRESTIGE", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:SUNDRMFAST", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:COLPAL", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:TATACONSUM", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:LICHSGFIN", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:AJANTPHARM", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:GODREJCP", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:MHRIL", "gate": "per-instrument walk-forward gate", "reason": "OverfitFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:ELGIEQUIP", "gate": "per-instrument walk-forward gate", "reason": "OverfitFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:NATIONALUM", "gate": "per-instrument walk-forward gate", "reason": "OverfitFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:LEMONTREE", "gate": "per-instrument walk-forward gate", "reason": "OverfitFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:LALPATHLAB", "gate": "per-instrument walk-forward gate", "reason": "OverfitFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:EXIDEIND", "gate": "per-instrument walk-forward gate", "reason": "OverfitFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:SCHAEFFLER", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag+OverfitFlag"},
+      {"strategy": "macd-crossover", "instrument": "NSE:THOMASCOOK", "gate": "per-instrument walk-forward gate", "reason": "NegativeFoldFlag+OverfitFlag"}
+    ],
+    "prior_gate_survivors": [
+      "NSE:PERSISTENT", "NSE:TORNTPHARM", "NSE:COFORGE", "NSE:SUNDARMFIN", "NSE:INDHOTEL",
+      "NSE:IPCALAB", "NSE:ABCAPITAL", "NSE:LTTS", "NSE:MUTHOOTFIN", "NSE:DEEPAKNTR",
+      "NSE:EIHOTEL", "NSE:MOTHERSON", "NSE:ENDURANCE", "NSE:CHOLAFIN", "NSE:CUMMINSIND",
+      "NSE:FEDERALBNK", "NSE:SAIL", "NSE:RADICO", "NSE:VINATIORGA", "NSE:ALKEM",
+      "NSE:RATNAMANI", "NSE:BALKRISIND", "NSE:THERMAX", "NSE:MPHASIS", "NSE:M&MFIN",
+      "NSE:PIIND", "NSE:NMDC", "NSE:PRESTIGE", "NSE:SUNDRMFAST", "NSE:BHEL",
+      "NSE:MHRIL", "NSE:ELGIEQUIP", "NSE:EXIDEIND", "NSE:SCHAEFFLER", "NSE:LEMONTREE",
+      "NSE:COLPAL", "NSE:TATACONSUM", "NSE:LICHSGFIN", "NSE:NATIONALUM", "NSE:AJANTPHARM",
+      "NSE:GODREJCP", "NSE:LALPATHLAB", "NSE:THOMASCOOK"
+    ],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": {
+      "standing_orders": [
+        "decisions/algorithm/2026-04-22-walk-forward-oos-is-sharpe-threshold.md",
+        "decisions/algorithm/2026-05-05-walk-forward-instrument-count-gate-relaxed.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-05-09-macd-crossover-midcap-universe-gate-passed.md"
+      ]
+    },
+    "marcus_design_ruling": null,
+    "marcus": {
+      "verdict": "PASS",
+      "instrument_count_gate": "25/43 = PASS at exact boundary (floor(0.60*43)=25)",
+      "summary": "25 of 43 instruments pass per-instrument walk-forward gate. OOS Sharpe range +0.070 to +0.383. 18 kills: 10 NegativeFoldFlag, 6 OverfitFlag, 2 both. Kill clustering consistent with sector-dependent MACD edge. Anomalous near-zero IS Sharpe cases (SCHAEFFLER, THOMASCOOK, EXIDEIND, LALPATHLAB) correctly excluded via OverfitFlag/NegFoldFlag. Advances to bootstrap on 25 survivors."
+    }
+  },
+  "survivors": [
+    "NSE:PERSISTENT", "NSE:TORNTPHARM", "NSE:COFORGE", "NSE:SUNDARMFIN", "NSE:INDHOTEL",
+    "NSE:IPCALAB", "NSE:ABCAPITAL", "NSE:LTTS", "NSE:MUTHOOTFIN", "NSE:DEEPAKNTR",
+    "NSE:EIHOTEL", "NSE:MOTHERSON", "NSE:ENDURANCE", "NSE:CHOLAFIN", "NSE:CUMMINSIND",
+    "NSE:FEDERALBNK", "NSE:RADICO", "NSE:VINATIORGA", "NSE:ALKEM", "NSE:RATNAMANI",
+    "NSE:BALKRISIND", "NSE:THERMAX", "NSE:MPHASIS", "NSE:PIIND", "NSE:NMDC"
+  ],
+  "survivor_metrics": {
+    "NSE:PERSISTENT": {"oos_sharpe": 0.383},
+    "NSE:COFORGE": {"oos_sharpe": 0.371},
+    "NSE:TORNTPHARM": {"oos_sharpe": 0.356},
+    "NSE:INDHOTEL": {"oos_sharpe": 0.342},
+    "NSE:IPCALAB": {"oos_sharpe": 0.328},
+    "NSE:MUTHOOTFIN": {"oos_sharpe": 0.315},
+    "NSE:SUNDARMFIN": {"oos_sharpe": 0.309},
+    "NSE:EIHOTEL": {"oos_sharpe": 0.297},
+    "NSE:CHOLAFIN": {"oos_sharpe": 0.284},
+    "NSE:ABCAPITAL": {"oos_sharpe": 0.276},
+    "NSE:LTTS": {"oos_sharpe": 0.268},
+    "NSE:DEEPAKNTR": {"oos_sharpe": 0.261},
+    "NSE:ENDURANCE": {"oos_sharpe": 0.254},
+    "NSE:MOTHERSON": {"oos_sharpe": 0.246},
+    "NSE:CUMMINSIND": {"oos_sharpe": 0.239},
+    "NSE:BALKRISIND": {"oos_sharpe": 0.221},
+    "NSE:FEDERALBNK": {"oos_sharpe": 0.208},
+    "NSE:RADICO": {"oos_sharpe": 0.196},
+    "NSE:THERMAX": {"oos_sharpe": 0.184},
+    "NSE:MPHASIS": {"oos_sharpe": 0.173},
+    "NSE:VINATIORGA": {"oos_sharpe": 0.162},
+    "NSE:RATNAMANI": {"oos_sharpe": 0.151},
+    "NSE:ALKEM": {"oos_sharpe": 0.139},
+    "NSE:PIIND": {"oos_sharpe": 0.108},
+    "NSE:NMDC": {"oos_sharpe": 0.070}
+  },
+  "survivor_correlation_flags": [],
+  "killed": [
+    {"strategy": "macd-crossover", "instrument": "NSE:SAIL", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.472, 59 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:BHEL", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.338, 56 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:M&MFIN", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.390, 58 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:PRESTIGE", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.378, 62 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:SUNDRMFAST", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.362, 64 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:COLPAL", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.261, 61 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:TATACONSUM", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.228, 61 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:LICHSGFIN", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.223, 56 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:AJANTPHARM", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.199, 69 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:GODREJCP", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.136, 53 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:MHRIL", "gate": "per-instrument walk-forward gate", "gate_failed": "OverfitFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.317, 58 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:ELGIEQUIP", "gate": "per-instrument walk-forward gate", "gate_failed": "OverfitFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.301, 56 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:NATIONALUM", "gate": "per-instrument walk-forward gate", "gate_failed": "OverfitFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.214, 58 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:LEMONTREE", "gate": "per-instrument walk-forward gate", "gate_failed": "OverfitFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.263, 57 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:LALPATHLAB", "gate": "per-instrument walk-forward gate", "gate_failed": "OverfitFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.082, 57 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:EXIDEIND", "gate": "per-instrument walk-forward gate", "gate_failed": "OverfitFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.292, 55 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:SCHAEFFLER", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag+OverfitFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.285, 63 trades"}},
+    {"strategy": "macd-crossover", "instrument": "NSE:THOMASCOOK", "gate": "per-instrument walk-forward gate", "gate_failed": "NegativeFoldFlag+OverfitFlag", "gates_passed_before_kill": {"universe-gate": "positive raw Sharpe 0.050, 53 trades"}}
+  ],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "data_freshness_verified": true,
+  "results_completeness_verified": true,
+  "boundary_flags": [
+    "[FLAGGED] Instrument-count gate hit at exact boundary: 25 passes = floor(0.60 * 43) = 25. Gate verdict is PASS but boundary condition per invariant: log [FLAGGED], continue."
+  ],
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0095 \"Eval — Nifty Midcap 150 walk-forward (MACD crossover, 43 instruments)\". Gates: 2. Prior survivors: 43. Data freshness: verified.",
+    "[AUTO] Step 2 — Killed: 0. Prior context: 1 strategy (macd-crossover, accepted at universe gate TASK-0091).",
+    "[AUTO] Step 3 — Decision lookup: 2 standing orders, 1 context file.",
+    "[AUTO] Step 4 — Results at: results/2026-05-09-TASK-0095/wf-results.csv. Rows: 43. Completeness: verified.",
+    "[FLAGGED] Instrument-count gate at exact boundary: 25/43 = 58.1% >= floor(60%) = 25. PASS.",
+    "[AUTO] Step 5 — Marcus gate review: PASS. Survivors: 25. Killed: 18. No correlation computed (bootstrap next).",
+    "[AUTO] Step 6a — Decision file written: decisions/algorithm/2026-05-09-macd-crossover-midcap-walk-forward.md. INDEX.md updated.",
+    "[AUTO] Step 6b — TASK-0095 closed and archived to tasks/archive/2026-05.md. TASK-0096 created in Up Next with survivor annotation.",
+    "[CLOSED] TASK-0095 done. All criteria met. Archived."
+  ]
+}

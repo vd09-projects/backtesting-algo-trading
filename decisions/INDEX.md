@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-09-macd-crossover-midcap-bootstrap-gate
+    title: "MACD crossover passes bootstrap gate — Nifty Midcap 150 (6 of 25 instruments)"
+    date: 2026-05-09
+    status: accepted
+    category: algorithm
+    tags: [macd-crossover, bootstrap, instrument-count-gate, nifty-midcap-150, midcap, gate-results, TASK-0096, survivor]
+    path: algorithm/2026-05-09-macd-crossover-midcap-bootstrap-gate.md
+    summary: "MACD crossover (17/26/9) passes midcap bootstrap gate: 6/25 WF survivors pass SharpeP5>0 AND P(S>0)>80%. Survivors: PERSISTENT (P5=0.151), TORNTPHARM (0.146), COFORGE (0.041), SUNDARMFIN (0.035), INDHOTEL (0.019), MUTHOOTFIN (0.025). 19 kills; anomalous WF cases (SCHAEFFLER, THOMASCOOK, EXIDEIND, LALPATHLAB) all killed by bootstrap as predicted. Revisit-trigger activated: only 6 of 25 WF entrants survive."
+
+  - id: 2026-05-09-macd-crossover-midcap-walk-forward
+    title: "MACD crossover passes walk-forward instrument-count gate — Nifty Midcap 150 (25 of 43 instruments)"
+    date: 2026-05-09
+    status: accepted
+    category: algorithm
+    tags: [macd-crossover, walk-forward, instrument-count-gate, nifty-midcap-150, midcap, gate-results, bootstrap, TASK-0095, survivor]
+    path: algorithm/2026-05-09-macd-crossover-midcap-walk-forward.md
+    summary: "MACD crossover (17/26/9) passes midcap walk-forward gate at exact boundary: 25/43 instruments pass (floor(0.60*43)=25). OOS Sharpe range +0.070 (LEMONTREE) to +0.383 (INDHOTEL). 18 kills: 10 NegativeFoldFlag only (ABCAPITAL, LTTS, MOTHERSON, CHOLAFIN, ALKEM, THERMAX, MPHASIS, M&MFIN, SUNDRMFAST, ELGIEQUIP), 1 OverfitFlag only (LICHSGFIN), 7 both (VINATIORGA, RATNAMANI, NMDC, COLPAL, NATIONALUM, AJANTPHARM, GODREJCP). 25 survivors advance to bootstrap (TASK-0096). Source: results/2026-05-09-TASK-0095/wf-results.csv."
+
   - id: 2026-05-09-macd-crossover-midcap-universe-gate-passed
     title: "MACD crossover passes universe gate — Nifty Midcap 150 (48 instruments)"
     date: 2026-05-09

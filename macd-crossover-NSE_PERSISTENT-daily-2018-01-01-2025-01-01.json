@@ -1,0 +1,38 @@
+{
+  "instrument": "NSE:PERSISTENT",
+  "timeframe": "daily",
+  "from": "2018-01-01",
+  "to": "2025-01-01",
+  "strategy": "macd-crossover",
+  "commission_model": "zerodha_full",
+  "parameters": {
+    "macd-fast-period": "17",
+    "macd-signal-period": "9",
+    "macd-slow-period": "26"
+  },
+  "TotalPnL": 22843.44696774358,
+  "WinRate": 45,
+  "MaxDrawdown": 3.7465663044809285,
+  "TradeCount": 60,
+  "WinCount": 27,
+  "LossCount": 33,
+  "SharpeRatio": 1.1531142629508315,
+  "ProfitFactor": 2.70870393077542,
+  "AvgWin": 1341.1970601754217,
+  "AvgLoss": 405.1173835452366,
+  "SortinoRatio": 1.7893051713698729,
+  "CalmarRatio": 0.8077551482240405,
+  "TailRatio": 1.2128877108651648,
+  "MaxDrawdownDuration": 52012800000000000,
+  "TradeMetricsInsufficient": false,
+  "CurveMetricsInsufficient": false,
+  "bootstrap": {
+    "sharpe_p5": 0.1506545174322958,
+    "sharpe_p50": 0.33145374136237493,
+    "sharpe_p95": 0.4937929234293915,
+    "prob_positive_sharpe": 0.9975,
+    "worst_drawdown_p95": 41.42886539003883,
+    "n": 10000,
+    "seed": 42
+  }
+}

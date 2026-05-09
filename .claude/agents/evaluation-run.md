@@ -184,19 +184,59 @@ Log: `[AUTO] Step 3 — Decision lookup: N standing orders, M context decisions.
 
 ## STEP 4 — Run Command
 
-Construct CLI from AC/notes. Require `--commission zerodha_full` in every `cmd/backtest`/`cmd/universe-sweep` call. Run sequentially if multiple strategies/instruments.
+**Pre-run: check for existing results (MANDATORY)**
+
+Before running any CLI, check whether results for this task already exist on disk:
+
+```bash
+ls results/{task_id}/
+```
+
+- Directory exists AND contains a results summary file (e.g. `wf-results.csv`, `bootstrap-results.csv`, `sweep.csv`) with the correct row count → **skip re-running**; log `[AUTO] Step 4 — Results already on disk at results/{task_id}/. Loading existing results — binary NOT re-run.`
+- Directory absent or results file missing or empty → run the CLI as below.
+
+**Running the CLI**
+
+Construct CLI from AC/notes. Require `--commission zerodha_full` in every `cmd/backtest`/`cmd/universe-sweep` call. Run sequentially if multiple instruments.
 
 Failure → retry once. Second failure → Hard STOP.
 
-**Completeness check**: count rows in results file. Must equal `len(prior_gate_survivors)`. Mismatch → Hard STOP.
+**Results anchor (MANDATORY — no exceptions)**
+
+After running (or loading existing results), use the Read tool to read the results file. Then extract and store a `data_anchor` in SESSION STATE:
+
+```json
+"data_anchor": {
+  "file": "<path>",
+  "header": "<first line of CSV verbatim>",
+  "rows": ["<row 1 verbatim>", "<row 2 verbatim>", "<row 3 verbatim>"],
+  "total_rows": <N>
+}
+```
+
+Hard STOP if:
+- File is absent or unreadable
+- Row count ≠ `len(prior_gate_survivors)`
+
+Log the header line and first 3 rows explicitly in the response so they appear in conversation context.
 
 Set `step_completed = 4`. Write session file.
 
-Log: `[AUTO] Step 4 — Results at: <path>. Rows: <N>. Completeness: verified.`
+Log: `[AUTO] Step 4 — Results at: <path>. Rows: <N>. Header: <verbatim>. First row: <verbatim>. Completeness: verified.`
 
 ---
 
 ## STEP 5 — Marcus Gate Review
+
+**Pre-Step 5: read and embed results (MANDATORY — blocks spawn)**
+
+Before spawning the Marcus sub-agent, the orchestrator MUST:
+
+1. Use the Read tool to re-read the results file at `data_anchor.file`. This is not optional.
+2. Verify `total_rows` matches `len(prior_gate_survivors)`. Mismatch → Hard STOP.
+3. Store the full file content (or first 100 rows + row count if >100 rows) in a local variable `results_file_content`. This content — read directly from disk — is what gets embedded in the Marcus prompt. **Never substitute placeholder text, never rely on prior conversation context for file contents.**
+
+Hard STOP if the Read tool call fails or returns empty content. Do not proceed to spawn Marcus without confirmed file content in hand.
 
 Spawn sub-agent via `Agent()` tool — do NOT run this inline in the orchestrator context. Fill the prompt template below and pass it as the Agent prompt:
 
@@ -215,11 +255,11 @@ PRIOR CONTEXT: <strategy_prior_context or "none">
 GATES (all must pass):
 <gates array — name + criteria verbatim>
 
-RESULTS FILE: <path> (<results_row_count> rows)
-<paste full file contents, or top 100 rows + "total: N rows" if large>
+RESULTS FILE: <path> (<total_rows> rows) — READ FROM DISK, NOT GENERATED
+<results_file_content — full content read by orchestrator via Read tool before this spawn>
 
-BOOTSTRAP STATS (if bootstrap task — parsed from stdout; not in results file):
-<paste bootstrap_results block from session state JSON, keyed by instrument>
+BOOTSTRAP STATS (if bootstrap task — parsed from per-instrument JSON files in results/{task_id}/):
+<content read directly from each {instrument}.json — never generated>
 
 THRESHOLD RULE: prior decision threshold wins over AC threshold. Unresolvable conflict → set flag.
 
@@ -229,7 +269,7 @@ commission zerodha_full, capital ₹3L at ~10% vol.
 Marcus must:
 1. Apply every gate to every strategy/instrument; pass/fail with numeric evidence
 2. Bootstrap tasks: flag if any "go" strategy has SharpeP5 < 0
-3. Walk-forward tasks: kill if NegativeFoldCount > total_folds/2 (majority-negative overrides positive avg)
+3. Walk-forward tasks: kill if NegativeFoldFlag=True OR OverfitFlag=True (read from results file — do NOT recompute)
 4. Correlation: compute pairwise Pearson among survivors; flag |r| > 0.70 (informational, not kill)
 5. Per kill: record all gates passed before the kill gate in gates_passed_before_kill (required for provenance)
 6. Mark methodology calls as **Decision (topic) — algorithm: status** — ONLY for threshold choices,
@@ -264,13 +304,18 @@ Return ONLY this JSON:
 
 **Check `flag` first** → non-null = Hard STOP.
 
-**Spot-check**: verify Marcus's reported metric for ≥3 strategies against results file ±0.01 (Sharpe) / ±1 (counts). Mismatch → Hard STOP.
+**Spot-check (file-anchored — not circular)**
+
+For ≥3 instruments chosen at random from Marcus's verdicts:
+1. Locate the instrument's row in `data_anchor.rows` (or re-read the file using Read tool for rows beyond the first 3).
+2. Compare Marcus's reported metric value against the value in the actual CSV row, tolerance ±0.001 (Sharpe) / ±1 (counts).
+3. For walk-forward tasks: verify Marcus's `verdict` matches `verdict` column in CSV (`pass`/`fail`). A mismatch here means Marcus fabricated results — Hard STOP with message: "Spot-check FAILED: Marcus verdict for <instrument> contradicts results file. Marcus may have hallucinated. Abort Step 5."
 
 Extract verdicts → `survivors`, `killed`, `survivor_metrics`, `survivor_correlation_flags`, `portfolio_decisions`. Log `[FLAGGED]` for correlation pairs. Append `decision_marks` to `decision_marks_pending`.
 
 Set `step_completed = 5`. Write session file.
 
-Log: `[AUTO] Step 5 — Survivors: N. Killed: N.`
+Log: `[AUTO] Step 5 — Survivors: N. Killed: N. Spot-check: passed (instruments: X, Y, Z).`
 
 ---
 
@@ -385,14 +430,18 @@ Next up:   TASK-NNNN (unblocked)
 - Never write kill records directly — decision-journal sub-agent only
 - Kill records require non-null `gates_passed_before_kill` (provenance)
 - Standing orders override AC thresholds; unresolvable conflict = Hard STOP
-- Walk-forward majority-negative-folds kills even with positive avg OOS Sharpe
+- Walk-forward: use `verdict` column from results CSV directly — do NOT recompute from fold data
 - Bootstrap SharpeP5 < 0 on any "go" = Hard STOP
 - Results completeness must match prior_gate_survivors count
 - Survivor annotation must be machine-readable JSON (prose not accepted)
-- Results file must exist on disk before Step 5 — Marcus reads file, not stdout
+- **Results file MUST be read with the Read tool before Step 5 — never substitute generated/inferred content**
+- **`data_anchor` must be populated (Step 4) before Step 5 runs — no exceptions**
+- **Spot-check compares against `data_anchor` rows read from disk — never against Marcus's own output**
+- **If results directory already exists for this task_id: load from disk, do NOT re-run binary**
 - Never skip Step 3 decision lookup — standing orders must reach Marcus in Step 5
 - `prior_gate_survivors` is always an array, never a string
 - Never edit BACKLOG.md directly
+- Never generate, infer, or estimate numeric results — all numbers come from files on disk
 
 ---
 

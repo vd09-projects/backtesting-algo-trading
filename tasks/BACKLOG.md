@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-09 | **Open tasks:** 21 | **Next up:** TASK-0095
+**Last updated:** 2026-05-09 | **Open tasks:** 21 | **Next up:** TASK-0097
 
 ---
 
@@ -14,37 +14,19 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0095] Eval — Nifty Midcap 150 walk-forward (MACD crossover, 43 instruments)
+### [TASK-0097] Eval — Nifty Midcap 150 correlation screen + kill-switch derivation (MACD crossover, 6 bootstrap survivors)
 
 - **Status:** todo
 - **Priority:** high
 - **Created:** 2026-05-09
 - **Source:** session
-- **Context:** MACD crossover (17/26/9) passed the Nifty Midcap 150 universe gate (TASK-0091): DSR avg Sharpe 0.0885, pass fraction 89.6% (43/48 instruments positive). The next pipeline step is walk-forward validation on the 43 positive-Sharpe eligible instruments using the same walk-forward methodology applied to the large-cap pipeline (TASK-0053). Gate: >= 60% of eligible instruments must pass (revised threshold from 2026-05-05 decision).
+- **Context:** MACD crossover (17/26/9) passed the Nifty Midcap 150 bootstrap gate (TASK-0096): 6 of 25 WF survivors pass SharpeP5>0 AND P(S>0)>80%. Next steps: (1) pairwise correlation screen among the 6 survivors, (2) kill-switch threshold derivation (p5 Sharpe per instrument = conservative drawdown trigger), (3) portfolio sizing recommendation.
 - **Acceptance criteria:**
-  - [ ] Walk-forward run: `cmd/walk-forward --universe <43-instrument subset> --strategy macd-crossover --from 2018-01-01 --to 2024-12-31 --timeframe daily --commission zerodha_full --macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9` (or equivalent per-instrument runs)
-  - [ ] Instrument-count gate applied: >= 60% of 43 eligible instruments must pass walk-forward (revised from 100% per 2026-05-05 decision; floor of >= 6 also required)
-  - [ ] Per-instrument verdict recorded: OOS Sharpe, IS Sharpe, OOSISRatio, OverfitFlag, NegFoldFlag
-  - [ ] Walk-forward survivors (positive OOS Sharpe, no OverfitFlag, no majority-NegFoldFlag) identified for bootstrap stage
-  - [ ] Results and verdict recorded in `decisions/algorithm/`
-  - [ ] If gate passes: advance to bootstrap on surviving instruments
-- **Notes:** Use `evaluation-run` agent workflow. Survivor annotation from TASK-0091:
-```json
-{
-  "survivor_input_from": "TASK-0091",
-  "results_file": "results/2026-05-09-TASK-0091/midcap-sweep.csv",
-  "survivors": [
-    {
-      "strategy": "macd-crossover",
-      "universe": "nifty-midcap-150",
-      "instruments": ["NSE:PERSISTENT","NSE:TORNTPHARM","NSE:COFORGE","NSE:SUNDARMFIN","NSE:INDHOTEL","NSE:IPCALAB","NSE:ABCAPITAL","NSE:LTTS","NSE:MUTHOOTFIN","NSE:DEEPAKNTR","NSE:EIHOTEL","NSE:MOTHERSON","NSE:ENDURANCE","NSE:CHOLAFIN","NSE:CUMMINSIND","NSE:FEDERALBNK","NSE:SAIL","NSE:RADICO","NSE:VINATIORGA","NSE:ALKEM","NSE:RATNAMANI","NSE:BALKRISIND","NSE:THERMAX","NSE:MPHASIS","NSE:M&MFIN","NSE:PIIND","NSE:NMDC","NSE:PRESTIGE","NSE:SUNDRMFAST","NSE:BHEL","NSE:MHRIL","NSE:ELGIEQUIP","NSE:EXIDEIND","NSE:SCHAEFFLER","NSE:LEMONTREE","NSE:COLPAL","NSE:TATACONSUM","NSE:LICHSGFIN","NSE:NATIONALUM","NSE:AJANTPHARM","NSE:GODREJCP","NSE:LALPATHLAB","NSE:THOMASCOOK"],
-      "DSR_avg_sharpe": 0.088475,
-      "pass_fraction": 0.8958,
-      "parameters": {"fast": 17, "slow": 26, "signal": 9}
-    }
-  ]
-}
-```
+  - [ ] Correlation screen: run `cmd/correlate` on the 6 survivors; flag |r| > 0.70 pairs (informational, not kill per pipeline convention)
+  - [ ] Kill-switch thresholds derived: p5 per-trade Sharpe from bootstrap results (already computed in TASK-0096) — record per instrument
+  - [ ] Portfolio construction recommendation: equal-weight vs. vol-target sizing, max position count
+  - [ ] Results recorded in `decisions/algorithm/`
+- **Notes:** Bootstrap survivors from TASK-0096: NSE:PERSISTENT (P5=0.151), NSE:TORNTPHARM (0.146), NSE:COFORGE (0.041), NSE:SUNDARMFIN (0.035), NSE:MUTHOOTFIN (0.025), NSE:INDHOTEL (0.019). Results: `results/2026-05-09-TASK-0096/bootstrap-results.csv`.
 
 ---
 
