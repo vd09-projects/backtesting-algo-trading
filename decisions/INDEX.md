@@ -8,6 +8,42 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-09-run-extraction-for-testability-in-cmd-fetch-history
+    title: "run() extraction for testability in cmd/fetch-history"
+    date: 2026-05-09
+    status: experimental
+    category: convention
+    tags: [testability, flag-parse, coverage, run-function, cmd/fetch-history, TASK-0070]
+    path: convention/2026-05-09-run-extraction-for-testability-in-cmd-fetch-history.md
+    summary: "main() is a one-liner calling run(args, stdout, stderr, providerFactory). flag.NewFlagSet with ContinueOnError; 12 tests; 79.5% coverage. Follows cmd/walk-forward and cmd/monitor precedents; extends with providerFactory injection for dry-run bypass and test isolation."
+
+  - id: 2026-05-09-provider-factory-receives-parsed-flags
+    title: "providerFactory receives parsed flags — no global state required"
+    date: 2026-05-09
+    status: experimental
+    category: convention
+    tags: [testability, provider-factory, no-global-state, dry-run, cmd/fetch-history, TASK-0070]
+    path: convention/2026-05-09-provider-factory-receives-parsed-flags.md
+    summary: "run() accepts providerFactory func(fetchFlags)(provider.DataProvider,error). main() passes buildProductionProvider directly. Tests inject a factory returning a mock. Factory called only on non-dry-run paths. Eliminates the productionMode package-level mutable var."
+
+  - id: 2026-05-09-fetch-history-progress-manifest-cmd-layer
+    title: "fetch-history progress manifest is a cmd-layer concern, not CachedProvider"
+    date: 2026-05-09
+    status: experimental
+    category: architecture
+    tags: [partial-failure, manifest, progress-tracking, cmd-layer, cmd/fetch-history, CachedProvider]
+    path: architecture/2026-05-09-fetch-history-progress-manifest-cmd-layer.md
+    summary: "fetch-progress.json in cmd-layer tracks which {instrument x timeframe} pairs in the current bulk run are complete (for resume-after-failure). TASK-0080's CachedProvider manifest tracks per-instrument incremental timestamps. Two separate concerns at different abstraction layers; atomic write/rename in both."
+
+  - id: 2026-05-09-fetch-history-direct-token-not-oauth-flow
+    title: "fetch-history uses direct apiKey+accessToken, not OAuth login flow"
+    date: 2026-05-09
+    status: experimental
+    category: architecture
+    tags: [auth, zerodha, access-token, batch-tooling, BuildProvider, cmd/fetch-history]
+    path: architecture/2026-05-09-fetch-history-direct-token-not-oauth-flow.md
+    summary: "cmd/fetch-history accepts --api-key and --access-token directly (env: KITE_API_KEY, KITE_ACCESS_TOKEN) rather than cmdutil.BuildProvider's interactive OAuth flow. Batch/CI automation cannot open a browser; direct token injection is the standard CI/CD pattern."
+
   - id: 2026-05-08-strategy-wiring-fully-centralized-in-cmdutil
     title: "Strategy wiring fully centralized in internal/cmdutil — Build, WalkForwardFactory, SweepFactory"
     date: 2026-05-08

@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-08 | **Open tasks:** 20 | **Next up:** TASK-0070
+**Last updated:** 2026-05-09 | **Open tasks:** 21 | **Next up:** TASK-0091
 
 ---
 
@@ -13,27 +13,6 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
-
-### [TASK-0070] Tooling — `cmd/fetch-history` CLI for bulk intraday historical data
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-04
-- **Source:** session
-- **Context:** Zerodha Kite serves 5-min data back to ~2015 (confirmed from official developer forum). Per-request limit is 100 days per call, but total depth is ~10 years. Existing `FetchCandles` + `chunkDateRange` already handle multi-request fetching automatically. A one-shot CLI to drain full history for all instruments in a universe YAML — writing to the existing `CachedProvider` disk cache — enables all future intraday backtests to run from local files without a Zerodha token.
-- **Acceptance criteria:**
-  - [ ] `cmd/fetch-history/main.go` CLI: flags `--universe`, `--timeframe` (repeatable), `--from`, `--cache-dir`, `--api-key`, `--access-token` (or KITE_API_KEY / KITE_ACCESS_TOKEN env vars matching existing CLI convention)
-  - [ ] Reads universe YAML, iterates instruments × timeframes, calls `FetchCandles` for `[--from, today)`
-  - [ ] Writes results via `CachedProvider` (existing `pkg/provider/zerodha/cache/`) so cache keys match what `cmd/backtest` and `cmd/universe-sweep` expect
-  - [ ] Incremental: uses `CachedProvider.LastCachedTime()` (from TASK-0080) to skip already-fetched ranges; fetches only delta from last cached date to today
-  - [ ] Partial-failure recovery: on fetch error, writes `fetch-manifest.json` recording last successfully fetched instrument+timeframe+date; subsequent runs resume from manifest rather than restarting from `--from`
-  - [ ] Progress logging: prints `instrument × timeframe: fetched N candles [from → to]` per chunk so long runs are observable
-  - [ ] Dry-run flag `--dry-run`: prints what would be fetched without hitting the API
-  - [ ] Auth flags and env var fallback covered by tests (mock provider in tests)
-  - [ ] Tests written before implementation (TDD); at minimum: dry-run output, partial-failure manifest write, resume-from-manifest
-- **Notes:** Owner: Priya (dev). Blocked at runtime on Zerodha access token — no code blocker. Incremental delta fetch depends on TASK-0080 (CachedProvider manifest). Until TASK-0080 is complete, fetch-history CLI fetches full range from --from on every run (no incremental mode).
-
----
 
 ### [TASK-0091] Eval — Nifty Midcap 150 universe sweep (MACD and other survivors)
 
@@ -241,6 +220,41 @@
   - [ ] `golangci-lint run ./pkg/provider/zerodha/cache/...` passes
   - [ ] Tests written before implementation (TDD)
 - **Notes:** Owner: Priya (dev). Tech debt unblocking TASK-0070 incremental mode. Atomic rename pattern: `os.WriteFile` to `path+".tmp"`, then `os.Rename(tmp, path)` — POSIX-atomic on Linux/macOS. TASK-0070 incremental AC is explicitly gated on this task.
+
+---
+
+### [TASK-0093] Tech debt — `cmd/fetch-history`: add `os.MkdirAll` guard and two missing parseFlags tests
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-09
+- **Source:** discovery
+- **Context:** Three small gaps surfaced during the multi-perspective review of TASK-0070. (1) `fetchAll` does not call `os.MkdirAll(cacheDir)` before manifest operations — if `--cache-dir` doesn't exist yet, all manifest saves silently fail with warnings. (2) Two `parseFlags` paths are untested: invalid `--timeframe` value and missing `--access-token` with no env-var fallback.
+- **Acceptance criteria:**
+  - [ ] `fetchAll` in `cmd/fetch-history/main.go`: add `os.MkdirAll(cacheDir, 0o755)` call before `loadManifest` — ensures the cache root dir exists before any manifest writes
+  - [ ] `TestRun_InvalidTimeframe` added: pass `--timeframe invalid-value`, assert error contains the invalid timeframe string
+  - [ ] `TestRun_MissingAccessToken` added: no `--access-token` flag and no `KITE_ACCESS_TOKEN` env var set, assert error mentions `--access-token`
+  - [ ] `go1.25.0 test -race ./cmd/fetch-history/...` passes
+  - [ ] `golangci-lint run ./cmd/fetch-history/...` passes
+- **Notes:** Discovered during multi-perspective review (Error Handling Inspector + Test Coverage Auditor). The MkdirAll fix is a correctness improvement for the edge case where `--cache-dir` doesn't exist yet; the two test additions close untested `parseFlags` branches. All three changes are in `cmd/fetch-history/` only.
+
+---
+
+### [TASK-0094] Refactor — `cmd/fetch-history/fetchOne`: reduce 11-parameter signature with `fetchState` struct
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-09
+- **Source:** discovery
+- **Context:** `fetchOne` currently takes 11 parameters — including `manifestPath`, `manifest *progressManifest`, and `completed map[string]bool` which are all shared loop state. The Naming & Clarity review (TASK-0070 multi-perspective review) flagged the 11-parameter count as a maintenance smell. A `fetchState` struct grouping these three would reduce cognitive load for anyone extending the function.
+- **Acceptance criteria:**
+  - [ ] `fetchState` struct introduced in `cmd/fetch-history/main.go`: fields `ManifestPath string`, `Manifest *progressManifest`, `Completed map[string]bool`
+  - [ ] `fetchOne` signature reduced: `fetchOne(ctx, stdout, stderr, p, inst, tf, from, today, state *fetchState) error`
+  - [ ] `fetchAll` updated to construct and pass `fetchState`
+  - [ ] All existing tests pass: `go1.25.0 test -race ./cmd/fetch-history/...`
+  - [ ] `golangci-lint run ./cmd/fetch-history/...` passes
+  - [ ] No behavior change — pure refactor
+- **Notes:** Discovered during multi-perspective review (Naming & Clarity Guardian). Low priority: existing 11-parameter signature is comprehensible and lint-clean; this is a readability improvement, not a correctness fix.
 
 ---
 

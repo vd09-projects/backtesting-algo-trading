@@ -1,0 +1,96 @@
+{
+  "session_date": "2026-05-09",
+  "workflow": "build",
+  "task_id": "TASK-0070",
+  "task_title": "Tooling — cmd/fetch-history CLI for bulk intraday historical data",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/infrastructure/2026-04-07-zerodha-cache-strategy.md",
+        "decisions/architecture/2026-05-07-lazy-provider-pattern-defer-auth-to-cache-miss.md",
+        "decisions/tradeoff/2026-05-07-init-fn-uses-background-context-not-caller-ctx.md",
+        "decisions/architecture/2026-05-05-instruments-cache-dir-explicit-config-field.md",
+        "decisions/architecture/2026-05-05-instruments-csv-cache-path.md",
+        "decisions/tradeoff/2026-05-05-fetch-candles-completeness-threshold-90-pct.md",
+        "decisions/convention/2026-05-03-run-extraction-for-testability-in-cmd-walk-forward.md",
+        "decisions/convention/2026-05-07-run-extraction-for-testability-in-cmd-monitor.md"
+      ],
+      "context_files": [
+        "decisions/tradeoff/2026-05-07-no-narrower-file-written-on-superset-hit.md",
+        "decisions/architecture/2026-05-07-superset-lookup-via-filename-parsing-no-index.md",
+        "decisions/convention/2026-05-07-candle-subset-filter-on-timestamp-half-open.md",
+        "decisions/convention/2026-04-27-flags2d-value-struct-flag-parsing-testability.md",
+        "decisions/architecture/2026-04-22-buildprovider-extracted-to-cmdutil.md"
+      ]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Build cmd/fetch-history CLI that reads a universe YAML, iterates instruments x timeframes, and calls FetchCandles for [--from, today) via CachedProvider. Implements dry-run flag, partial-failure progress manifest (cmd-layer concern, distinct from TASK-0080 CachedProvider manifest), and progress logging. Does not use cmdutil.BuildProvider — constructs zerodha.Provider directly with --api-key/--access-token flags (env-var fallback). Follows run() extraction convention for testability. TDD order: tests written first covering dry-run, partial-failure manifest, resume-from-manifest, and flag validation.",
+      "files_to_create": [
+        "cmd/fetch-history/main.go",
+        "cmd/fetch-history/main_test.go"
+      ],
+      "files_to_modify": [],
+      "approach": "main() is a one-liner delegating to run(args, stdout, stderr, providerFactory). run() uses flag.NewFlagSet with ContinueOnError; flags are --universe, --timeframe (repeatable), --from, --cache-dir, --api-key (env: KITE_API_KEY), --access-token (env: KITE_ACCESS_TOKEN), --dry-run. The providerFactory is a func() (provider.DataProvider, error) injected by main() for real runs and by tests for mock runs; it is called lazily inside run() only on non-dry-run paths. The inner loop iterates instruments x timeframes, reads a local fetch-progress.json progress manifest (cmd-layer partial-failure tracker, not the TASK-0080 CachedProvider manifest) to skip already-completed pairs, calls FetchCandles (CachedProvider write happens automatically on cache miss), updates the manifest atomically on success, and logs progress per pair. Dry-run prints what would be fetched without calling the provider. Tests cover: dry-run output correctness, partial-failure manifest write after second-instrument error, resume skipping completed manifest entries, missing required flags, and env-var fallback for api-key."
+    },
+    "build": {
+      "build_summary": "Built cmd/fetch-history CLI with run() extraction pattern, repeatable --timeframe flag, partial-failure progress manifest (atomic write/rename), dry-run mode, and providerFactory injection for test isolation. TDD order honored: main_test.go written first, compilation failed, then main.go written to make tests pass. Lint required two iteration rounds: cyclomatic complexity in run() fixed by extracting parseFlags, printDryRunPlan, resolveProvider, fetchAll, buildCompletedSet, fetchOne helpers; errcheck and gofumpt fixes in test file plus removal of unused sentinel var.",
+      "files_modified": [
+        "cmd/fetch-history/main.go",
+        "cmd/fetch-history/main_test.go"
+      ],
+      "tests_written": [
+        "TestRun_MissingUniverseFlag",
+        "TestRun_MissingFromFlag",
+        "TestRun_MissingTimeframeFlag",
+        "TestRun_InvalidFromDate",
+        "TestRun_DryRun_PrintsWhatWouldBeFetched",
+        "TestRun_DryRun_NoManifestWritten",
+        "TestRun_SuccessfulFetch_WritesProgressManifest",
+        "TestRun_PartialFailure_WritesManifestForCompletedOnly",
+        "TestRun_ResumeFromManifest_SkipsCompleted",
+        "TestRun_EnvVarFallback_ApiKey",
+        "TestRun_ProgressLogging",
+        "TestRun_MultipleTimeframes"
+      ],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "round": 2,
+      "gate_status": "clean",
+      "blocker_count": 0,
+      "warning_count": 0,
+      "suggestion_count": 0,
+      "findings": []
+    },
+    "perspective_review": {
+      "review_status": "APPROVE",
+      "scope": "large",
+      "reviewers": 6,
+      "blocking": 0,
+      "suggestions": 5,
+      "top_suggestions": [
+        "fetchAll: add os.MkdirAll(cacheDir) before manifest operations",
+        "Add TestRun_InvalidTimeframe and TestRun_MissingAccessToken",
+        "fetchOne 11-parameter signature: consider fetchState struct"
+      ]
+    }
+  },
+  "quality_review_round": 0,
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0070 \"Tooling — cmd/fetch-history CLI for bulk intraday historical data\" picked from Up Next. Source: session.",
+    "[AUTO] Step 1.5 — Preflight gates: task is tooling (not strategy); strategy registration check N/A. Quality gate last-pass is current. is_bugfix=false."
+  ],
+  "decision_marks_pending": [
+    "**Decision (fetch-history uses direct apiKey+accessToken, not OAuth login flow) — architecture: experimental**",
+    "**Decision (fetch-history progress manifest is cmd-layer concern, not CachedProvider concern) — architecture: experimental**",
+    "**Decision (providerFactory receives parsed flags — no global state required) — convention: experimental**",
+    "**Decision (run() extraction for testability in cmd/fetch-history) — convention: experimental**"
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

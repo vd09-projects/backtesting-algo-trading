@@ -18,4 +18,6 @@ All cmd/ entrypoints in this project follow a consistent structure established a
 
 **Why:** Established pattern from TASK-0023 (cmd/sweep), TASK-0035 (cmd/universe-sweep), TASK-0044 (cmd/sweep2d). The flags struct replaces individual parameters when parameter count exceeds ~7.
 
-**How to apply:** When planning a new cmd/ binary, check cmd/sweep/main.go as the reference implementation. The flags struct and factoryRegistry pattern are non-negotiable for testability.
+**Batch CLI variant (cmd/fetch-history, TASK-0070):** Batch/CI tools that accept a direct access token (not OAuth) use a `providerFactory func(fetchFlags)(provider.DataProvider,error)` parameter in `run()` instead of `cmdutil.BuildProvider`. The factory receives parsed flags so main() passes `buildProductionProvider` directly. This eliminates global state and keeps dry-run paths from constructing a provider. Reference: cmd/fetch-history/main.go.
+
+**How to apply:** When planning a new cmd/ binary, check cmd/sweep/main.go as the reference implementation for interactive tools, cmd/fetch-history/main.go for batch/CI tools. The flags struct and factoryRegistry pattern are non-negotiable for testability.
