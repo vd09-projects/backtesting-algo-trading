@@ -17,6 +17,9 @@ You are a step-agent that invokes the `multi-perspective-review` skill and retur
 - `files_modified` — list of files changed during the build
 - `build_summary` — one-sentence description of what was built (from priya-build verdict)
 - `task_context` — task context paragraph from BACKLOG.md
+- `review_iteration` — (optional, default 1) iteration number within this task's perspective review loop; used for logging and history
+- `targeted_reviewers` — (optional) list of reviewer names to re-run; if provided, skip normal triage panel selection and invoke only these reviewers. Override: if triage classifies diff scope as `large`, ignore targeted_reviewers and run full panel (note the override in output).
+- `prior_round_findings` — (optional) findings array from the previous iteration; passed through verbatim to output for history tracking
 
 ---
 
@@ -56,16 +59,22 @@ Capture stdout. This is the diff passed to the skill.
 
 ## Step 3 — Invoke skill
 
+Determine review mode before calling:
+
+- If `targeted_reviewers` is provided AND diff scope (from quick triage of the diff size/files) is NOT `large`: run **targeted mode** — only invoke the listed reviewers; skip normal triage panel selection. Note `"review_mode": "targeted"` in output.
+- Otherwise: run **full mode** — normal triage panel selection. If `targeted_reviewers` was provided but overridden due to large scope, note `"review_mode": "full_override_large_scope"` in output.
+
 Call `Skill("multi-perspective-review")` with these inputs:
 
 - **Diff**: output from Step 2
 - **PR description**: `build_summary`
 - **Ticket/spec**: `task_id` — `task_title` + `task_context`
 - **Urgency**: normal (use `hotfix` only if task_title contains "hotfix" or "Fix —" with a severity note)
+- **Reviewer panel**: if targeted mode, explicitly instruct the skill to only run the reviewers in `targeted_reviewers` by listing them in the prompt as "run only these reviewers: <list>"
 
 The skill will:
 1. Load project memory from `.claude/skill-memory/multi-perspective-review/` (config overrides, patterns, debt ledger)
-2. Triage the diff (classify scope, detect signals, select reviewer panel)
+2. Triage the diff (classify scope, detect signals, select reviewer panel) — or use targeted panel if targeted mode
 3. Run each selected reviewer against the diff
 4. Produce a summary with APPROVE / REQUEST CHANGES / NEEDS DISCUSSION verdict
 
@@ -96,6 +105,8 @@ Emit ONLY the following JSON — no preamble, no explanation:
 
 ```json
 {
+  "review_iteration": 1,
+  "review_mode": "full" | "targeted" | "full_override_large_scope",
   "review_status": "APPROVE" | "REQUEST_CHANGES" | "NEEDS_DISCUSSION",
   "scope": "trivial" | "small" | "medium" | "large",
   "reviewers_activated": ["Reviewer Name"],
@@ -112,11 +123,16 @@ Emit ONLY the following JSON — no preamble, no explanation:
       "fix": "concrete recommendation"
     }
   ],
+  "prior_round_findings": [],
   "accepted_debt": ["item — follow-up action + timeline"],
   "memory_suggestions": ["suggested entry for patterns.md or accepted-debt-ledger.md"],
   "skill_error": null
 }
 ```
+
+- `review_iteration`: echo back the `review_iteration` input (or 1 if not provided).
+- `review_mode`: `"full"` (normal triage), `"targeted"` (only listed reviewers ran), `"full_override_large_scope"` (targeted was requested but overridden).
+- `prior_round_findings`: echo back the `prior_round_findings` input as-is (or `[]` if not provided) — orchestrator uses this for history.
 
 ---
 
@@ -127,8 +143,10 @@ Document this so the orchestrator can rely on it:
 | `review_status` | `build-session` action |
 |---|---|
 | `APPROVE` | Proceed to Step 6 (close) |
-| `REQUEST_CHANGES` | Map `findings` where `severity == "blocking"` to quality_findings format (file from location split on ":"), spawn `priya-iterate`, then re-run Step 5b-i, then re-run Step 5c. If Step 5c still returns `REQUEST_CHANGES` on the same locations after one iterate cycle → Hard STOP. |
-| `NEEDS_DISCUSSION` | Hard STOP: surface blocking findings and design questions to user; wait for resolution. |
+| `REQUEST_CHANGES` | Check if any blocking finding's `location` matches a prior iteration's blocking finding in `perspective_review_history`. If yes → Hard STOP + create follow-up task with verbatim finding. If no → extract blocking `reviewer` names as `targeted_reviewers`, spawn `priya-iterate`, then re-run Step 5c in targeted mode (or full if file count grew >50%). |
+| `NEEDS_DISCUSSION` | Hard STOP: surface blocking findings and design questions verbatim. Do NOT create a ticket automatically. Wait for user to resolve or say "defer". If deferred → create follow-up task, proceed to Step 6. |
+
+**Ticket creation rule**: follow-up tasks are created ONLY when (a) Hard STOP from recurring finding at same location, or (b) priya-iterate returns BLOCKED, or (c) user explicitly says "defer" on a NEEDS_DISCUSSION. Do not create tickets for first-round REQUEST_CHANGES or suggestion-only findings.
 
 If `skill_error` is non-null: treat as `APPROVE` (perspective review is value-add, not a hard gate). The orchestrator logs the error as a warning.
 

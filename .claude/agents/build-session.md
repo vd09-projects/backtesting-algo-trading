@@ -29,6 +29,8 @@ At startup, initialize:
     "perspective_review": null
   },
   "quality_review_round": 0,
+  "perspective_review_iteration": 0,
+  "perspective_review_history": [],
   "execution_log": [],
   "decision_marks_pending": [],
   "hard_stop_active": null,
@@ -273,36 +275,65 @@ Update SESSION STATE: `verdicts.quality_review`. Set `step_completed = 5` (step 
 
 ---
 
-## STEP 5c — Perspective Review (sub-agent via Agent(), conditional)
+## STEP 5c — Perspective Review Loop (sub-agent via Agent(), conditional)
 
 **Run only when Step 5b exits with `gate_status ∈ {clean, warnings_cosmetic}`.**
 
 **You MUST call Agent() here. Do not read files or analyze the diff yourself.**
 
+This step loops. Maintain `perspective_review_iteration` counter in SESSION STATE (starts at 0, increment before each run). On each pass:
+
+### 5c-i. Run the review
+
+Increment `perspective_review_iteration`. Determine review mode:
+
+- **Iteration 1** (first run): full review — no targeted_reviewers, no prior_round_findings.
+- **Subsequent iterations**: targeted review — pass `targeted_reviewers` (list of reviewer names that raised blocking findings in the prior round). Exception: if `files_modified` count grew by >50% after priya-iterate (too-big change) → drop targeted_reviewers, run full review.
+
 Invoke `Agent(subagent_type="multi-perspective-review-runner")`. Pass in the prompt (agent has no conversation history):
 - `task_id`, `task_title` — from SESSION STATE
-- `files_modified` — from `verdicts.build.files_modified`, or latest iterate verdict if 5b ran iterations
+- `files_modified` — from `verdicts.build.files_modified` (iteration 1) or latest iterate verdict (subsequent)
 - `build_summary` — from `verdicts.build.build_summary`
 - `task_context` — task context paragraph from BACKLOG.md
+- `review_iteration` — current `perspective_review_iteration` value
+- `targeted_reviewers` — list of reviewer names (subsequent targeted runs only; omit on iteration 1 or full re-run)
+- `prior_round_findings` — findings array from the previous iteration (omit on iteration 1)
 
-Parse returned JSON. Update SESSION STATE: `verdicts.perspective_review`. Write session file.
-
-Evaluate `review_status`:
-
-| `review_status` | Action |
-|---|---|
-| `APPROVE` | Proceed to Step 6 |
-| `REQUEST_CHANGES` | Map blocking findings to quality_findings format. Spawn `priya-iterate` (increment `quality_review_round`). After RESOLVED/PARTIAL: re-run Step 5b-i once (quality re-check), then re-run Step 5c. If Step 5c still returns `REQUEST_CHANGES` on same file:line after one cycle → Hard STOP: surface recurring perspective finding to user. |
-| `NEEDS_DISCUSSION` | Hard STOP: present blocking findings and design questions. State what decision is needed. Wait. |
-
-If `skill_error` is non-null: log `[WARN] Step 5c — skill error: <skill_error>. Treating as APPROVE.` Proceed to Step 6.
+Parse returned JSON. Append `{iteration: N, reviewers_activated, findings, review_status}` to `perspective_review_history` in SESSION STATE. Update `verdicts.perspective_review`. Write session file.
 
 Log:
 ```
-[AUTO] Step 5c — Perspective review: scope=<scope>, reviewers=<N>, blocking=<blocking_count>, suggestions=<suggestion_count>.
+[AUTO] Step 5c round <N> — Perspective review: scope=<scope>, mode=<full|targeted>, reviewers=<list>, blocking=<blocking_count>, suggestions=<suggestion_count>.
+[AUTO] Step 5c round <N> — Findings: <one line per blocking finding: reviewer / file:line / issue>
 ```
 
 Append any blocking findings that reflect architectural decisions to `decision_marks_pending`.
+
+### 5c-ii. Evaluate result
+
+| `review_status` | Action |
+|---|---|
+| `APPROVE` | Exit loop → proceed to Step 6 |
+| `REQUEST_CHANGES` | Proceed to 5c-iii |
+| `NEEDS_DISCUSSION` | Hard STOP: present the blocking findings and design questions verbatim. State what decision is needed. **Do not create a ticket** — wait for user to resolve or explicitly defer. If user says "defer": create a follow-up task via task-manager with the verbatim findings, then proceed to Step 6. |
+
+If `skill_error` is non-null: log `[WARN] Step 5c round <N> — skill error: <skill_error>. Treating as APPROVE.` Proceed to Step 6.
+
+### 5c-iii. Iterate on REQUEST_CHANGES
+
+Check if any blocking finding at the same `file:line` already appeared in a prior perspective_review_history entry:
+- **Yes (recurring finding)** → Hard STOP: surface the finding with both iteration numbers. Create a follow-up task via task-manager containing the verbatim finding, the file:line, and which reviewer raised it. Do not attempt further iteration.
+- **No (new locations)** → proceed below.
+
+Extract `targeted_reviewers`: the set of `reviewer` names from all blocking findings in this round.
+
+Map blocking findings to quality_findings format (file from location split on ":"). Spawn `priya-iterate` sub-agent:
+- Pass `iterate_round = quality_review_round + perspective_review_iteration` so priya-iterate has a unique round number
+- Pass `quality_findings` = blocking findings from this perspective round
+- Pass `prior_rounds_findings` = all prior blocking findings from `perspective_review_history`
+
+After RESOLVED/PARTIAL: return to 5c-i (increment iteration, targeted mode).
+After BLOCKED: Hard STOP — surface unresolvable finding. Create a follow-up task via task-manager with verbatim finding.
 
 ---
 
