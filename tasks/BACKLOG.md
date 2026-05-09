@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-09 | **Open tasks:** 20 | **Next up:** TASK-0073
+**Last updated:** 2026-05-10 | **Open tasks:** 22 | **Next up:** TASK-0073
 
 ---
 
@@ -13,6 +13,47 @@
 ## Up Next
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
+
+### [TASK-0098] Strategy — `PriceExit` wrapper: fixed stop-loss and target-profit
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-10
+- **Source:** session
+- **Context:** Engine has `TimedExit` for time-based exits. No equivalent exists for price-based exits. Marcus ruled fixed SL and TP make sense for intraday strategies (ORB, Gap-and-Go) and must NOT affect MACD or any existing daily-bar strategy. Implementation follows the `TimedExit` pattern exactly: a Strategy wrapper in `pkg/strategy/` that wraps an inner Strategy, tracks entry price, and overrides with SELL when Close crosses SL or TP threshold. Zero values = disabled — existing strategies unaffected.
+- **Acceptance criteria:**
+  - [ ] `pkg/strategy/price_exit.go`: `PriceExit` struct implementing `Strategy` interface; fields `inner Strategy`, `stopLossPct float64`, `targetProfitPct float64`, `entryPrice float64`, `inPosition bool`
+  - [ ] `NewPriceExit(inner Strategy, stopLossPct, targetProfitPct float64) Strategy` constructor; zero value for either pct = that guard disabled
+  - [ ] `Next(candles []model.Candle)`: on BUY from inner, record `entryPrice = bar.Close`; on subsequent bars, if `bar.Close <= entryPrice*(1-stopLossPct)` emit SELL; if `bar.Close >= entryPrice*(1+targetProfitPct)` emit SELL; inner SELL always passes through and resets state
+  - [ ] SL and TP checked before delegating to inner — price-based exits take priority
+  - [ ] `Name()` returns `"price-exit(" + inner.Name() + ")"` matching `TimedExit` naming convention
+  - [ ] `Lookback()` and `Timeframe()` delegate to inner
+  - [ ] Golden tests: SL fires, TP fires, neither fires (inner exits), re-entry after SL reset, both disabled (zero pct)
+  - [ ] `go1.25.0 test -race ./pkg/strategy/...` passes
+  - [ ] `golangci-lint run ./pkg/strategy/...` passes
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Priya. Compose order for intraday strategies: `NewPriceExit(NewTimedExit(inner, N), slPct, tpPct)` — price exit wraps timed exit, price-based exits fire first, time-stop is fallback. Do NOT wire into MACD or any existing strategy — explicitly opt-in per Marcus ruling (2026-05-10). SL/TP percentages as decimals (0.05 = 5%), not percentages. Unblocks: TASK-0074 (ORB build phase), TASK-0075 (Gap-and-Go build phase).
+
+---
+
+### [TASK-0099] Data — fetch and validate 5-min bar history for Nifty50 large-cap and Nifty Midcap 150 universes
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-10
+- **Source:** session
+- **Context:** ORB and Gap-and-Go evaluation runs need 5-min bar history for both the Nifty50 large-cap and Nifty Midcap 150 universes — run in parallel to maximise signal quality and avoid over-fitting to one universe. `cmd/fetch-history` supports `--timeframe 5min` but the 5-min cache has never been populated for either universe. Kite Connect's available 5-min window is approximately 3 years — significantly shorter than the 6-year daily window used for MACD evaluation. Available window affects walk-forward fold count and Marcus's gate thresholds. Must be documented before evaluation pipeline runs begin.
+- **Acceptance criteria:**
+  - [ ] Run `cmd/fetch-history --universe universes/nifty50-large-cap.yaml --timeframe 5min --from 2021-01-01 --cache-dir .cache/zerodha` (verify Kite's actual 5-min limit first — adjust from-date if needed)
+  - [ ] Run `cmd/fetch-history --universe universes/nifty-midcap-liquid.yaml --timeframe 5min --from 2021-01-01 --cache-dir .cache/zerodha` in parallel with large-cap fetch
+  - [ ] Document earliest available 5-min date per instrument for both universes in `decisions/algorithm/YYYY-MM-DD-5min-data-coverage-both-universes.md` (single file, two sections)
+  - [ ] Flag any instruments in either universe with < 2 years of 5-min history for Marcus review
+  - [ ] Verify bar count sanity: ~75 bars/day × 250 days/year × N years per instrument; flag instruments with < 90% of expected bars as data quality issues
+  - [ ] Check session-boundary integrity: first bar each day 09:15 IST, last bar 15:25 IST; flag intra-session gaps per instrument
+  - [ ] Decision file includes: minimum usable window per universe, recommendation for walk-forward fold structure given available data, any universe-level data quality differences worth noting
+- **Notes:** Operational task — no code changes. Requires valid Kite access token. Kite 5-min chunk limit ~60 days per request; `cmd/fetch-history` handles chunking automatically. Both fetches can run simultaneously in separate terminals — they write to separate cache subdirectories by instrument. If available window < 2 years for either universe, Marcus must decide viability before TASK-0074 or TASK-0075 build begins. Midcap universe has 48 instruments vs 15 large-cap — expect midcap fetch to take ~3× longer. Unblocks: TASK-0074 (evaluation run), TASK-0075 (evaluation run).
+
+---
 
 ### [TASK-0073] Tooling — end-to-end automated evaluation pipeline (`cmd/evaluate`)
 
@@ -74,7 +115,7 @@
   - [ ] CLI registered in all strategy registries (`cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`)
   - [ ] All public functions tested; golden test for range computation and signal generation
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — done 2026-05-07) before implementation begins. All infrastructure dependencies resolved — blocked solely on Marcus rules.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — done 2026-05-07) before implementation begins. Infrastructure dependencies resolved. Additional pre-build requirements: TASK-0098 (PriceExit wrapper — needed for SL/TP support in strategy) and TASK-0099 (5-min data fetch and validation — needed before evaluation runs). Blocked solely on Marcus rules + TASK-0098 + TASK-0099.
 
 ---
 
@@ -93,7 +134,7 @@
   - [ ] CLI registered in all strategy registries
   - [ ] All public functions tested; golden test covering gap-up enter, gap-down enter, no-gap skip
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here) done 2026-05-07. All infrastructure dependencies resolved — blocked solely on Marcus rules. Long-only initially.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here) done 2026-05-07. Infrastructure dependencies resolved. Additional pre-build requirements: TASK-0098 (PriceExit wrapper — needed for SL/TP support in strategy) and TASK-0099 (5-min data fetch and validation — needed before evaluation runs). Blocked solely on Marcus rules + TASK-0098 + TASK-0099. Long-only initially.
 
 ---
 
