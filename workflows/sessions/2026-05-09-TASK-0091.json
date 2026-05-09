@@ -1,0 +1,115 @@
+{
+  "session_date": "2026-05-09",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0091",
+  "task_title": "Eval — Nifty Midcap 150 universe sweep (MACD and other survivors)",
+  "step_completed": 5,
+  "gates": [
+    {
+      "name": "DSR-corrected average Sharpe",
+      "criteria": "DSR-corrected average Sharpe > 0"
+    },
+    {
+      "name": "Pass fraction",
+      "criteria": ">= 40% of instruments with positive Sharpe AND >= 30 trades"
+    },
+    {
+      "name": "Trade count",
+      "criteria": ">= 30 trades per instrument (insufficient-trade instruments excluded from pass fraction, not counted as failures)"
+    }
+  ],
+  "command_run": "go run ./cmd/universe-sweep --universe universes/nifty-midcap-liquid.yaml --strategy macd-crossover --from 2018-01-01 --to 2024-12-31 --timeframe daily --commission zerodha_full --macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9",
+  "results_file": "results/2026-05-09-TASK-0091/midcap-sweep.csv",
+  "results_row_count": 48,
+  "project_state": {
+    "killed_strategies": [],
+    "prior_gate_survivors": ["macd-crossover"],
+    "strategy_prior_context": {
+      "macd-crossover": [
+        {
+          "status": "accepted",
+          "gate": "universe-gate (large-cap nifty50)",
+          "metric": "DSR-corrected average Sharpe",
+          "value": "0.2715",
+          "date": "2026-05-03",
+          "notes": "fast=17, slow=26, signal=9; 14/15 instruments positive Sharpe; pass fraction 93.3%"
+        }
+      ]
+    }
+  },
+  "decision_lookup": {
+    "standing_order_files": [
+      "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md",
+      "decisions/algorithm/2026-05-04-macd-parameters-unchanged-17-26-9.md"
+    ],
+    "context_files": [
+      "decisions/algorithm/2026-05-07-nifty-midcap-150-universe-instrument-list.md",
+      "decisions/algorithm/2026-05-07-adv-floor-midcap-daily-bar-universe.md",
+      "decisions/algorithm/2026-05-03-macd-crossover-universe-gate-passed.md"
+    ]
+  },
+  "verdicts": {
+    "decision_lookup": "2 standing orders, 3 context files",
+    "marcus_design_ruling": null,
+    "marcus": {
+      "verdict": "go",
+      "summary": "MACD crossover (17/26/9) passes all three universe gates on the 48-instrument Nifty Midcap 150 universe. DSR-corrected average Sharpe is 0.0885 (nTrials=48), pass fraction is 89.6% (43 of 48 instruments show positive raw Sharpe), and all 48 instruments clear the 30-trade floor with a minimum of 52 trades. The midcap result is weaker than the large-cap baseline (DSR avg 0.2715 at nTrials=15) as expected from the heavier multiple-testing penalty, but the edge generalises across sectors. All five marginal-ADV instruments show positive raw Sharpe — none flagged for replacement.",
+      "gate_results": {
+        "DSR_avg_sharpe": 0.088475,
+        "pass_fraction": 0.8958,
+        "positive_instruments": 43,
+        "sufficient_instruments": 48,
+        "min_trade_count": 52,
+        "all_gates_pass": true
+      }
+    }
+  },
+  "survivors": ["macd-crossover"],
+  "survivor_metrics": {
+    "macd-crossover": {
+      "universe": "nifty-midcap-150",
+      "DSR_avg_sharpe": 0.088475,
+      "pass_fraction": 0.8958,
+      "positive_instruments": 43,
+      "sufficient_instruments": 48,
+      "nTrials": 48,
+      "top_instruments": [
+        {"instrument": "NSE:PERSISTENT", "sharpe": 1.153449, "dsr": 0.859142, "trades": 60},
+        {"instrument": "NSE:TORNTPHARM", "sharpe": 0.785464, "dsr": 0.483376, "trades": 57},
+        {"instrument": "NSE:COFORGE", "sharpe": 0.770817, "dsr": 0.478973, "trades": 61},
+        {"instrument": "NSE:SUNDARMFIN", "sharpe": 0.744234, "dsr": 0.427684, "trades": 52},
+        {"instrument": "NSE:INDHOTEL", "sharpe": 0.719756, "dsr": 0.409236, "trades": 54}
+      ],
+      "negative_instruments": [
+        {"instrument": "NSE:OBEROIRLTY", "sharpe": -0.039293},
+        {"instrument": "NSE:NAVINFLUOR", "sharpe": -0.081951},
+        {"instrument": "NSE:EMAMILTD", "sharpe": -0.135195},
+        {"instrument": "NSE:DABUR", "sharpe": -0.152634},
+        {"instrument": "NSE:PHOENIXLTD", "sharpe": -0.167338}
+      ],
+      "marginal_adv_review": {
+        "NSE:SAIL": {"sharpe": 0.472711, "dsr": 0.175877, "positive": true},
+        "NSE:BHEL": {"sharpe": 0.337579, "dsr": 0.032757, "positive": true},
+        "NSE:EXIDEIND": {"sharpe": 0.292280, "dsr": -0.015351, "positive": true},
+        "NSE:SCHAEFFLER": {"sharpe": 0.284692, "dsr": -0.002407, "positive": true},
+        "NSE:NATIONALUM": {"sharpe": 0.213610, "dsr": -0.085816, "positive": true}
+      }
+    }
+  },
+  "survivor_correlation_flags": [],
+  "killed": [],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [
+    "**Decision (nTrials for midcap DSR correction) — algorithm: experimental** The nTrials parameter for DSR computation is set to 48, equal to the number of instruments in the midcap universe. This is the same convention used for the 15-instrument large-cap sweep (nTrials=15). The multiple-testing penalty is heavier at nTrials=48: E[max SR] = 2.261 vs 2.123 at nTrials=15, which is why DSR avg drops from 0.2715 (large-cap) to 0.0885 (midcap) even though the raw Sharpe distribution across midcaps looks strong.",
+    "**Decision (marginal-ADV instruments included in gate computation, not excluded) — algorithm: experimental** All five marginal-ADV instruments (BHEL, SCHAEFFLER, EXIDEIND, NATIONALUM, SAIL) show positive raw Sharpe (0.21-0.47) and sufficient trade counts (55-63). Per the 2026-05-07 ADV floor decision, these were flagged for scrutiny but not pre-excluded. Since all show positive results and clean data, they remain in the eligible-for-walk-forward set."
+  ],
+  "hard_stop_active": null,
+  "data_freshness_verified": "n/a — live fetch system; 28 missing instruments pre-fetched via cmd/fetch-history; all 48 instruments now cached",
+  "results_completeness_verified": "48 rows = 48 universe instruments; 0 insufficient_data",
+  "flags": [
+    "[FLAGGED] Midcap instrument list decision (2026-05-07) states Marcus re-review of the 23 new additions is pending before TASK-0091 runs. User instructed to proceed. Proceeding with 48-instrument universe.",
+    "[FLAGGED] LEMONTREE fetched from 2018-03-01 (IPO March 2018). Result shows insufficient_data=false, Sharpe=0.263, trade_count=57. Engine handled missing early data gracefully; result is valid but reflects only ~6.8 years of data vs 7 years for other instruments."
+  ],
+  "cli_command": "go run ./cmd/universe-sweep --universe universes/nifty-midcap-liquid.yaml --strategy macd-crossover --from 2018-01-01 --to 2024-12-31 --timeframe daily --commission zerodha_full --macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9",
+  "strategy_registration_verified": true
+}

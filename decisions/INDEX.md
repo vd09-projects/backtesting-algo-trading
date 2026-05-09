@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-09-macd-crossover-midcap-universe-gate-passed
+    title: "MACD crossover passes universe gate — Nifty Midcap 150 (48 instruments)"
+    date: 2026-05-09
+    status: accepted
+    category: algorithm
+    tags: [macd-crossover, universe-gate, DSR, nifty-midcap-150, midcap, walk-forward, TASK-0091, survivor]
+    path: algorithm/2026-05-09-macd-crossover-midcap-universe-gate-passed.md
+    summary: "MACD crossover (fast=17, slow=26, signal=9) passes midcap universe gate: DSRAvg=0.0885 (nTrials=48, >0), PassFraction=43/48=89.6% (>=40%). All 48 instruments sufficient (min 52 trades). Advances to walk-forward on 43 positive-Sharpe instruments. 5 negative: OBEROIRLTY, NAVINFLUOR, EMAMILTD, DABUR, PHOENIXLTD. All 5 marginal-ADV instruments (BHEL, SCHAEFFLER, EXIDEIND, NATIONALUM, SAIL) positive and sufficient."
+
+  - id: 2026-05-09-ntrials-48-for-midcap-dsr-correction
+    title: "nTrials=48 for DSR correction in Nifty Midcap 150 universe sweep"
+    date: 2026-05-09
+    status: experimental
+    category: algorithm
+    tags: [DSR, nTrials, multiple-testing, midcap, nifty-midcap-150, universe-gate, TASK-0091]
+    path: algorithm/2026-05-09-ntrials-48-for-midcap-dsr-correction.md
+    summary: "nTrials=48 for DSR correction equals universe instrument count, same convention as large-cap (nTrials=15). E[max SR] rises from 2.123 to 2.261, compressing DSR avg from 0.2715 (large-cap) to 0.0885 (midcap). Methodologically correct: we tested 48 instruments, we correct for 48."
+
+  - id: 2026-05-09-marginal-adv-instruments-included-midcap-sweep
+    title: "Marginal-ADV instruments included in midcap gate computation — not pre-excluded"
+    date: 2026-05-09
+    status: experimental
+    category: algorithm
+    tags: [midcap, ADV, liquidity, marginal-adv, universe-gate, BHEL, SCHAEFFLER, EXIDEIND, NATIONALUM, SAIL, TASK-0091]
+    path: algorithm/2026-05-09-marginal-adv-instruments-included-midcap-sweep.md
+    summary: "All five marginal-ADV instruments (BHEL, SCHAEFFLER, EXIDEIND, NATIONALUM, SAIL) show positive raw Sharpe (0.21-0.47), sufficient trade counts (55-63), insufficient_data=false. 2026-05-07 replacement trigger (majority insufficient_data=true) not met. All five advance to walk-forward. PSU regime-instability concern deferred to walk-forward fold analysis."
+
   - id: 2026-05-09-run-extraction-for-testability-in-cmd-fetch-history
     title: "run() extraction for testability in cmd/fetch-history"
     date: 2026-05-09

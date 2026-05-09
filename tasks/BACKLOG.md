@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-09 | **Open tasks:** 21 | **Next up:** TASK-0091
+**Last updated:** 2026-05-09 | **Open tasks:** 21 | **Next up:** TASK-0095
 
 ---
 
@@ -14,21 +14,37 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0091] Eval — Nifty Midcap 150 universe sweep (MACD and other survivors)
+### [TASK-0095] Eval — Nifty Midcap 150 walk-forward (MACD crossover, 43 instruments)
 
 - **Status:** todo
 - **Priority:** high
-- **Created:** 2026-05-07
+- **Created:** 2026-05-09
 - **Source:** session
-- **Context:** `universes/nifty-midcap-liquid.yaml` is ready (TASK-0072 complete). The same evaluation pipeline used for Nifty50 large-caps (universe sweep → walk-forward → bootstrap) now needs to run on the midcap universe. MACD crossover (17/26/9) is the primary candidate given its strong large-cap results. If any other daily-bar strategies passed bootstrap on large-caps, run them in parallel.
+- **Context:** MACD crossover (17/26/9) passed the Nifty Midcap 150 universe gate (TASK-0091): DSR avg Sharpe 0.0885, pass fraction 89.6% (43/48 instruments positive). The next pipeline step is walk-forward validation on the 43 positive-Sharpe eligible instruments using the same walk-forward methodology applied to the large-cap pipeline (TASK-0053). Gate: >= 60% of eligible instruments must pass (revised threshold from 2026-05-05 decision).
 - **Acceptance criteria:**
-  - [ ] Universe sweep run: `cmd/universe-sweep --universe universes/nifty-midcap-liquid.yaml --strategy macd-crossover --from 2018-01-01 --to 2024-12-31 --timeframe daily --commission zerodha_full`
-  - [ ] If ABCAPITAL (IPO 2017) returns `insufficient_data=true` or `*ErrIncompleteData`, replace it with an alternative midcap financial name and re-run
-  - [ ] Gate applied: DSR-corrected average Sharpe > 0 AND >= 40% pass fraction AND >= 30 trades per instrument (unchanged from large-cap pipeline)
-  - [ ] Marginal-ADV instruments (BHEL, SCHAEFFLER, EXIDEIND, NATIONALUM, SAIL) reviewed: if `insufficient_data=true` for majority of them, note for potential replacement in universe v2
-  - [ ] If universe gate passes: advance to walk-forward on eligible instruments
-  - [ ] Results and gate verdict recorded in `decisions/algorithm/`
-- **Notes:** Use `evaluation-run` agent workflow. Requires live Zerodha token. Marginal-ADV instruments are flagged in the YAML but not pre-excluded — let the gate decide. Gate thresholds unchanged per Marcus's ruling (2026-05-07).
+  - [ ] Walk-forward run: `cmd/walk-forward --universe <43-instrument subset> --strategy macd-crossover --from 2018-01-01 --to 2024-12-31 --timeframe daily --commission zerodha_full --macd-fast-period 17 --macd-slow-period 26 --macd-signal-period 9` (or equivalent per-instrument runs)
+  - [ ] Instrument-count gate applied: >= 60% of 43 eligible instruments must pass walk-forward (revised from 100% per 2026-05-05 decision; floor of >= 6 also required)
+  - [ ] Per-instrument verdict recorded: OOS Sharpe, IS Sharpe, OOSISRatio, OverfitFlag, NegFoldFlag
+  - [ ] Walk-forward survivors (positive OOS Sharpe, no OverfitFlag, no majority-NegFoldFlag) identified for bootstrap stage
+  - [ ] Results and verdict recorded in `decisions/algorithm/`
+  - [ ] If gate passes: advance to bootstrap on surviving instruments
+- **Notes:** Use `evaluation-run` agent workflow. Survivor annotation from TASK-0091:
+```json
+{
+  "survivor_input_from": "TASK-0091",
+  "results_file": "results/2026-05-09-TASK-0091/midcap-sweep.csv",
+  "survivors": [
+    {
+      "strategy": "macd-crossover",
+      "universe": "nifty-midcap-150",
+      "instruments": ["NSE:PERSISTENT","NSE:TORNTPHARM","NSE:COFORGE","NSE:SUNDARMFIN","NSE:INDHOTEL","NSE:IPCALAB","NSE:ABCAPITAL","NSE:LTTS","NSE:MUTHOOTFIN","NSE:DEEPAKNTR","NSE:EIHOTEL","NSE:MOTHERSON","NSE:ENDURANCE","NSE:CHOLAFIN","NSE:CUMMINSIND","NSE:FEDERALBNK","NSE:SAIL","NSE:RADICO","NSE:VINATIORGA","NSE:ALKEM","NSE:RATNAMANI","NSE:BALKRISIND","NSE:THERMAX","NSE:MPHASIS","NSE:M&MFIN","NSE:PIIND","NSE:NMDC","NSE:PRESTIGE","NSE:SUNDRMFAST","NSE:BHEL","NSE:MHRIL","NSE:ELGIEQUIP","NSE:EXIDEIND","NSE:SCHAEFFLER","NSE:LEMONTREE","NSE:COLPAL","NSE:TATACONSUM","NSE:LICHSGFIN","NSE:NATIONALUM","NSE:AJANTPHARM","NSE:GODREJCP","NSE:LALPATHLAB","NSE:THOMASCOOK"],
+      "DSR_avg_sharpe": 0.088475,
+      "pass_fraction": 0.8958,
+      "parameters": {"fast": 17, "slow": 26, "signal": 9}
+    }
+  ]
+}
+```
 
 ---
 
