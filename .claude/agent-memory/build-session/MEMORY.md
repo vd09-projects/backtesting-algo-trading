@@ -11,3 +11,4 @@
 - [Intraday strategy infra status (2026-05-07)](project_intraday_strategy_deps.md) — TASK-0078 done; TASK-0074/0075 blocked solely on Marcus rules; IST var + nolint pattern established in pkg/strategy
 - [Strategy registry architecture (TASK-0079)](project_strategy_registry.md) — GlobalRegistry in internal/cmdutil/strategies.go; one file to edit; cmd/walk-forward localBuilders must stay in sync; cmd/sweep has latent cci gap (TASK-0061)
 - [cmd/fetch-history pattern and status](project_cmd_fetch_history.md) — direct token (not OAuth); providerFactory func(fetchFlags) pattern; fetch-progress.json cmd-layer manifest; TASK-0080/0083/0093/0094 follow-ups
+- [cmd/evaluate pattern and status](project_cmd_evaluate_pattern.md) — done 2026-05-10; pipeline orchestrator (sweep→WF→bootstrap); providerFactory ctx-based; verdict.json local DTO; 65% coverage (integration-only gap); TASK-0102/0103/0104 follow-ups

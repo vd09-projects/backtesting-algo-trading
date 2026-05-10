@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-10 | **Open tasks:** 21 | **Next up:** TASK-0098
+**Last updated:** 2026-05-10 | **Open tasks:** 23 | **Next up:** TASK-0098
 
 ---
 
@@ -33,25 +33,6 @@
   - [ ] `golangci-lint run ./pkg/strategy/...` passes
   - [ ] Tests written before implementation (TDD)
 - **Notes:** Owner: Priya. Compose order for intraday strategies: `NewPriceExit(NewTimedExit(inner, N), slPct, tpPct)` — price exit wraps timed exit, price-based exits fire first, time-stop is fallback. Do NOT wire into MACD or any existing strategy — explicitly opt-in per Marcus ruling (2026-05-10). SL/TP percentages as decimals (0.05 = 5%), not percentages. Unblocks: TASK-0074 (ORB build phase), TASK-0075 (Gap-and-Go build phase).
-
----
-
-### [TASK-0073] Tooling — end-to-end automated evaluation pipeline (`cmd/evaluate`)
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-05-04
-- **Source:** session
-- **Context:** Running the full evaluation pipeline (universe sweep → walk-forward → bootstrap) currently requires manual handoff between three CLIs. With multiple strategies and timeframes in play, this is slow and error-prone. A single CLI that runs the full sequence, writes structured outputs to a dated results folder, and produces a summary verdict removes all manual steps. Gates and methodology remain unchanged.
-- **Acceptance criteria:**
-  - [ ] `cmd/evaluate/main.go` CLI: flags `--strategy`, `--params` (key=value pairs), `--universe`, `--timeframe`, `--from`, `--to`, `--out-dir`
-  - [ ] Runs full sequence: (1) universe sweep with DSR gate, (2) walk-forward on survivors, (3) bootstrap on walk-forward survivors
-  - [ ] If universe sweep produces zero survivors, pipeline halts immediately and writes `verdict.json` with `"result": "killed_at_universe_gate"` — does not proceed to walk-forward
-  - [ ] Each stage writes outputs to `--out-dir/YYYY-MM-DD-{strategy}-{timeframe}/` in same format as existing CLIs
-  - [ ] Summary `verdict.json` written at end: lists survivors with gate results, kills with stage and reason
-  - [ ] Existing gate thresholds unchanged — no new methodology; parameter search is a separate CLI (TASK-0077)
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). The parameter-sweep mode must enforce DSR-corrected ranking — not raw Sharpe maximization. Marcus's standing order: parameter search on training window only, DSR-corrected rank, OOS untouched during search.
 
 ---
 
@@ -119,13 +100,19 @@
 
 ---
 
+
+---
+
+## Todo (Backlog)
+
+<!-- Lower-priority items. Ordered by priority within this section. -->
+
 ### [TASK-0077] Tooling — parameter optimization with DSR correction (`cmd/param-search`)
 
-- **Status:** blocked
+- **Status:** todo
 - **Priority:** low
 - **Created:** 2026-05-04
 - **Source:** session
-- **Blocked by:** TASK-0073 (cmd/evaluate pipeline must exist first)
 - **Context:** Grid-search tool finding DSR-corrected optimal parameters for a strategy. Extends existing `internal/sweep2d` infrastructure. Critical constraint: search runs on training window only; OOS window never touched during search; ranking by DSR-corrected Sharpe, not raw Sharpe. Without these constraints the tool is a professional overfitting engine.
 - **Acceptance criteria:**
   - [ ] `cmd/param-search/main.go`: flags `--strategy`, `--param-grid` (JSON file defining axes and ranges), `--universe`, `--timeframe`, `--train-from`, `--train-to`, `--out-dir`
@@ -135,13 +122,58 @@
   - [ ] Top-N results written to `--out-dir/param-search-results.csv` with DSR, raw Sharpe, trade count per variant
   - [ ] `--param-grid` JSON schema documented in cmd/param-search/README.md or flag help text
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Marcus standing order 2026-05-04: "parameter search on training window only, DSR-corrected rank, OOS untouched during search." No OOS flag is the architectural enforcement — not a docs warning.
+- **Notes:** Owner: Priya (dev). Marcus standing order 2026-05-04: "parameter search on training window only, DSR-corrected rank, OOS untouched during search." No OOS flag is the architectural enforcement — not a docs warning. Unblocked 2026-05-10 — TASK-0073 (cmd/evaluate) is done.
 
 ---
 
-## Todo (Backlog)
+### [TASK-0102] Tech debt — `cmd/evaluate`: wire `universesweep.Result.Trades` to skip bootstrap engine re-run
 
-<!-- Lower-priority items. Ordered by priority within this section. -->
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-10
+- **Source:** discovery
+- **Context:** `collectTrades` in `cmd/evaluate/main.go` runs a full engine re-run per instrument to collect trades for bootstrap resampling. `universesweep.Result` already has a `Trades []model.Trade` field populated during the universe sweep. The bootstrap stage discards those and re-fetches candles + re-runs the engine. For large universes (40+ instruments), this doubles provider calls and CPU time. The data is already available — it just isn't threaded through.
+- **Acceptance criteria:**
+  - [ ] `runPipeline` passes `sweepReport.Results` trades through to `runBootstrap` instead of calling `collectTrades` per instrument
+  - [ ] `collectTrades` function removed or left as a fallback only
+  - [ ] `runBootstrap` signature updated to accept pre-collected trades: `runBootstrap(pl, wfGatePassed, instrumentSharpe, instrumentTrades map[string][]model.Trade, stderr)` — or equivalent
+  - [ ] Existing bootstrap tests still pass: `go1.25.0 test -race ./cmd/evaluate/...`
+  - [ ] `golangci-lint run ./cmd/evaluate/...` passes
+- **Notes:** Discovered during TASK-0073 multi-perspective review (Tech Debt Sentinel). For correctness: the universe sweep uses the same `[from, to)` range, same strategy, same commission model as bootstrap — the trades are identical. The only edge case: if bootstrap re-run is intentionally different (different date range is currently impossible since it uses pl.from/pl.to). Low priority; correctness is unaffected — this is pure efficiency.
+
+---
+
+### [TASK-0103] Fix — `cmd/evaluate/makeStageDir`: use `os.MkdirAll` to handle retry-after-error
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-10
+- **Source:** discovery
+- **Context:** `makeStageDir` in `cmd/evaluate/main.go` calls `os.Mkdir` (not `os.MkdirAll`). If the pipeline fails after the stage directory is created but before `verdict.json` is written (e.g., provider failure), a re-run on the same day will fail with "directory already exists" because `makeStageDir` creates an identical dated path. The user must manually delete the empty directory before retrying.
+- **Acceptance criteria:**
+  - [ ] `os.Mkdir` in `makeStageDir` replaced with `os.MkdirAll` — silently succeeds if the directory already exists
+  - [ ] `TestMakeStageDir_IdempotentOnRetry` added: call `makeStageDir` twice with the same args, assert second call succeeds (no error)
+  - [ ] `go1.25.0 test -race ./cmd/evaluate/...` passes
+  - [ ] `golangci-lint run ./cmd/evaluate/...` passes
+- **Notes:** Discovered during TASK-0073 multi-perspective review (Error Handling & Resilience Inspector). One-line fix. The `--out-dir` must still exist (it's the user's root directory); only the dated subdirectory is created with MkdirAll.
+
+---
+
+### [TASK-0104] Refactor — `cmd/evaluate/applyWFGate`: use `gateResult.PositiveSharpeInstruments` as the gate input
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-10
+- **Source:** discovery
+- **Context:** In `runPipeline`, `applyWFGate(len(universeSurvivors), ...)` computes the WF floor from `len(universeSurvivors)` — the instruments with positive Sharpe and sufficient data. The decision document (`decisions/algorithm/2026-05-05-walk-forward-instrument-count-gate-relaxed.md`) defines the gate as `WF_passes >= floor(0.60 × universe_gate_passes)` where `universe_gate_passes` is the authoritative count from `universesweep.GateResult.PositiveSharpeInstruments`. The two values are numerically identical, but using the canonical field makes the code's connection to the decision document direct and self-documenting.
+- **Acceptance criteria:**
+  - [ ] In `runPipeline` (line ~297): `applyWFGate(len(universeSurvivors), ...)` → `applyWFGate(gateResult.PositiveSharpeInstruments, ...)`
+  - [ ] Add inline comment: `// gateResult.PositiveSharpeInstruments is the authoritative universe_gate_passes per decision 2026-05-05`
+  - [ ] All existing tests pass: `go1.25.0 test -race ./cmd/evaluate/...`
+  - [ ] `golangci-lint run ./cmd/evaluate/...` passes
+- **Notes:** Discovered during TASK-0073 multi-perspective review (Domain Logic Reviewer). One-line change. The numerical outcome is unchanged; this is pure clarity/traceability. `len(universeSurvivors)` counts instruments with `Sharpe > 0 && !InsufficientData` from the sweep loop, which is the same count as `gateResult.PositiveSharpeInstruments` — they're equivalent by construction. The canonical field just makes it obvious.
+
+---
 
 ### [TASK-0092] Tech debt — add `TestSignalAuditCoversAllStrategies` to `cmd/signal-audit`
 

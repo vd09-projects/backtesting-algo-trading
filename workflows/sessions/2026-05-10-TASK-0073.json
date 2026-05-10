@@ -1,0 +1,82 @@
+{
+  "session_date": "2026-05-10",
+  "workflow": "build",
+  "task_id": "TASK-0073",
+  "task_title": "Tooling — end-to-end automated evaluation pipeline (cmd/evaluate)",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-05-05-walk-forward-instrument-count-gate-relaxed.md",
+        "decisions/architecture/2026-05-08-strategy-wiring-fully-centralized-in-cmdutil.md"
+      ],
+      "context_files": [
+        "decisions/convention/2026-05-03-run-extraction-for-testability-in-cmd-walk-forward.md",
+        "decisions/convention/2026-05-09-run-extraction-for-testability-in-cmd-fetch-history.md",
+        "decisions/convention/2026-05-06-bootstrap-stats-json-placement.md",
+        "decisions/architecture/2026-05-07-thresholdsfile-dto-in-cmd-monitor.md",
+        "decisions/architecture/2026-05-09-fetch-history-progress-manifest-cmd-layer.md"
+      ]
+    },
+    "marcus": "skipped (no methodology questions)",
+    "priya_plan": {
+      "plan_summary": "Pure cmd-layer pipeline orchestrator: run()+providerFactory, sequential sweep→WF→bootstrap, local verdict.json DTO, no internal/pkg changes.",
+      "files_to_create": ["cmd/evaluate/main.go", "cmd/evaluate/main_test.go"],
+      "files_to_modify": [],
+      "approach": "cmd/evaluate follows run(args, stdout, stderr, providerFactory) testability pattern. Sequential dispatch. verdict.json DTO local to cmd/evaluate. TDD."
+    },
+    "build": {
+      "build_summary": "cmd/evaluate/main.go and cmd/evaluate/main_test.go created. Full three-stage pipeline. 28 tests written. Quality gate: 0 lint issues, 0 races.",
+      "files_modified": ["cmd/evaluate/main.go", "cmd/evaluate/main_test.go"],
+      "tests_written": ["TestRun_MissingStrategy", "TestRun_MissingUniverse", "TestRun_MissingFrom", "TestRun_MissingTo", "TestRun_MissingOutDir", "TestRun_ToNotAfterFrom", "TestRun_InvalidTimeframe", "TestRun_InvalidFromDate", "TestParseParams_Valid", "TestParseParams_Empty", "TestParseParams_InvalidFormat", "TestParseParams_NonNumericValue", "TestParseParams_FloatValue", "TestMakeStageDir_CreatesSubdirectory", "TestMakeStageDir_InvalidParent", "TestWriteVerdictJSON_KilledAtUniverseGate", "TestWriteVerdictJSON_ValidFile", "TestApplyWFGate_Passes", "TestApplyWFGate_FailsBelowFloor", "TestApplyWFGate_FailsBelowMin6", "TestApplyWFGate_ExactlyAtFloor", "TestApplyBootstrapGate_Passes", "TestApplyBootstrapGate_FailsP5Zero", "TestApplyBootstrapGate_FailsP5Negative", "TestApplyBootstrapGate_FailsProbBelowThreshold", "TestApplyBootstrapGate_FailsBoth", "TestRun_ZeroSurvivors", "TestRun_UnknownStrategy"],
+      "quality_gate": "PASS"
+    },
+    "quality_review": {
+      "gate_status": "warnings_cosmetic",
+      "round": 2,
+      "coverage": "65.0%",
+      "note": "Gap is integration-only (runWalkForward/runBootstrap/collectTrades require live DataProvider). All pure helpers covered. Same pattern as cmd/walk-forward at 71.6%."
+    },
+    "perspective_review": {
+      "review_status": "APPROVE",
+      "blocking": 0,
+      "suggestions": 11,
+      "reviewers": ["Tech Debt Sentinel", "Domain Logic Reviewer", "Naming & Clarity Guardian", "Error Handling & Resilience Inspector", "Test Coverage Auditor", "Ripple Effect Analyst", "Security & Trust Reviewer"]
+    }
+  },
+  "quality_review_round": 2,
+  "perspective_review_iteration": 1,
+  "perspective_review_history": [
+    {
+      "iteration": 1,
+      "reviewers_activated": ["Tech Debt Sentinel", "Domain Logic Reviewer", "Naming & Clarity Guardian", "Error Handling & Resilience Inspector", "Test Coverage Auditor", "Ripple Effect Analyst", "Security & Trust Reviewer"],
+      "findings": [],
+      "review_status": "APPROVE"
+    }
+  ],
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0073 picked from Up Next. Source: session.",
+    "[AUTO] Step 1.5a — No redirect. Standard build pipeline.",
+    "[AUTO] Step 1.5c — Strategy registration: all 7 strategies registered.",
+    "[AUTO] Step 2 — Decision lookup: 2 standing orders, 5 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (no methodology questions).",
+    "[AUTO] Step 4 — Plan: complete.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS.",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 1 warning code_change_required (coverage 46.4%).",
+    "[AUTO] Step 5b round 1 — Iterate: status=RESOLVED. Coverage improved to 65.0%.",
+    "[AUTO] Step 5b round 2 — Quality review: 0 blockers, 0 code_change_required, 1 cosmetic. Gate: warnings_cosmetic.",
+    "[AUTO] Step 5c round 1 — Perspective review: APPROVE. 0 blocking, 11 suggestions.",
+    "[AUTO] Step 6 — Verifying acceptance criteria."
+  ],
+  "decision_marks_pending": [
+    "**Decision (run() extraction for cmd/evaluate — providerFactory injection for testability) — convention: experimental**",
+    "**Decision (verdict.json as local DTO in cmd/evaluate — not internal/output) — architecture: experimental**",
+    "**Decision (all stage outputs in one dated subdirectory) — architecture: experimental**",
+    "**Decision (WF dispatch sequential per instrument) — tradeoff: experimental**",
+    "**Decision (--params as repeated key=value flag — merges into strategy param map) — convention: experimental**"
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}

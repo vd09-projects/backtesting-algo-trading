@@ -8,6 +8,51 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-10-params-flag-repeated-key-value-merges-st
+    title: "--params as repeated key=value flag merging into strategy param map"
+    date: 2026-05-10
+    status: experimental
+    category: convention
+    tags: [CLI, params, flag-design, key-value, repeated-flag, cmd/evaluate, TASK-0073]
+    path: convention/2026-05-10-params-flag-repeated-key-value-merges-st.md
+    summary: "--params fast-period=17 repeated flag merges overrides onto GlobalRegistry.DefaultParams. Zero params = all defaults. Unknown keys silently ignored by strategy constructors. No file required for CLI ergonomics."
+
+  - id: 2026-05-10-wf-dispatch-sequential-per-instrument
+    title: "Walk-forward dispatch sequential per instrument in cmd/evaluate"
+    date: 2026-05-10
+    status: experimental
+    category: tradeoff
+    tags: [concurrency, walk-forward, orchestrator, sequential, errgroup, cmd/evaluate, TASK-0073]
+    path: tradeoff/2026-05-10-wf-dispatch-sequential-per-instrument.md
+    summary: "runWalkForward dispatches walkforward.Run sequentially per instrument. Each call fans out folds internally via errgroup; outer parallelism would double goroutines without halving CPU-bound runtime and interleave progress logs."
+
+  - id: 2026-05-10-stage-outputs-in-dated-subdirectory-cmd-eval
+    title: "All cmd/evaluate stage outputs written to a dated subdirectory"
+    date: 2026-05-10
+    status: experimental
+    category: architecture
+    tags: [output-layout, stage-dir, YYYY-MM-DD, cmd/evaluate, dated-subdir, TASK-0073]
+    path: architecture/2026-05-10-stage-outputs-in-dated-subdirectory-cmd-eval.md
+    summary: "Outputs written to --out-dir/YYYY-MM-DD-{strategy}-{timeframe}/. Each run gets its own namespace; YYYY-MM-DD prefix gives natural sort order; root outDir stays clean across multiple runs."
+
+  - id: 2026-05-10-verdict-json-as-local-dto-in-cmd-evaluate
+    title: "verdict.json as local DTO in cmd/evaluate — not internal/output"
+    date: 2026-05-10
+    status: experimental
+    category: architecture
+    tags: [serialization-dto, cmd-layer, JSON, verdict, pipeline-output, cmd/evaluate, TASK-0073]
+    path: architecture/2026-05-10-verdict-json-as-local-dto-in-cmd-evaluate.md
+    summary: "verdictJSON and supporting types (gateStatsJSON, survivorRecord, killRecord) defined locally in cmd/evaluate. Pipeline-level verdict aggregation is a cmd-layer concern; internal/output handles per-backtest serialization only. Follows thresholdsFile DTO precedent in cmd/monitor."
+
+  - id: 2026-05-10-run-extraction-for-testability-in-cmd-evaluate
+    title: "run() extraction for testability in cmd/evaluate — providerFactory injection"
+    date: 2026-05-10
+    status: experimental
+    category: convention
+    tags: [testability, run-function, flag-newFlagSet, providerFactory, cmd/evaluate, TASK-0073]
+    path: convention/2026-05-10-run-extraction-for-testability-in-cmd-evaluate.md
+    summary: "main() is a one-liner; all logic in run(args, stdout, stderr, providerFactory). providerFactory injection enables testing all non-provider paths. Follows cmd/walk-forward, cmd/monitor, cmd/fetch-history precedents. Coverage 65% (integration-only gap)."
+
   - id: 2026-05-10-cache-imports-zerodha-for-errbadcandles-not-circular
     title: "cache package imports zerodha parent for ErrBadCandles type-check — not circular"
     date: 2026-05-10
