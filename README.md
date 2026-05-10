@@ -2,7 +2,7 @@
 
 ## Local ignored-file tracking
 
-Ignored files (`.cache/`, `results/`, `runs/`, `.quality-gate/`) are not committed. Use `make` targets to track what changed locally.
+Ignored files are not committed. Use `make` targets to track what changed locally. Tracked paths are discovered dynamically from `.gitignore` — no updates needed when new ignore entries are added.
 
 After every `git commit`, a snapshot of all ignored files is saved to `runs/temp/snapshots/<hash>.txt` automatically via the post-commit hook.
 
@@ -37,8 +37,9 @@ HASH=$(git log -1 --pretty=format:"%h")
 MSG=$(git log -1 --pretty=format:"%s")
 touch runs/temp/last-commit-ref
 echo "$HASH $MSG" > runs/temp/last-commit-msg
-find .cache/ .quality-gate/ results/ runs/ -not -path "runs/temp/*" -type f 2>/dev/null \
-  | sort > "runs/temp/snapshots/${HASH}.txt"
+git status --ignored --short 2>/dev/null | awk '/^!! / {print $2}' | while read path; do
+  find "$path" -not -path "runs/temp/*" -type f 2>/dev/null
+done | sort > "runs/temp/snapshots/${HASH}.txt"
 echo "[$HASH] $MSG" >> runs/temp/snapshots/index.log
 EOF
 chmod +x .git/hooks/post-commit

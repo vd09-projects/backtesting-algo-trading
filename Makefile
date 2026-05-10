@@ -9,8 +9,9 @@ COMMIT      ?= $(shell git log -1 --pretty=format:"%h")
 ignored-new: $(REF_FILE)
 	@echo "=== Ignored files new/modified since last commit ==="
 	@if [ -f $(MSG_FILE) ]; then echo "Last commit: $$(cat $(MSG_FILE))"; echo ""; fi
-	@find .cache/ .quality-gate/ results/ runs/ -newer $(REF_FILE) \
-		-not -path "runs/temp/*" -type f 2>/dev/null
+	@git status --ignored --short 2>/dev/null | awk '/^!! / {print $$2}' | while read path; do \
+		find "$$path" -newer $(REF_FILE) -not -path "runs/temp/*" -type f 2>/dev/null; \
+	done
 
 ## Show ignored files snapshot at a specific commit  (usage: make ignored-at COMMIT=abc123)
 ignored-at:
