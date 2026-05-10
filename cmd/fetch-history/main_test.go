@@ -13,6 +13,7 @@ import (
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 )
 
 // writeValidTokenFile writes a token fixture that will pass zerodha.LoadToken validation.
@@ -481,6 +482,186 @@ func TestResolveBatchToken_errorWhenFlagEmptyAndFileCorrupt(t *testing.T) {
 	_, err := resolveBatchToken("", tokenPath)
 	if err == nil {
 		t.Fatal("resolveBatchToken: expected error for corrupt token file, got nil")
+	}
+}
+
+// makeTestCandle builds a valid Candle for use in fetch-history tests.
+func makeTestCandle(t *testing.T) model.Candle {
+	t.Helper()
+	ts := time.Date(2021, 1, 11, 3, 45, 0, 0, time.UTC) // 09:15 IST
+	c, err := model.NewCandle("NSE:HDFCBANK", model.Timeframe5Min, ts, 841.0, 845.0, 839.0, 843.0, 4500)
+	if err != nil {
+		t.Fatalf("makeTestCandle: %v", err)
+	}
+	return c
+}
+
+// TestFetchOne_BadCandleSkip verifies the realistic OHLC bad-candle fix scenario:
+// 1 bad candle skipped, remaining valid candles returned (the Zerodha artifact case).
+// fetchOne must:
+//   - return nil (treat as success)
+//   - log a warning to stderr containing the specific skipped candle index
+//   - write the instrument to completed in the manifest
+//   - record skipped_candles with the correct index and non-empty reason
+func TestFetchOne_BadCandleSkip(t *testing.T) {
+	dir := t.TempDir()
+	uPath := writeUniverseYAML(t, dir, []string{"NSE:HDFCBANK"})
+
+	skipped := []zerodha.SkippedCandle{
+		{Index: 450, Reason: "candle: open (835.6000) must be within [low=837.4000, high=843.8000]"},
+	}
+	// Realistic scenario: 1 bad candle skipped, many valid candles returned.
+	validCandles := []model.Candle{makeTestCandle(t)}
+
+	factory := func(_ fetchFlags) (provider.DataProvider, error) {
+		return &mockProvider{
+			candles: validCandles,
+			err:     &zerodha.ErrBadCandles{Instrument: "NSE:HDFCBANK", Skipped: skipped},
+		}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	err := run([]string{
+		"--universe", uPath,
+		"--from", "2021-01-01",
+		"--timeframe", "5min",
+		"--cache-dir", dir,
+		"--api-key", "testkey",
+		"--access-token", "testtoken",
+	}, &stdout, &stderr, factory)
+	// run() must succeed: valid candles returned alongside warning.
+	if err != nil {
+		t.Fatalf("run() with ErrBadCandles + valid candles: want nil error, got %v", err)
+	}
+
+	// stderr must contain a warning with the specific candle index "450".
+	stderrOut := stderr.String()
+	if !strings.Contains(stderrOut, "450") {
+		t.Errorf("stderr must contain skipped candle index 450; got:\n%s", stderrOut)
+	}
+
+	// stdout must mention the fetch completed with skipped count.
+	stdoutOut := stdout.String()
+	if !strings.Contains(stdoutOut, "skipped") {
+		t.Errorf("stdout must mention skipped candles; got:\n%s", stdoutOut)
+	}
+
+	// Manifest must record NSE:HDFCBANK as completed.
+	manifestPath := filepath.Join(dir, "fetch-progress.json")
+	data, readErr := os.ReadFile(manifestPath)
+	if readErr != nil {
+		t.Fatalf("expected fetch-progress.json to be written: %v", readErr)
+	}
+	var manifest progressManifest
+	if unmarshalErr := json.Unmarshal(data, &manifest); unmarshalErr != nil {
+		t.Fatalf("invalid manifest JSON: %v", unmarshalErr)
+	}
+	if len(manifest.Completed) != 1 {
+		t.Fatalf("expected 1 completed entry, got %d", len(manifest.Completed))
+	}
+	if manifest.Completed[0].Instrument != "NSE:HDFCBANK" {
+		t.Errorf("expected completed instrument NSE:HDFCBANK, got %s", manifest.Completed[0].Instrument)
+	}
+
+	// Manifest entry must record skipped_candles with correct index and non-empty reason.
+	if len(manifest.Completed[0].SkippedCandles) != 1 {
+		t.Fatalf("expected 1 skipped_candle in manifest, got %d", len(manifest.Completed[0].SkippedCandles))
+	}
+	sc := manifest.Completed[0].SkippedCandles[0]
+	if sc.Index != 450 {
+		t.Errorf("skipped_candle[0].Index = %d, want 450", sc.Index)
+	}
+	if sc.Reason == "" {
+		t.Error("skipped_candle[0].Reason must not be empty")
+	}
+}
+
+// TestFetchOne_BadCandleSkip_AllCandlesBad verifies the degenerate case where
+// ALL candles in the response are bad (empty valid candle slice returned alongside
+// *ErrBadCandles). fetchOne must:
+//   - return a non-nil error (instrument not marked completed — will retry next run)
+//   - log an error to stderr mentioning "all ... candles were invalid"
+//   - NOT write the instrument to the completed list in the manifest
+func TestFetchOne_BadCandleSkip_AllCandlesBad(t *testing.T) {
+	dir := t.TempDir()
+	uPath := writeUniverseYAML(t, dir, []string{"NSE:HDFCBANK"})
+
+	skipped := []zerodha.SkippedCandle{
+		{Index: 0, Reason: "candle: open (835.6000) must be within [low=837.4000, high=843.8000]"},
+	}
+	// All candles bad — zero valid candles returned.
+	factory := func(_ fetchFlags) (provider.DataProvider, error) {
+		return &mockProvider{
+			candles: []model.Candle{},
+			err:     &zerodha.ErrBadCandles{Instrument: "NSE:HDFCBANK", Skipped: skipped},
+		}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	//nolint:errcheck // intentional: all-bad-candles run returns error; we assert on side effects
+	runErr := run([]string{
+		"--universe", uPath,
+		"--from", "2021-01-01",
+		"--timeframe", "5min",
+		"--cache-dir", dir,
+		"--api-key", "testkey",
+		"--access-token", "testtoken",
+	}, &stdout, &stderr, factory)
+
+	// run() must return non-nil: all candles bad is treated as failure.
+	if runErr == nil {
+		t.Fatal("run() with all-bad ErrBadCandles: want non-nil error, got nil")
+	}
+
+	// stderr must mention the all-bad condition.
+	stderrOut := stderr.String()
+	if !strings.Contains(stderrOut, "all") || !strings.Contains(stderrOut, "invalid") {
+		t.Errorf("stderr must mention all candles invalid; got:\n%s", stderrOut)
+	}
+
+	// Manifest must NOT record NSE:HDFCBANK as completed (nothing useful cached).
+	manifestPath := filepath.Join(dir, "fetch-progress.json")
+	data, readErr := os.ReadFile(manifestPath)
+	if readErr != nil {
+		// Manifest may or may not exist; if absent, that's also acceptable.
+		if !errors.Is(readErr, os.ErrNotExist) {
+			t.Fatalf("unexpected error reading manifest: %v", readErr)
+		}
+		return
+	}
+	var manifest progressManifest
+	if unmarshalErr := json.Unmarshal(data, &manifest); unmarshalErr != nil {
+		t.Fatalf("invalid manifest JSON: %v", unmarshalErr)
+	}
+	if len(manifest.Completed) != 0 {
+		t.Errorf("expected 0 completed entries (all-bad instrument must not be marked done), got %d", len(manifest.Completed))
+	}
+}
+
+// TestFetchOne_HardErrorStillFails verifies that a hard error (non-ErrBadCandles) from
+// FetchCandles still propagates as a failure (fetchOne returns non-nil).
+func TestFetchOne_HardErrorStillFails(t *testing.T) {
+	dir := t.TempDir()
+	uPath := writeUniverseYAML(t, dir, []string{"NSE:RELIANCE"})
+
+	hardErr := errors.New("network timeout")
+	factory := func(_ fetchFlags) (provider.DataProvider, error) {
+		return &mockProvider{err: hardErr}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	err := run([]string{
+		"--universe", uPath,
+		"--from", "2021-01-01",
+		"--timeframe", "5min",
+		"--cache-dir", dir,
+		"--api-key", "testkey",
+		"--access-token", "testtoken",
+	}, &stdout, &stderr, factory)
+
+	// run() must return non-nil for a hard error.
+	if err == nil {
+		t.Fatal("run() with hard provider error: want non-nil error, got nil")
 	}
 }
 

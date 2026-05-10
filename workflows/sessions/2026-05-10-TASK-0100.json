@@ -1,0 +1,120 @@
+{
+  "session_date": "2026-05-10",
+  "workflow": "build",
+  "task_id": "TASK-0100",
+  "task_title": "Fix — OHLC bad-candle skip in cmd/fetch-history",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-05-10-5min-data-coverage-both-universes.md",
+        "decisions/tradeoff/2026-05-05-fetch-candles-completeness-threshold-90-pct.md"
+      ],
+      "context_files": [
+        "decisions/convention/2026-05-09-run-extraction-for-testability-in-cmd-fetch-history.md",
+        "decisions/convention/2026-05-09-provider-factory-receives-parsed-flags.md",
+        "decisions/architecture/2026-05-09-fetch-history-progress-manifest-cmd-layer.md",
+        "decisions/architecture/2026-05-09-fetch-history-direct-token-not-oauth-flow.md"
+      ]
+    },
+    "marcus": {
+      "summary": "not applicable — step skipped (prior decision applies)"
+    },
+    "priya_plan": {
+      "plan_summary": "ErrBadCandles non-fatal typed warning pattern; CachedProvider caches valid candles and propagates warning; cmd/fetch-history/fetchOne uses errors.As.",
+      "files_to_create": [],
+      "files_to_modify": [
+        "pkg/provider/zerodha/errors.go",
+        "pkg/provider/zerodha/provider.go",
+        "pkg/provider/zerodha/cache/cache.go",
+        "cmd/fetch-history/main.go",
+        "pkg/provider/zerodha/provider_test.go",
+        "pkg/provider/zerodha/cache/cache_test.go",
+        "cmd/fetch-history/main_test.go"
+      ],
+      "approach": "Introduce ErrBadCandles non-fatal typed warning; CachedProvider caches candles when non-empty; cmd/fetch-history uses errors.As to detect and log skips, records skipped_candles in manifest."
+    },
+    "build": {
+      "build_summary": "Fixed OHLC bad-candle hard-fail. ErrBadCandles pattern + all-bad-candles guard + empty-cache guard implemented. 9 new tests. Quality gate PASS.",
+      "files_modified": [
+        "pkg/provider/zerodha/errors.go",
+        "pkg/provider/zerodha/provider.go",
+        "pkg/provider/zerodha/cache/cache.go",
+        "cmd/fetch-history/main.go",
+        "pkg/provider/zerodha/provider_test.go",
+        "pkg/provider/zerodha/cache/cache_test.go",
+        "cmd/fetch-history/main_test.go"
+      ],
+      "tests_written": [
+        "TestParseKiteCandles_non_float_value_skips_candle",
+        "TestParseKiteCandles_bad_ohlc_skips_candle",
+        "TestFetchCandles_bad_ohlc_returns_ErrBadCandles_with_valid_candles",
+        "TestFetchCandles_all_valid_returns_nil_error",
+        "TestCachedProvider_PropagatesErrBadCandles",
+        "TestCachedProvider_DoesNotCacheEmptyOnErrBadCandles",
+        "TestFetchOne_BadCandleSkip",
+        "TestFetchOne_BadCandleSkip_AllCandlesBad",
+        "TestFetchOne_HardErrorStillFails"
+      ],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "findings": []
+    },
+    "perspective_review": {
+      "review_status": "APPROVE",
+      "iteration": 2,
+      "findings": []
+    }
+  },
+  "quality_review_round": 1,
+  "perspective_review_iteration": 2,
+  "perspective_review_history": [
+    {
+      "iteration": 1,
+      "reviewers_activated": ["Tech Debt Sentinel", "Error Handling Inspector", "API & Contract Reviewer", "Dependency & Coupling Reviewer", "Test Coverage Auditor", "Naming & Clarity Guardian"],
+      "findings": [
+        {"reviewer": "Error Handling Inspector", "file": "cmd/fetch-history/main.go", "location": "fetchOne", "description": "ErrBadCandles with len(candles)==0 marks instrument complete with nothing cached", "severity": "blocking"},
+        {"reviewer": "Error Handling Inspector", "file": "pkg/provider/zerodha/cache/cache.go", "location": "FetchCandles", "description": "writeCache called with nil/empty candles creates empty cache file short-circuiting future fetches", "severity": "blocking"}
+      ],
+      "review_status": "REQUEST_CHANGES"
+    },
+    {
+      "iteration": 2,
+      "reviewers_activated": ["Error Handling Inspector"],
+      "findings": [],
+      "review_status": "APPROVE"
+    }
+  ],
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0100 'Fix — OHLC bad-candle skip in cmd/fetch-history' created and picked. Source: bug.",
+    "[AUTO] Step 1.5a-d — Routing and preflight: passed.",
+    "[AUTO] Step 2 — Decision lookup: 2 standing orders, 4 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (prior decision applies).",
+    "[AUTO] Step 4 — Plan: complete. ErrBadCandles non-fatal typed warning pattern.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. 7 files modified.",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 0 warnings, 1 suggestion. Gate: clean.",
+    "[AUTO] Step 5c round 1 — Perspective review: scope=medium, mode=full, reviewers=6, blocking=2, suggestions=6.",
+    "[AUTO] Step 5c round 1 — Findings: Error Handling Inspector / fetchOne / all-bad-candles treated as success; Error Handling Inspector / CachedProvider / empty slice written to cache.",
+    "[AUTO] Step 5c round 1 — Iterate: status=RESOLVED. Files: main.go, main_test.go, cache.go, cache_test.go.",
+    "[AUTO] Step 5c round 2 — Perspective review: scope=small, mode=targeted (Error Handling Inspector), blocking=0, suggestions=0. APPROVE.",
+    "[AUTO] Step 6 — All acceptance criteria verified."
+  ],
+  "decision_marks_pending": [
+    "**Decision (ErrBadCandles as non-fatal typed warning returned alongside valid candles) — architecture: experimental**",
+    "**Decision (CachedProvider updated to cache candles on ErrBadCandles only when non-empty) — tradeoff: experimental**",
+    "**Decision (SkippedCandle index and reason recorded in progress manifest skipped_candles field) — convention: experimental**",
+    "**Decision (SkippedCandle carries Index and Reason, not raw OHLC values) — convention: experimental**",
+    "**Decision (skip OHLC-invalid candles in parseKiteCandles, hard-fail on structural errors) — convention: experimental**",
+    "**Decision (cache package imports zerodha for ErrBadCandles type-check — not circular) — architecture: experimental**",
+    "**Decision (manifestSkippedCandle as local DTO mirroring zerodha.SkippedCandle — not embedding provider type in manifest) — convention: experimental**",
+    "**Decision (ErrBadCandles all-candles-bad path returns error and skips completed mark) — convention: experimental**",
+    "**Decision (CachedProvider only writes cache when len(candles)>0 — empty result not cached) — tradeoff: experimental**"
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": true,
+  "prior_rounds_findings": []
+}

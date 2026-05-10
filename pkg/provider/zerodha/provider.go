@@ -150,16 +150,18 @@ func (p *Provider) FetchCandles(ctx context.Context, instrument string, tf model
 	}
 
 	var all []model.Candle
+	var allSkipped []SkippedCandle
 	for i, w := range windows {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 
-		candles, err := p.fetchChunk(ctx, instrument, tf, token, interval, w.from, w.to)
+		candles, skipped, err := p.fetchChunk(ctx, instrument, tf, token, interval, w.from, w.to)
 		if err != nil {
 			return nil, err
 		}
 		all = append(all, candles...)
+		allSkipped = append(allSkipped, skipped...)
 
 		if i < len(windows)-1 {
 			p.sleep(350 * time.Millisecond)
@@ -168,10 +170,19 @@ func (p *Provider) FetchCandles(ctx context.Context, instrument string, tf model
 
 	// Completeness check: reject silently-short slices from chunked fetches.
 	// Skip when the expected count is zero (empty or same-day range).
+	// The check runs against the count of valid (non-skipped) candles; losing
+	// a handful of bad candles does not affect the 90% threshold in practice
+	// (1 skipped out of ~98,900 valid candles ≈ 0.001% loss).
 	if err := checkCompleteness(instrument, tf, from, to, len(all)); err != nil {
 		return nil, err
 	}
 
+	// Return a non-fatal ErrBadCandles warning alongside the valid candles.
+	// Callers that do not check errors.As will see a non-nil error (fail-safe).
+	// cmd/fetch-history uses errors.As to detect this and log/record in manifest.
+	if len(allSkipped) > 0 {
+		return all, &ErrBadCandles{Instrument: instrument, Skipped: allSkipped}
+	}
 	return all, nil
 }
 
@@ -211,12 +222,12 @@ func checkCompleteness(instrument string, tf model.Timeframe, from, to time.Time
 // fetchChunk fetches candles for a single date window from the Kite API.
 // from and to are converted to IST before formatting, as the API interprets
 // query parameters in IST time.
-func (p *Provider) fetchChunk(ctx context.Context, instrument string, tf model.Timeframe, token int64, interval string, from, to time.Time) ([]model.Candle, error) {
+func (p *Provider) fetchChunk(ctx context.Context, instrument string, tf model.Timeframe, token int64, interval string, from, to time.Time) ([]model.Candle, []SkippedCandle, error) {
 	endpoint := fmt.Sprintf("%s/instruments/historical/%d/%s", p.baseURL, token, interval)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Kite Connect interprets from/to as IST. Convert from UTC before formatting.
@@ -231,7 +242,7 @@ func (p *Provider) fetchChunk(ctx context.Context, instrument string, tf model.T
 
 	body, err := doHTTP(p.httpClient, req)
 	if err != nil {
-		return nil, fmt.Errorf("fetch chunk [%s, %s): %w",
+		return nil, nil, fmt.Errorf("fetch chunk [%s, %s): %w",
 			from.Format(time.RFC3339), to.Format(time.RFC3339), err)
 	}
 
@@ -241,14 +252,32 @@ func (p *Provider) fetchChunk(ctx context.Context, instrument string, tf model.T
 // parseKiteCandles parses the Kite Connect array-of-arrays candle response.
 // Each row is [timestamp, open, high, low, close, volume].
 // Timestamps are returned in UTC. Each candle is validated via model.NewCandle.
-func parseKiteCandles(instrument string, tf model.Timeframe, body []byte) ([]model.Candle, error) {
+//
+// Structural errors (malformed JSON, missing rows, unparseable timestamps) are
+// returned as hard errors — the chunk cannot be used. OHLC validation failures
+// from model.NewCandle are collected into the returned []SkippedCandle and the
+// candle is skipped rather than aborting the entire fetch. This handles the
+// Zerodha tick-vs-aggregation artifact where open sits marginally outside [low, high].
+//
+// **Decision (skip OHLC-invalid candles in parseKiteCandles, hard-fail on structural errors) — convention: experimental**
+// scope: pkg/provider/zerodha.parseKiteCandles
+// tags: bad-candle, skip, OHLC-validation, structural-error, TASK-0100
+// owner: priya
+//
+// Structural errors (malformed row, bad timestamp) are unrecoverable — the row
+// cannot be interpreted, and proceeding would corrupt the candle series order.
+// OHLC validation errors are recoverable — the row is well-formed, the timestamp
+// and surrounding candles are valid; only one price relationship is violated.
+// This matches the Zerodha artifact: open=835.6 with low=837.4 is a tick-boundary
+// misalignment, not a protocol error.
+func parseKiteCandles(instrument string, tf model.Timeframe, body []byte) ([]model.Candle, []SkippedCandle, error) {
 	var envelope struct {
 		Data struct {
 			Candles [][]interface{} `json:"candles"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, fmt.Errorf("parse candles response: %w", err)
+		return nil, nil, fmt.Errorf("parse candles response: %w", err)
 	}
 
 	// Use a fixed-offset IST zone as fallback; time.LoadLocation may fail in
@@ -256,14 +285,17 @@ func parseKiteCandles(instrument string, tf model.Timeframe, body []byte) ([]mod
 	ist := time.FixedZone("IST", 5*3600+30*60)
 
 	candles := make([]model.Candle, 0, len(envelope.Data.Candles))
+	var skipped []SkippedCandle
 	for i, row := range envelope.Data.Candles {
 		if len(row) < 6 {
-			return nil, fmt.Errorf("zerodha: candle[%d]: expected 6 elements, got %d", i, len(row))
+			// Structural error: row is truncated, cannot determine timestamp or OHLC.
+			return nil, nil, fmt.Errorf("zerodha: candle[%d]: expected 6 elements, got %d", i, len(row))
 		}
 
 		tsStr, ok := row[0].(string)
 		if !ok {
-			return nil, fmt.Errorf("zerodha: candle[%d]: timestamp is not a string", i)
+			// Structural error: timestamp field is not a string.
+			return nil, nil, fmt.Errorf("zerodha: candle[%d]: timestamp is not a string", i)
 		}
 
 		// Kite returns "2024-01-01T09:15:00+0530" — the +0530 offset has no colon,
@@ -273,7 +305,8 @@ func parseKiteCandles(instrument string, tf model.Timeframe, body []byte) ([]mod
 			// Try RFC 3339 as a fallback for future API changes.
 			ts, err = time.Parse(time.RFC3339, tsStr)
 			if err != nil {
-				return nil, fmt.Errorf("zerodha: candle[%d]: parse timestamp %q: %w", i, tsStr, err)
+				// Structural error: timestamp is unparseable.
+				return nil, nil, fmt.Errorf("zerodha: candle[%d]: parse timestamp %q: %w", i, tsStr, err)
 			}
 		}
 
@@ -283,11 +316,17 @@ func parseKiteCandles(instrument string, tf model.Timeframe, body []byte) ([]mod
 			toFloat64(row[4]), toFloat64(row[5]),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("zerodha: candle[%d]: %w", i, err)
+			// OHLC validation error: skip this candle, collect reason, continue.
+			// The completeness check will catch the case where too many are skipped.
+			skipped = append(skipped, SkippedCandle{
+				Index:  i,
+				Reason: fmt.Sprintf("zerodha: candle[%d]: %s", i, err.Error()),
+			})
+			continue
 		}
 		candles = append(candles, c)
 	}
-	return candles, nil
+	return candles, skipped, nil
 }
 
 // timeframeToInterval maps model.Timeframe to the Kite Connect interval string.

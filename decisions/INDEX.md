@@ -8,6 +8,69 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-10-cache-imports-zerodha-for-errbadcandles-not-circular
+    title: "cache package imports zerodha parent for ErrBadCandles type-check — not circular"
+    date: 2026-05-10
+    status: experimental
+    category: architecture
+    tags: [bad-candle, ErrBadCandles, package-dependency, not-circular, TASK-0100]
+    path: architecture/2026-05-10-cache-imports-zerodha-for-errbadcandles-not-circular.md
+    summary: "pkg/provider/zerodha/cache now imports its parent pkg/provider/zerodha to use ErrBadCandles in errors.As check. Not circular (zerodha does not import cache). Revisit if second DataProvider added — consider moving ErrBadCandles to pkg/provider/."
+
+  - id: 2026-05-10-errbadcandles-all-bad-returns-error-skips-completed
+    title: "ErrBadCandles all-candles-bad path returns error and skips completed mark"
+    date: 2026-05-10
+    status: experimental
+    category: convention
+    tags: [bad-candle, all-bad, error-path, manifest, TASK-0100]
+    path: convention/2026-05-10-errbadcandles-all-bad-returns-error-skips-completed.md
+    summary: "When ErrBadCandles is detected and len(candles)==0, fetchOne returns error and does NOT append to manifest.Completed. Instrument retries on next run. Prevents marking instrument as fetched when nothing was cached."
+
+  - id: 2026-05-10-manifest-skipped-candle-local-dto-not-provider-type
+    title: "manifestSkippedCandle as local DTO in cmd/fetch-history, not embedding zerodha.SkippedCandle"
+    date: 2026-05-10
+    status: experimental
+    category: convention
+    tags: [bad-candle, manifest, DTO, serialization, cmd-layer, TASK-0100]
+    path: convention/2026-05-10-manifest-skipped-candle-local-dto-not-provider-type.md
+    summary: "Local manifestSkippedCandle DTO mirrors zerodha.SkippedCandle for fetch-progress.json serialization. Manifest schema decoupled from provider type — follows thresholdsFile DTO pattern in cmd/monitor."
+
+  - id: 2026-05-10-skipped-candle-index-and-reason-not-raw-ohlc
+    title: "SkippedCandle carries Index and Reason, not raw OHLC values"
+    date: 2026-05-10
+    status: experimental
+    category: convention
+    tags: [bad-candle, skip, SkippedCandle, manifest, TASK-0100]
+    path: convention/2026-05-10-skipped-candle-index-and-reason-not-raw-ohlc.md
+    summary: "SkippedCandle{Index int, Reason string}. Reason already contains the invalid values from model.Candle.Validate error message. Raw float64 OHLC fields add weight with no benefit — no caller does arithmetic on bad values."
+
+  - id: 2026-05-10-skip-ohlc-invalid-candles-hard-fail-structural-errors
+    title: "Skip OHLC-invalid candles in parseKiteCandles; hard-fail on structural errors"
+    date: 2026-05-10
+    status: experimental
+    category: convention
+    tags: [bad-candle, skip, OHLC-validation, structural-error, parseKiteCandles, TASK-0100]
+    path: convention/2026-05-10-skip-ohlc-invalid-candles-hard-fail-structural-errors.md
+    summary: "Structural errors (short row, non-string timestamp, unparseable timestamp) hard-fail the chunk. OHLC validation errors from model.NewCandle skip the candle and continue. Completeness check is the safety net for mass skips."
+
+  - id: 2026-05-10-cachedprovider-cache-on-errbadcandles-only-when-nonempty
+    title: "CachedProvider caches candles on ErrBadCandles only when len(candles) > 0"
+    date: 2026-05-10
+    status: experimental
+    category: tradeoff
+    tags: [bad-candle, ErrBadCandles, cache, empty-candle-guard, TASK-0100]
+    path: tradeoff/2026-05-10-cachedprovider-cache-on-errbadcandles-only-when-nonempty.md
+    summary: "writeCache guarded by len(candles)>0. Empty-candle response (all bad) not cached — a cached empty file would short-circuit future network fetches returning nil candles with nil error. Non-empty partial response is cached normally."
+
+  - id: 2026-05-10-errbadcandles-non-fatal-warning-alongside-valid-candles
+    title: "ErrBadCandles as non-fatal typed warning returned alongside valid candles"
+    date: 2026-05-10
+    status: experimental
+    category: architecture
+    tags: [bad-candle, skip, OHLC-validation, Zerodha-artifact, ErrBadCandles, TASK-0100]
+    path: architecture/2026-05-10-errbadcandles-non-fatal-warning-alongside-valid-candles.md
+    summary: "FetchCandles returns (candles, *ErrBadCandles) when candles are skipped. DataProvider interface unchanged. Fail-safe: callers not using errors.As see hard error. Only cmd/fetch-history explicitly handles it as partial success."
+
   - id: 2026-05-09-macd-crossover-midcap-correlation-killswitch-portfolio
     title: "MACD crossover Nifty Midcap 150 — correlation screen, kill-switch thresholds, portfolio construction"
     date: 2026-05-09

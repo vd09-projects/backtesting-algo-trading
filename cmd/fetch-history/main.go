@@ -95,7 +95,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/universesweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
-	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
+	zerodha "github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha/cache"
 )
 
@@ -107,10 +107,29 @@ func main() {
 	}
 }
 
+// manifestSkippedCandle mirrors zerodha.SkippedCandle for JSON serialization in the manifest.
+//
+// **Decision (SkippedCandle index and reason recorded in progress manifest skipped_candles field) — convention: experimental**
+// scope: cmd/fetch-history.progressEntry.SkippedCandles
+// tags: bad-candle, manifest, skip, OHLC-validation, TASK-0100
+// owner: priya
+//
+// A local DTO mirrors zerodha.SkippedCandle rather than embedding the provider type in the
+// manifest. The manifest is a cmd-layer concern; importing provider types into its JSON schema
+// would couple the manifest format to the provider package. The fields are identical for now;
+// if zerodha.SkippedCandle changes, the manifest format is unaffected.
+type manifestSkippedCandle struct {
+	Index  int    `json:"index"`
+	Reason string `json:"reason"`
+}
+
 // progressEntry records a completed instrument+timeframe fetch.
+// SkippedCandles is non-nil only when one or more candles were skipped due to
+// OHLC validation failures (Zerodha tick-vs-aggregation artifact).
 type progressEntry struct {
-	Instrument string `json:"instrument"`
-	Timeframe  string `json:"timeframe"`
+	Instrument     string                  `json:"instrument"`
+	Timeframe      string                  `json:"timeframe"`
+	SkippedCandles []manifestSkippedCandle `json:"skipped_candles,omitempty"`
 }
 
 // progressManifest is the on-disk partial-failure recovery state for a fetch-history run.
@@ -359,13 +378,62 @@ func fetchOne(
 	// TODO(TASK-0080): if t, ok := p.(interface{ LastCachedTime(string, model.Timeframe) (time.Time, bool) }); ok { ... }
 	effectiveFrom := from
 
-	candles, err := p.FetchCandles(ctx, inst, tf, effectiveFrom, today)
-	if err != nil {
-		fmt.Fprintf(stderr, "%s × %s: fetch error: %v\n", inst, tf, err) //nolint:errcheck // error log; non-fatal
+	candles, fetchErr := p.FetchCandles(ctx, inst, tf, effectiveFrom, today)
+
+	// Detect the non-fatal ErrBadCandles warning: some candles were skipped due to OHLC
+	// validation failures (Zerodha tick-vs-aggregation artifact). When at least one valid
+	// candle was returned, log per-candle warnings, record in the manifest, and treat the
+	// fetch as successful. When ALL candles were bad (len(candles) == 0), log an error and
+	// treat as failed — nothing useful was cached and a retry may succeed if the artifact
+	// is intermittent.
+	var badCandles *zerodha.ErrBadCandles
+	if errors.As(fetchErr, &badCandles) {
+		// Log a warning for each skipped candle regardless of outcome.
+		for _, sc := range badCandles.Skipped {
+			fmt.Fprintf(stderr, "warning: %s × %s: skipped candle[%d]: %s\n", //nolint:errcheck // warning; non-fatal
+				inst, tf, sc.Index, sc.Reason)
+		}
+
+		if len(candles) == 0 {
+			// All candles were bad — nothing cached, treat as failure so the instrument
+			// is retried on the next run.
+			fmt.Fprintf(stderr, "%s × %s: all %d candles were invalid, nothing cached — instrument will retry on next run\n", //nolint:errcheck // error log; non-fatal
+				inst, tf, len(badCandles.Skipped))
+			if saveErr := saveManifest(manifestPath, *manifest); saveErr != nil {
+				fmt.Fprintf(stderr, "warning: could not save progress manifest: %v\n", saveErr) //nolint:errcheck // warning; non-fatal
+			}
+			return badCandles
+		}
+
+		// At least one valid candle — treat as success with skipped-candle annotation.
+		manifestSkipped := make([]manifestSkippedCandle, len(badCandles.Skipped))
+		for i, sc := range badCandles.Skipped {
+			manifestSkipped[i] = manifestSkippedCandle{Index: sc.Index, Reason: sc.Reason}
+		}
+		fmt.Fprintf(stdout, "%s × %s: fetched %d candles [%s → %s] (%d skipped)\n", //nolint:errcheck // progress output; non-fatal
+			inst, tf, len(candles),
+			effectiveFrom.Format("2006-01-02"),
+			today.Format("2006-01-02"),
+			len(badCandles.Skipped),
+		)
+		manifest.Completed = append(manifest.Completed, progressEntry{
+			Instrument:     inst,
+			Timeframe:      string(tf),
+			SkippedCandles: manifestSkipped,
+		})
+		completed[key] = true
 		if saveErr := saveManifest(manifestPath, *manifest); saveErr != nil {
 			fmt.Fprintf(stderr, "warning: could not save progress manifest: %v\n", saveErr) //nolint:errcheck // warning; non-fatal
 		}
-		return err
+		return nil
+	}
+
+	if fetchErr != nil {
+		fmt.Fprintf(stderr, "%s × %s: fetch error: %v\n", inst, tf, fetchErr) //nolint:errcheck // error log; non-fatal
+		if saveErr := saveManifest(manifestPath, *manifest); saveErr != nil {
+			fmt.Fprintf(stderr, "warning: could not save progress manifest: %v\n", saveErr) //nolint:errcheck // warning; non-fatal
+		}
+		return fetchErr
 	}
 
 	fmt.Fprintf(stdout, "%s × %s: fetched %d candles [%s → %s]\n", //nolint:errcheck // progress output; non-fatal

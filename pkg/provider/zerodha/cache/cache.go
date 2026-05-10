@@ -7,6 +7,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 )
 
 // dateLayout is the YYYY-MM-DD format used in cache filenames.
@@ -73,14 +75,33 @@ func (c *CachedProvider) FetchCandles(ctx context.Context, instrument string, tf
 	}
 
 	// 3. Network fetch.
+	//
+	// **Decision (CachedProvider caches candles on ErrBadCandles, propagates warning) — tradeoff: experimental**
+	// scope: pkg/provider/zerodha/cache.CachedProvider.FetchCandles
+	// tags: bad-candle, ErrBadCandles, cache, warning-propagation, TASK-0100
+	// owner: priya
+	//
+	// When the inner provider returns (candles, *ErrBadCandles), the candles are
+	// valid — only a subset were skipped. Caching them prevents a re-fetch of the
+	// same bad candle on the next run. The ErrBadCandles warning is propagated to
+	// the caller so cmd/fetch-history can log the skip and update the manifest.
+	// Any other non-nil error causes the standard path (nil candles returned, nothing cached).
 	candles, err := c.inner.FetchCandles(ctx, instrument, tf, from, to)
-	if err != nil {
+
+	var badCandles *zerodha.ErrBadCandles
+	if err != nil && !errors.As(err, &badCandles) {
+		// Hard error — do not cache.
 		return nil, err
 	}
 
 	// Best-effort write: a cache failure must not fail the fetch.
-	_ = c.writeCache(path, candles) //nolint:errcheck // best-effort; cache failure must not fail the caller
-	return candles, nil
+	// This runs for both nil error and *ErrBadCandles, but only when candles are non-empty.
+	// An empty slice (all candles skipped) must not be cached — a subsequent readCache would
+	// treat it as a valid hit and return no candles with nil error, silently bypassing the network.
+	if len(candles) > 0 {
+		_ = c.writeCache(path, candles) //nolint:errcheck // best-effort; cache failure must not fail the caller
+	}
+	return candles, err // propagate ErrBadCandles warning (or nil) to caller
 }
 
 // SupportedTimeframes delegates to the inner provider.

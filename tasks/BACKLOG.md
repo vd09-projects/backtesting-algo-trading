@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-10 | **Open tasks:** 22 | **Next up:** TASK-0073
+**Last updated:** 2026-05-10 | **Open tasks:** 22 | **Next up:** TASK-0098
 
 ---
 
@@ -36,22 +36,20 @@
 
 ---
 
-### [TASK-0099] Data — fetch and validate 5-min bar history for Nifty50 large-cap and Nifty Midcap 150 universes
+### [TASK-0101] Data — re-run `cmd/fetch-history` for 10 previously failing 5-min instruments
 
 - **Status:** todo
 - **Priority:** high
 - **Created:** 2026-05-10
 - **Source:** session
-- **Context:** ORB and Gap-and-Go evaluation runs need 5-min bar history for both the Nifty50 large-cap and Nifty Midcap 150 universes — run in parallel to maximise signal quality and avoid over-fitting to one universe. `cmd/fetch-history` supports `--timeframe 5min` but the 5-min cache has never been populated for either universe. Kite Connect's available 5-min window is approximately 3 years — significantly shorter than the 6-year daily window used for MACD evaluation. Available window affects walk-forward fold count and Marcus's gate thresholds. Must be documented before evaluation pipeline runs begin.
+- **Context:** TASK-0100 fixed the OHLC bad-candle hard-fail in `cmd/fetch-history`. The 10 instruments that previously failed at candle[450] (HDFCBANK, ICICIBANK + 8 midcap: ABCAPITAL, GODREJCP, SUNDRMFAST, ENDURANCE, LTTS, ALKEM, RATNAMANI, LEMONTREE) can now be fetched. Each will have 1 candle skipped and ~98,900 valid candles cached — all well above the 90% completeness threshold.
 - **Acceptance criteria:**
-  - [ ] Run `cmd/fetch-history --universe universes/nifty50-large-cap.yaml --timeframe 5min --from 2021-01-01 --cache-dir .cache/zerodha` (verify Kite's actual 5-min limit first — adjust from-date if needed)
-  - [ ] Run `cmd/fetch-history --universe universes/nifty-midcap-liquid.yaml --timeframe 5min --from 2021-01-01 --cache-dir .cache/zerodha` in parallel with large-cap fetch
-  - [ ] Document earliest available 5-min date per instrument for both universes in `decisions/algorithm/YYYY-MM-DD-5min-data-coverage-both-universes.md` (single file, two sections)
-  - [ ] Flag any instruments in either universe with < 2 years of 5-min history for Marcus review
-  - [ ] Verify bar count sanity: ~75 bars/day × 250 days/year × N years per instrument; flag instruments with < 90% of expected bars as data quality issues
-  - [ ] Check session-boundary integrity: first bar each day 09:15 IST, last bar 15:25 IST; flag intra-session gaps per instrument
-  - [ ] Decision file includes: minimum usable window per universe, recommendation for walk-forward fold structure given available data, any universe-level data quality differences worth noting
-- **Notes:** Operational task — no code changes. Requires valid Kite access token. Kite 5-min chunk limit ~60 days per request; `cmd/fetch-history` handles chunking automatically. Both fetches can run simultaneously in separate terminals — they write to separate cache subdirectories by instrument. If available window < 2 years for either universe, Marcus must decide viability before TASK-0074 or TASK-0075 build begins. Midcap universe has 48 instruments vs 15 large-cap — expect midcap fetch to take ~3× longer. Unblocks: TASK-0074 (evaluation run), TASK-0075 (evaluation run).
+  - [ ] Run `cmd/fetch-history --universe universes/nifty50-large-cap.yaml --timeframe 5min --from 2021-01-01 --cache-dir .cache/zerodha` — HDFCBANK and ICICIBANK succeed (with 1 skipped candle each, logged in manifest)
+  - [ ] Run `cmd/fetch-history --universe universes/nifty-midcap-liquid.yaml --timeframe 5min --from 2021-01-01 --cache-dir .cache/zerodha` — all 8 midcap failures succeed
+  - [ ] `fetch-progress.json` manifest for each run records `skipped_candles` entries for the affected instruments
+  - [ ] Bar count for each previously failing instrument: ≥89,438 bars (90% of 99,375 expected)
+  - [ ] Update `decisions/algorithm/2026-05-10-5min-data-coverage-both-universes.md` with final coverage: large-cap 15/15, midcap 48/48
+- **Notes:** Operational task — no code changes. Delete `fetch-progress.json` from `.cache/zerodha/` before re-running to force a fresh pass on the previously failed instruments (or rename the old manifest to avoid skipping them). The fix logs a warning to stderr for each skipped candle — verify warnings appear for candle[450] in each instrument. This is an evaluation-run type task, not a build task. Unblocks TASK-0074 and TASK-0075 from the data-availability perspective (instruments were previously excluded from 5-min universe).
 
 ---
 
@@ -115,7 +113,7 @@
   - [ ] CLI registered in all strategy registries (`cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`)
   - [ ] All public functions tested; golden test for range computation and signal generation
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — done 2026-05-07) before implementation begins. Infrastructure dependencies resolved. Additional pre-build requirements: TASK-0098 (PriceExit wrapper — needed for SL/TP support in strategy) and TASK-0099 (5-min data fetch and validation — needed before evaluation runs). Blocked solely on Marcus rules + TASK-0098 + TASK-0099.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — done 2026-05-07) before implementation begins. Infrastructure dependencies resolved. Additional pre-build requirement: TASK-0098 (PriceExit wrapper — needed for SL/TP support in strategy). TASK-0099 (5-min data fetch) done 2026-05-10 — 5-min cache populated, 13/15 large-cap instruments available (HDFCBANK, ICICIBANK excluded pending Marcus OHLC ruling). Blocked solely on Marcus rules + TASK-0098.
 
 ---
 
@@ -134,7 +132,7 @@
   - [ ] CLI registered in all strategy registries
   - [ ] All public functions tested; golden test covering gap-up enter, gap-down enter, no-gap skip
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here) done 2026-05-07. Infrastructure dependencies resolved. Additional pre-build requirements: TASK-0098 (PriceExit wrapper — needed for SL/TP support in strategy) and TASK-0099 (5-min data fetch and validation — needed before evaluation runs). Blocked solely on Marcus rules + TASK-0098 + TASK-0099. Long-only initially.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here) done 2026-05-07. Infrastructure dependencies resolved. Additional pre-build requirement: TASK-0098 (PriceExit wrapper — needed for SL/TP support in strategy). TASK-0099 (5-min data fetch) done 2026-05-10 — 5-min cache populated, 40/48 midcap instruments available (8 excluded pending Marcus OHLC ruling). Blocked solely on Marcus rules + TASK-0098. Long-only initially.
 
 ---
 

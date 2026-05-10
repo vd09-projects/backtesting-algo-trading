@@ -11,6 +11,7 @@ import (
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 )
 
 // compile-time check that CachedProvider satisfies the DataProvider interface.
@@ -413,6 +414,109 @@ func TestSupersetMiss_NoSupersetFile(t *testing.T) {
 	}
 	if len(got) != len(bigCandles) {
 		t.Errorf("got %d candles, want %d", len(got), len(bigCandles))
+	}
+}
+
+// TestCachedProvider_PropagatesErrBadCandles verifies that when the inner provider
+// returns (candles, *zerodha.ErrBadCandles), CachedProvider:
+//   - caches the valid candles to disk (so a subsequent call is served from cache)
+//   - propagates the *ErrBadCandles warning to the caller (not swallowed)
+func TestCachedProvider_PropagatesErrBadCandles(t *testing.T) {
+	skipped := []zerodha.SkippedCandle{{Index: 450, Reason: "candle: open (835.6000) must be within [low=837.4000, high=843.8000]"}}
+	warning := &zerodha.ErrBadCandles{
+		Instrument: testInstrument,
+		Skipped:    skipped,
+	}
+
+	// Inner returns valid candles + a non-fatal ErrBadCandles warning.
+	inner := &mockProvider{candles: testCandles, err: warning}
+	cp := newTestProvider(t, inner)
+
+	got, err := cp.FetchCandles(context.Background(), testInstrument, testTF, testFrom, testTo)
+
+	// Error must be the ErrBadCandles warning (propagated, not swallowed).
+	var badCandles *zerodha.ErrBadCandles
+	if !errors.As(err, &badCandles) {
+		t.Fatalf("want *ErrBadCandles propagated from CachedProvider, got %T: %v", err, err)
+	}
+	if len(badCandles.Skipped) != 1 {
+		t.Errorf("ErrBadCandles.Skipped len = %d, want 1", len(badCandles.Skipped))
+	}
+
+	// Valid candles must be returned alongside the warning.
+	if len(got) != len(testCandles) {
+		t.Errorf("got %d candles, want %d", len(got), len(testCandles))
+	}
+
+	// Cache file must be written with the valid candles (so next call hits cache).
+	path := cp.cachePath(testInstrument, testTF, testFrom, testTo)
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+		t.Error("cache file must be written even when inner returns ErrBadCandles warning")
+	}
+
+	// Second call: must be served from cache with nil error (warning was for the fetch, not the data).
+	inner.callCount = 0 // reset
+	inner.err = nil
+	got2, err2 := cp.FetchCandles(context.Background(), testInstrument, testTF, testFrom, testTo)
+	if err2 != nil {
+		t.Errorf("second call (cache hit): want nil error, got %v", err2)
+	}
+	if inner.callCount != 0 {
+		t.Errorf("second call must be a cache hit, got %d inner calls", inner.callCount)
+	}
+	if len(got2) != len(testCandles) {
+		t.Errorf("second call: got %d candles, want %d", len(got2), len(testCandles))
+	}
+}
+
+// TestCachedProvider_DoesNotCacheEmptyOnErrBadCandles verifies that when the inner
+// provider returns ([]model.Candle{}, *ErrBadCandles) — all candles invalid, nothing
+// useful fetched — CachedProvider:
+//   - does NOT write a cache file (an empty cache entry would short-circuit future fetches)
+//   - still propagates the *ErrBadCandles warning to the caller
+func TestCachedProvider_DoesNotCacheEmptyOnErrBadCandles(t *testing.T) {
+	skipped := []zerodha.SkippedCandle{{Index: 0, Reason: "candle: open (835.6000) must be within [low=837.4000, high=843.8000]"}}
+	warning := &zerodha.ErrBadCandles{
+		Instrument: testInstrument,
+		Skipped:    skipped,
+	}
+
+	// Inner returns empty candles + ErrBadCandles (all-bad case).
+	inner := &mockProvider{candles: []model.Candle{}, err: warning}
+	cp := newTestProvider(t, inner)
+
+	got, err := cp.FetchCandles(context.Background(), testInstrument, testTF, testFrom, testTo)
+
+	// Error must be the ErrBadCandles warning (propagated, not swallowed).
+	var badCandles *zerodha.ErrBadCandles
+	if !errors.As(err, &badCandles) {
+		t.Fatalf("want *ErrBadCandles propagated from CachedProvider, got %T: %v", err, err)
+	}
+
+	// Empty candle slice must be returned (nothing valid).
+	if len(got) != 0 {
+		t.Errorf("got %d candles, want 0 (all were invalid)", len(got))
+	}
+
+	// Cache file must NOT be written — an empty-candle cache entry would be a silent bug.
+	path := cp.cachePath(testInstrument, testTF, testFrom, testTo)
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+		t.Error("cache file must NOT be written when inner returns empty candles + ErrBadCandles")
+	}
+
+	// Second call must hit the network again (not the empty cache).
+	inner.callCount = 0
+	inner.err = nil // next call returns normally
+	inner.candles = testCandles
+	got2, err2 := cp.FetchCandles(context.Background(), testInstrument, testTF, testFrom, testTo)
+	if err2 != nil {
+		t.Errorf("second call: want nil error, got %v", err2)
+	}
+	if inner.callCount != 1 {
+		t.Errorf("second call must hit inner (no valid cache), got %d inner calls", inner.callCount)
+	}
+	if len(got2) != len(testCandles) {
+		t.Errorf("second call: got %d candles, want %d", len(got2), len(testCandles))
 	}
 }
 

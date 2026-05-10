@@ -336,9 +336,12 @@ func TestParseKiteCandles_fixture(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	candles, err := parseKiteCandles("NSE:NIFTY 50", model.TimeframeDaily, fixtureJSON)
+	candles, skipped, err := parseKiteCandles("NSE:NIFTY 50", model.TimeframeDaily, fixtureJSON)
 	if err != nil {
 		t.Fatalf("parseKiteCandles: %v", err)
+	}
+	if len(skipped) != 0 {
+		t.Errorf("want 0 skipped candles from valid fixture, got %d", len(skipped))
 	}
 	if len(candles) != 5 {
 		t.Fatalf("want 5 candles, got %d", len(candles))
@@ -357,7 +360,7 @@ func TestParseKiteCandles_fixture(t *testing.T) {
 
 func TestParseKiteCandles_bad_timestamp(t *testing.T) {
 	body := []byte(`{"data":{"candles":[["not-a-time",100,110,90,105,1000]]}}`)
-	_, err := parseKiteCandles("NSE:RELIANCE", model.TimeframeDaily, body)
+	_, _, err := parseKiteCandles("NSE:RELIANCE", model.TimeframeDaily, body)
 	if err == nil {
 		t.Fatal("want error for bad timestamp, got nil")
 	}
@@ -365,7 +368,7 @@ func TestParseKiteCandles_bad_timestamp(t *testing.T) {
 
 func TestParseKiteCandles_short_row(t *testing.T) {
 	body := []byte(`{"data":{"candles":[["2024-01-01T00:00:00+0530",100,110]]}}`)
-	_, err := parseKiteCandles("NSE:RELIANCE", model.TimeframeDaily, body)
+	_, _, err := parseKiteCandles("NSE:RELIANCE", model.TimeframeDaily, body)
 	if err == nil {
 		t.Fatal("want error for row with <6 elements, got nil")
 	}
@@ -375,9 +378,12 @@ func TestParseKiteCandles_rfc3339_fallback(t *testing.T) {
 	// RFC 3339 uses "+05:30" (with colon); the primary layout expects "+0530" (no colon).
 	// This tests the fallback path for future API changes.
 	body := []byte(`{"data":{"candles":[["2026-03-30T00:00:00+05:30",22549.65,22714.1,22283.85,22331.4,0]]}}`)
-	candles, err := parseKiteCandles("NSE:NIFTY 50", model.TimeframeDaily, body)
+	candles, skipped, err := parseKiteCandles("NSE:NIFTY 50", model.TimeframeDaily, body)
 	if err != nil {
 		t.Fatalf("parseKiteCandles with RFC3339 timestamp: %v", err)
+	}
+	if len(skipped) != 0 {
+		t.Errorf("want 0 skipped candles, got %d", len(skipped))
 	}
 	if len(candles) != 1 {
 		t.Fatalf("want 1 candle, got %d", len(candles))
@@ -388,12 +394,133 @@ func TestParseKiteCandles_rfc3339_fallback(t *testing.T) {
 	}
 }
 
-func TestParseKiteCandles_non_float_value_returns_error(t *testing.T) {
+func TestParseKiteCandles_non_float_value_skips_candle(t *testing.T) {
 	// When a numeric field is a JSON string, toFloat64 returns 0.
-	// Open=0 fails model.Candle validation, so an error must be returned.
+	// Open=0 fails model.Candle validation; the candle must be skipped and
+	// collected into ErrBadCandles rather than hard-failing the entire fetch.
 	body := []byte(`{"data":{"candles":[["2026-03-30T00:00:00+0530","notanumber",22714.1,22283.85,22331.4,0]]}}`)
-	_, err := parseKiteCandles("NSE:NIFTY 50", model.TimeframeDaily, body)
-	if err == nil {
-		t.Fatal("want validation error for non-float Open, got nil")
+	candles, skipped, err := parseKiteCandles("NSE:NIFTY 50", model.TimeframeDaily, body)
+	if err != nil {
+		t.Fatalf("want nil error (bad candle should be skipped), got %v", err)
+	}
+	if len(candles) != 0 {
+		t.Errorf("want 0 valid candles (only bad candle in body), got %d", len(candles))
+	}
+	if len(skipped) != 1 {
+		t.Fatalf("want 1 skipped candle, got %d", len(skipped))
+	}
+	if skipped[0].Index != 0 {
+		t.Errorf("skipped[0].Index = %d, want 0", skipped[0].Index)
+	}
+	if skipped[0].Reason == "" {
+		t.Error("skipped[0].Reason must not be empty")
+	}
+}
+
+func TestParseKiteCandles_bad_ohlc_skips_candle(t *testing.T) {
+	// Simulate the Zerodha tick-vs-aggregation artifact: open (835.6) < low (837.4).
+	// This is the real error seen at candle[450] for HDFCBANK/ICICIBANK.
+	// Bad candle must be skipped; valid candles before and after must be returned.
+	body := []byte(`{"data":{"candles":[
+		["2021-01-08T09:15:00+0530",100,110,90,105,1000],
+		["2021-01-08T09:20:00+0530",835.6,843.8,837.4,840.0,5000],
+		["2021-01-08T09:25:00+0530",841.0,845.0,839.0,843.0,4500]
+	]}}`)
+	candles, skipped, err := parseKiteCandles("NSE:HDFCBANK", model.Timeframe5Min, body)
+	if err != nil {
+		t.Fatalf("want nil error (bad candle should be skipped), got %v", err)
+	}
+	if len(candles) != 2 {
+		t.Fatalf("want 2 valid candles (middle one is bad), got %d", len(candles))
+	}
+	if len(skipped) != 1 {
+		t.Fatalf("want 1 skipped candle, got %d", len(skipped))
+	}
+	if skipped[0].Index != 1 {
+		t.Errorf("skipped[0].Index = %d, want 1", skipped[0].Index)
+	}
+	if skipped[0].Reason == "" {
+		t.Error("skipped[0].Reason must not be empty")
+	}
+}
+
+func TestFetchCandles_bad_ohlc_returns_ErrBadCandles_with_valid_candles(t *testing.T) {
+	// One bad candle (open < low) plus one valid candle in the response.
+	// Date range: Mon 2021-01-11 → Tue 2021-01-12 (1 weekday).
+	// weekdayCount = 1, candlesPerDay (daily) = 1, expected = 1, threshold = int(0.9*1) = 0.
+	// Got = 1 valid (bad one skipped). 1 >= 0 → completeness passes.
+	// FetchCandles must return: 1 valid candle + *ErrBadCandles{Skipped: 1 entry}.
+	mixedCandleBody := `{"data":{"candles":[
+		["2021-01-11T00:00:00+0530",835.6,843.8,837.4,840.0,5000],
+		["2021-01-12T00:00:00+0530",841.0,845.0,839.0,843.0,4500]
+	]}}`
+	// First candle has open=835.6 < low=837.4 → OHLC validation error → skipped.
+	// Second candle is valid.
+
+	srv := newTestServer(t, []byte(mixedCandleBody), nil)
+	defer srv.Close()
+
+	p, err := NewProvider(t.Context(), Config{
+		APIKey: "key", AccessToken: "tok",
+		BaseURL:    srv.URL,
+		HTTPClient: srv.Client(),
+		Sleep:      func(time.Duration) {},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 1-weekday range: Mon 2021-01-11 to Tue 2021-01-12.
+	from := time.Date(2021, 1, 11, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2021, 1, 12, 0, 0, 0, 0, time.UTC)
+	candles, fetchErr := p.FetchCandles(t.Context(), "NSE:NIFTY 50", model.TimeframeDaily, from, to)
+
+	// Must return a non-nil *ErrBadCandles warning.
+	var badCandles *ErrBadCandles
+	if !errors.As(fetchErr, &badCandles) {
+		t.Fatalf("want *ErrBadCandles from FetchCandles, got %T: %v", fetchErr, fetchErr)
+	}
+	if len(badCandles.Skipped) != 1 {
+		t.Errorf("want 1 skipped candle in ErrBadCandles, got %d", len(badCandles.Skipped))
+	}
+	if badCandles.Instrument != "NSE:NIFTY 50" {
+		t.Errorf("ErrBadCandles.Instrument = %q, want %q", badCandles.Instrument, "NSE:NIFTY 50")
+	}
+	if badCandles.Skipped[0].Index != 0 {
+		t.Errorf("skipped[0].Index = %d, want 0 (first candle in response)", badCandles.Skipped[0].Index)
+	}
+	// Valid candles: second candle (open=841, within [low=839, high=845]) is returned.
+	if len(candles) != 1 {
+		t.Errorf("want 1 valid candle, got %d", len(candles))
+	}
+}
+
+func TestFetchCandles_all_valid_returns_nil_error(t *testing.T) {
+	// Regression: when all candles are valid, FetchCandles must not return ErrBadCandles.
+	// Use the existing daily fixture which has 5 valid candles and no bad ones.
+	fixtureJSON, err := os.ReadFile(filepath.Join("testdata", "candles_daily.json"))
+	if err != nil {
+		t.Fatalf("read candles fixture: %v", err)
+	}
+
+	srv := newTestServer(t, fixtureJSON, nil)
+	defer srv.Close()
+
+	p, err := NewProvider(t.Context(), Config{
+		APIKey: "key", AccessToken: "tok",
+		BaseURL:    srv.URL,
+		HTTPClient: srv.Client(),
+		Sleep:      func(time.Duration) {},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	from := time.Date(2026, 3, 29, 18, 30, 0, 0, time.UTC)
+	to := time.Date(2026, 4, 7, 18, 30, 0, 0, time.UTC)
+
+	_, fetchErr := p.FetchCandles(t.Context(), "NSE:NIFTY 50", model.TimeframeDaily, from, to)
+	if fetchErr != nil {
+		t.Errorf("want nil error for all-valid candles, got %v", fetchErr)
 	}
 }
