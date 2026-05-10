@@ -1,0 +1,39 @@
+{
+  "session_date": "2026-05-10",
+  "workflow": "evaluation-run",
+  "task_id": "TASK-0101",
+  "task_title": "Data — re-run cmd/fetch-history for 10 previously failing 5-min instruments",
+  "step_completed": 1,
+  "gates": [],
+  "command_run": null,
+  "results_file": null,
+  "results_row_count": null,
+  "project_state": {
+    "killed_strategies": [],
+    "prior_gate_survivors": [],
+    "strategy_prior_context": {}
+  },
+  "verdicts": {
+    "decision_lookup": null,
+    "marcus_design_ruling": null,
+    "marcus": null
+  },
+  "survivors": [],
+  "survivor_metrics": {},
+  "survivor_correlation_flags": [],
+  "killed": [],
+  "portfolio_decisions": [],
+  "decision_marks_pending": [],
+  "hard_stop_active": null,
+  "data_freshness_verified": true,
+  "results_completeness_verified": null,
+  "task_type": "data_fetch",
+  "notes": {
+    "10_failing_instruments": ["NSE:HDFCBANK","NSE:ICICIBANK","NSE:ABCAPITAL","NSE:GODREJCP","NSE:SUNDRMFAST","NSE:ENDURANCE","NSE:LTTS","NSE:ALKEM","NSE:RATNAMANI","NSE:LEMONTREE"],
+    "fix_deployed": "TASK-0100 / commit 624a926 — skip OHLC-invalid candles instead of aborting",
+    "manifest_action": "no delete needed — failing instruments absent from 5min completed list",
+    "token_path": "~/.config/backtest/token.json",
+    "token_expires": "2026-05-11T00:30:00Z",
+    "api_key": "from .env"
+  }
+}
