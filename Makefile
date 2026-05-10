@@ -1,9 +1,8 @@
 REF_FILE    := runs/temp/last-commit-ref
 MSG_FILE    := runs/temp/last-commit-msg
-SNAPSHOTS   := runs/temp/snapshots
 COMMIT      ?= $(shell git log -1 --pretty=format:"%h")
 
-.PHONY: ignored-new ignored-at ignored-recent ignored-diff reset-ref
+.PHONY: ignored-new ignored-since ignored-recent reset-ref
 
 ## Show ignored files added/modified since last git commit
 ignored-new: $(REF_FILE)
@@ -13,34 +12,23 @@ ignored-new: $(REF_FILE)
 		find "$$path" -newer $(REF_FILE) -not -path "runs/temp/*" -type f 2>/dev/null; \
 	done
 
-## Show ignored files snapshot at a specific commit  (usage: make ignored-at COMMIT=abc123)
-ignored-at:
-	@if [ ! -f "$(SNAPSHOTS)/$(COMMIT).txt" ]; then \
-		echo "No snapshot for commit $(COMMIT). Snapshots only recorded from post-commit hook going forward."; \
-		exit 1; \
-	fi
-	@echo "=== Ignored files present at commit $(COMMIT) ==="
-	@cat "$(SNAPSHOTS)/$(COMMIT).txt"
-
-## Show ignored files added between two commits  (usage: make ignored-diff FROM=abc123 TO=def456)
-ignored-diff:
-	@if [ -z "$(FROM)" ] || [ -z "$(TO)" ]; then \
-		echo "Usage: make ignored-diff FROM=<commit> TO=<commit>"; exit 1; fi
-	@echo "=== Files in $(TO) not in $(FROM) (new) ==="
-	@comm -13 \
-		<(sort "$(SNAPSHOTS)/$(FROM).txt" 2>/dev/null) \
-		<(sort "$(SNAPSHOTS)/$(TO).txt" 2>/dev/null)
-	@echo ""
-	@echo "=== Files in $(FROM) not in $(TO) (removed) ==="
-	@comm -23 \
-		<(sort "$(SNAPSHOTS)/$(FROM).txt" 2>/dev/null) \
-		<(sort "$(SNAPSHOTS)/$(TO).txt" 2>/dev/null)
-
-## Show commit history with snapshot availability
-ignored-recent:
-	@echo "=== Recent commits with ignored-file snapshots ==="
-	@if [ -f "$(SNAPSHOTS)/index.log" ]; then tail -10 $(SNAPSHOTS)/index.log; \
-	else echo "No snapshots yet — commit something first."; fi
+## Show ignored files modified since a specific commit's parent up to that commit  (usage: make ignored-since COMMIT=abc123)
+ignored-since:
+	@THIS_T=$$(git log -1 --format="%ct" $(COMMIT) 2>/dev/null); \
+	PARENT_T=$$(git log -1 --format="%ct" $(COMMIT)^ 2>/dev/null); \
+	if [ -z "$$THIS_T" ]; then echo "Commit $(COMMIT) not found."; exit 1; fi; \
+	THIS_REF=$$(mktemp); PARENT_REF=$$(mktemp); \
+	touch -t $$(date -r $$THIS_T +"%Y%m%d%H%M.%S") "$$THIS_REF"; \
+	if [ -n "$$PARENT_T" ]; then \
+		touch -t $$(date -r $$PARENT_T +"%Y%m%d%H%M.%S") "$$PARENT_REF"; \
+	else \
+		touch -t 197001010000 "$$PARENT_REF"; \
+	fi; \
+	echo "=== Ignored files modified in commit $(COMMIT) ==="; \
+	git status --ignored --short 2>/dev/null | awk '/^!! / {print $$2}' | while read path; do \
+		find "$$path" -newer "$$PARENT_REF" ! -newer "$$THIS_REF" -not -path "runs/temp/*" -type f 2>/dev/null; \
+	done; \
+	rm -f "$$THIS_REF" "$$PARENT_REF"
 
 ## Reset the 'new since' baseline to now
 reset-ref:
@@ -49,5 +37,5 @@ reset-ref:
 	@echo "Ref reset to now."
 
 $(REF_FILE):
-	mkdir -p runs/temp/snapshots
+	mkdir -p runs/temp
 	touch $(REF_FILE)
