@@ -8,6 +8,24 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-11-signal-audit-uses-registry-iteration-local
+    title: "signal-audit uses GlobalRegistry iteration + local auditParamOverrides"
+    date: 2026-05-11
+    status: experimental
+    category: architecture
+    tags: [signal-audit, registry, package-boundary, plateau-midpoint, cmd/signal-audit]
+    path: architecture/2026-05-11-signal-audit-uses-registry-iteration-local.md
+    summary: "Dropped 7 concrete strategy imports from cmd/signal-audit. allStrategyFactories now iterates GlobalRegistry with a local auditParamOverrides map for plateau-midpoint params. Startup check warns and skips any registered strategy missing from the map — prevents silent pipeline gaps when new strategies are added."
+
+  - id: 2026-05-11-config-newstrategy-as-factory-instead-of-shared
+    title: "Config.NewStrategy as factory per instrument instead of shared singleton"
+    date: 2026-05-11
+    status: experimental
+    category: architecture
+    tags: [strategy, factory, state, correctness, universesweep, cmd/universe-sweep]
+    path: architecture/2026-05-11-config-newstrategy-as-factory-instead-of-shared.md
+    summary: "Renamed Config.Strategy to Config.NewStrategy func() strategy.Strategy. runInstrument calls cfg.NewStrategy() once per instrument for a fresh zero-state instance. Fixes silent result contamination when stateful strategies (RSI, SMA, MACD) are shared across instruments. cmd/evaluate had the same bug and was fixed in the same commit."
+
   - id: 2026-05-10-params-flag-repeated-key-value-merges-st
     title: "--params as repeated key=value flag merging into strategy param map"
     date: 2026-05-10

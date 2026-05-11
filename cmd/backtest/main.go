@@ -66,6 +66,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -97,64 +99,79 @@ type flags struct {
 }
 
 func main() {
+	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
+		cmdutil.Fatalf("%v", err)
+	}
+}
+
+// run is the testable entry point. It parses args, validates flags, builds the
+// strategy, connects to the provider, runs the backtest, and writes output.
+// It returns an error rather than calling os.Exit, so tests can invoke it
+// directly without spawning a subprocess.
+func run(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("backtest", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+
 	var f flags
-	flag.StringVar(&f.instrument, "instrument", "NSE:NIFTY 50", "Instrument to backtest (e.g. \"NSE:NIFTY 50\", \"NSE:INFY\")")
-	flag.StringVar(&f.fromStr, "from", "", "Start date in YYYY-MM-DD (inclusive)")
-	flag.StringVar(&f.toStr, "to", "", "End date in YYYY-MM-DD (exclusive)")
-	flag.StringVar(&f.tfStr, "timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
-	flag.Float64Var(&f.cash, "cash", 100000, "Starting cash in ₹")
-	flag.StringVar(&f.stratName, "strategy", "stub", "Strategy name: "+strings.Join(cmdutil.GlobalRegistry.ListStrategies(), ", "))
-	flag.StringVar(&f.commissionStr, "commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
-	flag.StringVar(&f.outPath, "out", "", "Path for JSON results export; when omitted a default name is generated from the run params")
-	flag.StringVar(&f.curvePath, "output-curve", "", "Path for equity curve CSV export (omit to skip)")
-	flag.StringVar(&f.sizingModel, "sizing-model", "fixed", "Position sizing model: fixed | vol-target")
-	flag.Float64Var(&f.volTarget, "vol-target", 0.10, "Annualized volatility target when --sizing-model=vol-target (e.g. 0.10 = 10%)")
-	flag.Float64Var(&f.gateThreshold, "proliferation-gate-threshold", 0.0, "Sharpe threshold for proliferation gate PASS/FAIL (0 = disabled; 0.5 recommended for NSE daily)")
-	flag.BoolVar(&f.doBootstrap, "bootstrap", false, "Run Monte Carlo bootstrap for Sharpe confidence intervals")
-	flag.Int64Var(&f.bootstrapSeed, "bootstrap-seed", 42, "RNG seed for bootstrap (logged with results for reproducibility)")
-	flag.IntVar(&f.bootstrapN, "bootstrap-n", 0, "Bootstrap simulation count (0 = default 10,000)")
-	flag.BoolVar(&f.doRegimeGate, "regime-gate", false, "Compute per-regime per-trade Sharpe gate using NSE regime windows (2018-2024)")
+	fs.StringVar(&f.instrument, "instrument", "NSE:NIFTY 50", "Instrument to backtest (e.g. \"NSE:NIFTY 50\", \"NSE:INFY\")")
+	fs.StringVar(&f.fromStr, "from", "", "Start date in YYYY-MM-DD (inclusive)")
+	fs.StringVar(&f.toStr, "to", "", "End date in YYYY-MM-DD (exclusive)")
+	fs.StringVar(&f.tfStr, "timeframe", "daily", "Candle timeframe: 1min | 5min | 15min | daily | weekly")
+	fs.Float64Var(&f.cash, "cash", 100000, "Starting cash in ₹")
+	fs.StringVar(&f.stratName, "strategy", "stub", "Strategy name: "+strings.Join(cmdutil.GlobalRegistry.ListStrategies(), ", "))
+	fs.StringVar(&f.commissionStr, "commission", "zerodha", "Commission model: zerodha | zerodha_full | zerodha_full_mis | flat | percentage")
+	fs.StringVar(&f.outPath, "out", "", "Path for JSON results export; when omitted a default name is generated from the run params")
+	fs.StringVar(&f.curvePath, "output-curve", "", "Path for equity curve CSV export (omit to skip)")
+	fs.StringVar(&f.sizingModel, "sizing-model", "fixed", "Position sizing model: fixed | vol-target")
+	fs.Float64Var(&f.volTarget, "vol-target", 0.10, "Annualized volatility target when --sizing-model=vol-target (e.g. 0.10 = 10%)")
+	fs.Float64Var(&f.gateThreshold, "proliferation-gate-threshold", 0.0, "Sharpe threshold for proliferation gate PASS/FAIL (0 = disabled; 0.5 recommended for NSE daily)")
+	fs.BoolVar(&f.doBootstrap, "bootstrap", false, "Run Monte Carlo bootstrap for Sharpe confidence intervals")
+	fs.Int64Var(&f.bootstrapSeed, "bootstrap-seed", 42, "RNG seed for bootstrap (logged with results for reproducibility)")
+	fs.IntVar(&f.bootstrapN, "bootstrap-n", 0, "Bootstrap simulation count (0 = default 10,000)")
+	fs.BoolVar(&f.doRegimeGate, "regime-gate", false, "Compute per-regime per-trade Sharpe gate using NSE regime windows (2018-2024)")
 
-	// Strategy-specific parameters registered centrally from GlobalRegistry.
-	stratParamPtrs := cmdutil.GlobalRegistry.RegisterFlags(flag.CommandLine)
+	stratParamPtrs := cmdutil.GlobalRegistry.RegisterFlags(fs)
 
-	flag.Parse()
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
-	from, to, tf := parseAndValidateFlags(&f)
+	from, to, tf, err := parseAndValidateFlags(&f)
+	if err != nil {
+		return err
+	}
 
-	// Validate strategy name early: MustGet panics with a descriptive message if
-	// the name is unknown.
 	cmdutil.GlobalRegistry.MustGet(f.stratName)
 
 	stratParams := cmdutil.BuildParamMap(stratParamPtrs)
 
 	selectedStrategy, err := cmdutil.GlobalRegistry.Build(f.stratName, tf, stratParams)
 	if err != nil {
-		cmdutil.Fatalf("--strategy: %v", err)
+		return fmt.Errorf("--strategy: %w", err)
+	}
+
+	commissionModel, err := cmdutil.ParseCommissionModel(f.commissionStr)
+	if err != nil {
+		return fmt.Errorf("--commission: %w", err)
+	}
+
+	sm, err := parseSizingConfig(f.sizingModel, f.volTarget)
+	if err != nil {
+		return err
+	}
+
+	if f.outPath == "" {
+		f.outPath = cmdutil.DefaultOutPath(f.stratName, f.instrument, f.tfStr,
+			from.Format("2006-01-02"), to.Format("2006-01-02"))
 	}
 
 	ctx := context.Background()
 
 	cmdutil.LoadDotEnv(".env")
 
-	provider, err := cmdutil.BuildProvider(ctx)
+	prov, err := cmdutil.BuildProvider(ctx)
 	if err != nil {
-		cmdutil.Fatalf("provider: %v", err)
-	}
-
-	sm, err := parseSizingConfig(f.sizingModel, f.volTarget)
-	if err != nil {
-		cmdutil.Fatalf("%v", err)
-	}
-
-	commissionModel, err := cmdutil.ParseCommissionModel(f.commissionStr)
-	if err != nil {
-		cmdutil.Fatalf("--commission: %v", err)
-	}
-
-	if f.outPath == "" {
-		f.outPath = cmdutil.DefaultOutPath(f.stratName, f.instrument, f.tfStr,
-			from.Format("2006-01-02"), to.Format("2006-01-02"))
+		return fmt.Errorf("provider: %w", err)
 	}
 
 	eng := engine.New(engine.Config{
@@ -171,12 +188,12 @@ func main() {
 		},
 	})
 
-	fmt.Printf("Running strategy %q on %s  %s → %s\n",
+	fmt.Fprintf(stdout, "Running strategy %q on %s  %s → %s\n", //nolint:errcheck // progress to stdout
 		selectedStrategy.Name(), f.instrument,
 		from.Format("2006-01-02"), to.Format("2006-01-02"))
 
-	if err := eng.Run(ctx, provider, selectedStrategy); err != nil {
-		cmdutil.Fatalf("engine: %v", err)
+	if err := eng.Run(ctx, prov, selectedStrategy); err != nil {
+		return fmt.Errorf("engine: %w", err)
 	}
 
 	port := eng.Portfolio()
@@ -222,39 +239,33 @@ func main() {
 		RunConfig:      runCfg,
 		RegimeGate:     regimeGateReport,
 	}); err != nil {
-		cmdutil.Fatalf("output: %v", err)
+		return fmt.Errorf("output: %w", err)
 	}
+
+	return nil
 }
 
-func parseAndValidateFlags(f *flags) (from, to time.Time, tf model.Timeframe) {
+// parseAndValidateFlags validates required flags and parses dates and timeframe.
+// Returns an error rather than calling os.Exit so the caller (run) can be tested.
+func parseAndValidateFlags(f *flags) (from, to time.Time, tf model.Timeframe, err error) {
 	if f.fromStr == "" {
-		cmdutil.Fatalf("--from is required (e.g. 2024-01-01)")
+		return time.Time{}, time.Time{}, "", fmt.Errorf("--from is required (e.g. 2024-01-01)")
 	}
 	if f.toStr == "" {
-		cmdutil.Fatalf("--to is required (e.g. 2024-12-31)")
+		return time.Time{}, time.Time{}, "", fmt.Errorf("--to is required (e.g. 2024-12-31)")
 	}
 
-	var err error
-	from, err = time.Parse("2006-01-02", f.fromStr)
+	from, to, err = cmdutil.ParseDateRange(f.fromStr, f.toStr)
 	if err != nil {
-		cmdutil.Fatalf("--from %q: %v", f.fromStr, err)
-	}
-	to, err = time.Parse("2006-01-02", f.toStr)
-	if err != nil {
-		cmdutil.Fatalf("--to %q: %v", f.toStr, err)
-	}
-	if !to.After(from) {
-		cmdutil.Fatalf("--to must be strictly after --from")
+		return time.Time{}, time.Time{}, "", err
 	}
 
-	tf = model.Timeframe(f.tfStr)
-	switch tf {
-	case model.Timeframe1Min, model.Timeframe5Min, model.Timeframe15Min,
-		model.TimeframeDaily, model.TimeframeWeekly:
-	default:
-		cmdutil.Fatalf("--timeframe %q is not valid; choose one of: 1min, 5min, 15min, daily, weekly", f.tfStr)
+	tf, err = cmdutil.ParseTimeframe(f.tfStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, "", err
 	}
-	return from, to, tf
+
+	return from, to, tf, nil
 }
 
 func runBootstrap(enabled bool, trades []model.Trade, seed int64, nSims int) *montecarlo.BootstrapResult {

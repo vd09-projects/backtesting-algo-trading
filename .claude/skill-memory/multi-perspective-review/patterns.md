@@ -19,6 +19,9 @@
 - `pkg/model/` — shared domain types; field renames break all consumers silently; Ripple Effect always warranted
 - `internal/analytics/` — math-heavy; Domain Logic Reviewer always warranted
 - `cmd/universe-sweep/main.go` — strategy registry map; Ripple Effect Analyst always warranted
+- `cmd/universe-sweep/main.go` — strategy instance must be factory-per-instrument (`func() strategy.Strategy`), not a shared singleton; sharing a stateful strategy across instruments silently corrupts per-instrument results
+- `cmd/signal-audit/main.go` — does NOT use `GlobalRegistry`; manually enumerates all strategies with plateau-midpoint params; requires manual update when new strategies are added — new strategies won't appear in signal-audit automatically
 
 ## Recurring Issues
-<!-- Populated as reviews run — add entries here when patterns emerge across tasks -->
+- `cmd/` binaries split between two parse patterns: return-error (`walk-forward`, `evaluate`, `fetch-history`, `monitor`, `sweep2d`, `sweep`) and os.Exit-inside-parse (`backtest`, `universe-sweep`, `signal-audit`). Any new cmd binary must use the return-error pattern with `run(args, stdout, stderr)` extraction for testability.
+- Date parsing (`time.Parse("2006-01-02", ...)` + range validation) and timeframe validation (switch on `model.Timeframe`) are duplicated across 8 and 7 binaries respectively — extract to `cmdutil.ParseDateRange` / `cmdutil.ParseTimeframe` before adding more copies.

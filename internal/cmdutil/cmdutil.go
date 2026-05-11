@@ -198,6 +198,37 @@ func BuildProvider(_ context.Context) (*cache.CachedProvider, error) {
 	return cache.NewCachedProvider(lazy, cacheDir), nil
 }
 
+// ParseDateRange parses fromStr and toStr as YYYY-MM-DD dates, validates that
+// toStr is strictly after fromStr, and returns the parsed times.
+// Error messages use --from / --to flag names to match CLI output.
+func ParseDateRange(fromStr, toStr string) (from, to time.Time, err error) {
+	from, err = time.Parse("2006-01-02", fromStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("--from %q: %w", fromStr, err)
+	}
+	to, err = time.Parse("2006-01-02", toStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("--to %q: %w", toStr, err)
+	}
+	if !to.After(from) {
+		return time.Time{}, time.Time{}, fmt.Errorf("--to must be strictly after --from")
+	}
+	return from, to, nil
+}
+
+// ParseTimeframe validates and converts a timeframe string to model.Timeframe.
+// Accepted values: 1min, 5min, 15min, daily, weekly.
+func ParseTimeframe(s string) (model.Timeframe, error) {
+	tf := model.Timeframe(s)
+	switch tf {
+	case model.Timeframe1Min, model.Timeframe5Min, model.Timeframe15Min,
+		model.TimeframeDaily, model.TimeframeWeekly:
+		return tf, nil
+	default:
+		return "", fmt.Errorf("--timeframe %q is not valid; choose one of: 1min, 5min, 15min, daily, weekly", s)
+	}
+}
+
 // ParseCommissionModel parses a commission model string into a model.CommissionModel.
 // Accepted values: "zerodha" (default), "zerodha_full", "zerodha_full_mis", "flat", "percentage".
 // Returns an error for any unrecognized value.

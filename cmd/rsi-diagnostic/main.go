@@ -24,15 +24,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net/http"
-	"os"
-	"time"
 
 	talib "github.com/markcheno/go-talib"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
-	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
-	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha/cache"
 )
 
 func main() {
@@ -52,18 +47,12 @@ func main() {
 		cmdutil.Fatalf("--to is required (e.g. 2025-01-01)")
 	}
 
-	from, err := time.Parse("2006-01-02", *fromStr)
+	from, to, err := cmdutil.ParseDateRange(*fromStr, *toStr)
 	if err != nil {
-		cmdutil.Fatalf("--from %q: %v", *fromStr, err)
-	}
-	to, err := time.Parse("2006-01-02", *toStr)
-	if err != nil {
-		cmdutil.Fatalf("--to %q: %v", *toStr, err)
-	}
-	if !to.After(from) {
-		cmdutil.Fatalf("--to must be strictly after --from")
+		cmdutil.Fatalf("%v", err)
 	}
 
+	// rsi-diagnostic supports only intraday and daily — not weekly.
 	tf := model.Timeframe(*tfStr)
 	switch tf {
 	case model.Timeframe1Min, model.Timeframe5Min, model.Timeframe15Min, model.TimeframeDaily:
@@ -74,7 +63,7 @@ func main() {
 	ctx := context.Background()
 	cmdutil.LoadDotEnv(".env")
 
-	p, err := buildProvider(ctx)
+	p, err := cmdutil.BuildProvider(ctx)
 	if err != nil {
 		cmdutil.Fatalf("provider: %v", err)
 	}
@@ -146,35 +135,4 @@ func countRSISignals(rsiVals []float64, start int, oversold, overbought float64)
 		}
 	}
 	return
-}
-
-func buildProvider(ctx context.Context) (*cache.CachedProvider, error) {
-	apiKey := cmdutil.MustEnv("KITE_API_KEY")
-	apiSecret := cmdutil.MustEnv("KITE_API_SECRET")
-
-	path := cmdutil.TokenFilePath()
-	accessToken, err := zerodha.LoadToken(path)
-	if err != nil {
-		fmt.Println("No valid saved token — starting Kite Connect login flow.")
-		accessToken, err = cmdutil.LoginFlow(ctx, http.DefaultClient, "https://api.kite.trade", apiKey, apiSecret, path)
-		if err != nil {
-			return nil, fmt.Errorf("login: %w", err)
-		}
-	} else {
-		fmt.Printf("Loaded saved token from %s\n", path)
-	}
-
-	inner, err := zerodha.NewProvider(ctx, zerodha.Config{
-		APIKey:      apiKey,
-		AccessToken: accessToken,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("NewProvider: %w", err)
-	}
-
-	cacheDir := os.Getenv("BACKTEST_CACHE_DIR")
-	if cacheDir == "" {
-		cacheDir = ".cache/zerodha"
-	}
-	return cache.NewCachedProvider(inner, cacheDir), nil
 }

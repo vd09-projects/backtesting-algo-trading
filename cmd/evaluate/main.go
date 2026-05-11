@@ -378,14 +378,16 @@ func runUniverseSweep(pl evalPipeline, stderr io.Writer) ( //nolint:gocritic // 
 	fmt.Fprintf(stderr, "evaluate: [1/3] universe sweep — strategy=%s instruments=%d from=%s to=%s\n", //nolint:errcheck // progress
 		pl.flags.stratName, len(pl.instruments), pl.flags.fromStr, pl.flags.toStr)
 
-	sweepStrategy, err := cmdutil.GlobalRegistry.Build(pl.flags.stratName, pl.tf, pl.stratParams)
+	// WalkForwardFactory validates params eagerly and returns a fresh-instance factory.
+	// Each instrument gets its own strategy state — no bleed between runs.
+	sweepStratFactory, err := cmdutil.GlobalRegistry.WalkForwardFactory(pl.flags.stratName, pl.tf, pl.stratParams)
 	if err != nil {
 		return universesweep.GateResult{}, nil, nil, nil, fmt.Errorf("--strategy: %w", err)
 	}
 
 	sweepCfg := universesweep.Config{
 		Instruments: pl.instruments,
-		Strategy:    sweepStrategy,
+		NewStrategy: sweepStratFactory,
 		EngineConfig: engine.Config{
 			From:                 pl.from,
 			To:                   pl.to,

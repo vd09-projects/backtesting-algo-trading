@@ -15,6 +15,75 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
 
+// ── ParseDateRange ────────────────────────────────────────────────────────────
+
+func TestParseDateRange(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		from    string
+		to      string
+		wantErr string
+	}{
+		{name: "valid range", from: "2020-01-01", to: "2024-12-31"},
+		{name: "invalid from format", from: "01-01-2020", to: "2024-12-31", wantErr: "--from"},
+		{name: "invalid to format", from: "2020-01-01", to: "31-12-2024", wantErr: "--to"},
+		{name: "to equal from", from: "2024-01-01", to: "2024-01-01", wantErr: "--to must be strictly after"},
+		{name: "to before from", from: "2024-01-01", to: "2020-01-01", wantErr: "--to must be strictly after"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			from, to, err := cmdutil.ParseDateRange(tt.from, tt.to)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("ParseDateRange(%q, %q): expected error containing %q, got nil", tt.from, tt.to, tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("ParseDateRange error = %q, want substring %q", err.Error(), tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseDateRange(%q, %q): unexpected error: %v", tt.from, tt.to, err)
+			}
+			if from.IsZero() || to.IsZero() {
+				t.Errorf("ParseDateRange returned zero times: from=%v to=%v", from, to)
+			}
+		})
+	}
+}
+
+// ── ParseTimeframe ────────────────────────────────────────────────────────────
+
+func TestParseTimeframe(t *testing.T) {
+	t.Parallel()
+	valid := []string{"1min", "5min", "15min", "daily", "weekly"}
+	for _, s := range valid {
+		t.Run("valid_"+s, func(t *testing.T) {
+			t.Parallel()
+			tf, err := cmdutil.ParseTimeframe(s)
+			if err != nil {
+				t.Fatalf("ParseTimeframe(%q): unexpected error: %v", s, err)
+			}
+			if string(tf) != s {
+				t.Errorf("ParseTimeframe(%q) = %q, want %q", s, tf, s)
+			}
+		})
+	}
+
+	invalid := []string{"monthly", "hourly", "DAILY", "Daily", "", "d"}
+	for _, s := range invalid {
+		t.Run("invalid_"+s, func(t *testing.T) {
+			t.Parallel()
+			_, err := cmdutil.ParseTimeframe(s)
+			if err == nil {
+				t.Errorf("ParseTimeframe(%q): expected error, got nil", s)
+			}
+		})
+	}
+}
+
 // ── ParseCommissionModel ──────────────────────────────────────────────────────
 
 func TestParseCommissionModel(t *testing.T) {

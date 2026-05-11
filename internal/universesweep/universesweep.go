@@ -44,11 +44,23 @@ import (
 )
 
 // Config holds universe-sweep run parameters.
+//
+// **Decision (Config.NewStrategy as factory instead of shared instance) — architecture: experimental**
+// scope: internal/universesweep, cmd/universe-sweep
+// tags: strategy, factory, state, correctness
+// owner: priya
+//
+// A shared strategy.Strategy instance across instruments is incorrect for any strategy
+// that carries mutable state (RSI accumulator, SMA buffer, MACD signal line). State from
+// instrument N bleeds into instrument N+1, silently corrupting per-instrument results.
+// NewStrategy is called once per instrument so each engine run gets a fresh, zero-state
+// instance. Callers should use cmdutil.GlobalRegistry.WalkForwardFactory to construct
+// the factory — it validates params once at startup, avoiding per-instrument validation cost.
 type Config struct {
-	Instruments  []string          // validated non-empty list from ParseUniverseFile
-	Strategy     strategy.Strategy // fixed strategy instance, used for all instruments
-	EngineConfig engine.Config     // template; Instrument field is overwritten per run
-	Timeframe    model.Timeframe   // used for analytics.Compute annualization
+	Instruments  []string                 // validated non-empty list from ParseUniverseFile
+	NewStrategy  func() strategy.Strategy // called once per instrument; must return a fresh instance
+	EngineConfig engine.Config            // template; Instrument field is overwritten per run
+	Timeframe    model.Timeframe          // used for analytics.Compute annualization
 }
 
 // Result holds per-instrument sweep output.
@@ -199,7 +211,7 @@ func runInstrument(ctx context.Context, cfg *Config, p provider.DataProvider, in
 	engCfg.Instrument = instrument
 
 	eng := engine.New(engCfg)
-	if err := eng.Run(ctx, p, cfg.Strategy); err != nil {
+	if err := eng.Run(ctx, p, cfg.NewStrategy()); err != nil {
 		return Result{}, fmt.Errorf("engine run: %w", err)
 	}
 

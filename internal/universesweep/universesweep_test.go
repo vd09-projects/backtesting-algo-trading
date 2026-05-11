@@ -6,12 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/engine"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/universesweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 )
 
 // ---------------------------------------------------------------------------
@@ -173,7 +175,7 @@ func TestRun_TwoInstruments_ProducesTwoResults(t *testing.T) {
 
 	cfg := universesweep.Config{
 		Instruments: []string{"NSE:RELIANCE", "NSE:INFY"},
-		Strategy:    &toggleStrategy{},
+		NewStrategy: func() strategy.Strategy { return &toggleStrategy{} },
 		EngineConfig: engine.Config{
 			From:                 from,
 			To:                   to,
@@ -220,7 +222,7 @@ func TestRun_ResultsSortedDescendingBySharpe(t *testing.T) {
 
 	cfg := universesweep.Config{
 		Instruments: []string{"NSE:RELIANCE", "NSE:INFY", "NSE:TCS"},
-		Strategy:    &toggleStrategy{},
+		NewStrategy: func() strategy.Strategy { return &toggleStrategy{} },
 		EngineConfig: engine.Config{
 			From:                 from,
 			To:                   to,
@@ -257,7 +259,7 @@ func TestRun_InsufficientDataFlaggedWhenTradeCountBelowThreshold(t *testing.T) {
 
 	cfg := universesweep.Config{
 		Instruments: []string{"NSE:RELIANCE"},
-		Strategy:    &toggleStrategy{},
+		NewStrategy: func() strategy.Strategy { return &toggleStrategy{} },
 		EngineConfig: engine.Config{
 			From:                 from,
 			To:                   to,
@@ -288,7 +290,7 @@ func TestRun_ReturnsErrorOnEmptyInstruments(t *testing.T) {
 
 	cfg := universesweep.Config{
 		Instruments: []string{},
-		Strategy:    &toggleStrategy{},
+		NewStrategy: func() strategy.Strategy { return &toggleStrategy{} },
 		EngineConfig: engine.Config{
 			From:        time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 			To:          time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -555,7 +557,7 @@ func TestApplyUniverseGate_TradesCarriedOnResult(t *testing.T) {
 
 	cfg := universesweep.Config{
 		Instruments: []string{"NSE:RELIANCE"},
-		Strategy:    &toggleStrategy{},
+		NewStrategy: func() strategy.Strategy { return &toggleStrategy{} },
 		EngineConfig: engine.Config{
 			From:                 from,
 			To:                   to,
@@ -580,5 +582,45 @@ func TestApplyUniverseGate_TradesCarriedOnResult(t *testing.T) {
 	// Trades must be populated since toggleStrategy generates trades.
 	if len(report.Results[0].Trades) == 0 {
 		t.Error("Result.Trades: want non-empty slice, got empty (trades not captured)")
+	}
+}
+
+// TestRun_FreshStrategyInstancePerInstrument verifies that Config.NewStrategy is
+// called once per instrument, not once total. This is the regression test for the
+// shared-instance bug where a single strategy.Strategy was passed to all instruments,
+// causing state bleed between runs for stateful strategies.
+func TestRun_FreshStrategyInstancePerInstrument(t *testing.T) {
+	t.Parallel()
+
+	var calls atomic.Int32
+	factory := func() strategy.Strategy {
+		calls.Add(1)
+		return &toggleStrategy{}
+	}
+
+	instruments := []string{"NSE:RELIANCE", "NSE:INFY", "NSE:TCS"}
+	cfg := universesweep.Config{
+		Instruments: instruments,
+		NewStrategy: factory,
+		EngineConfig: engine.Config{
+			From:                 time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+			To:                   time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
+			InitialCash:          100_000,
+			PositionSizeFraction: 0.10,
+			OrderConfig: model.OrderConfig{
+				SlippagePct:     0.0005,
+				CommissionModel: model.CommissionZerodha,
+			},
+		},
+		Timeframe: model.TimeframeDaily,
+	}
+
+	_, err := universesweep.Run(context.Background(), &cfg, &staticProvider{})
+	if err != nil {
+		t.Fatalf("Run: unexpected error: %v", err)
+	}
+
+	if got := int(calls.Load()); got != len(instruments) {
+		t.Errorf("NewStrategy factory called %d times, want %d (one fresh instance per instrument)", got, len(instruments))
 	}
 }
