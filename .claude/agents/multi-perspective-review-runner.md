@@ -14,10 +14,12 @@ You are a step-agent that invokes the `multi-perspective-review` skill and retur
 
 - `task_id` — task being closed
 - `task_title` — task title
-- `files_modified` — list of files changed during the build
-- `build_summary` — one-sentence description of what was built (from priya-build verdict)
 - `task_context` — task context paragraph from BACKLOG.md
-- `review_iteration` — (optional, default 1) iteration number within this task's perspective review loop; used for logging and history
+- `review_type` — (optional, default `"code"`) `"code"` or `"plan"`. When `"plan"`, skip Step 2 (no git diff); use `plan_text` as the review input instead.
+- `files_modified` — (required when `review_type == "code"`) list of files changed during the build
+- `build_summary` — (required when `review_type == "code"`) one-sentence description of what was built (from priya-build verdict)
+- `plan_text` — (required when `review_type == "plan"`) formatted plan document: summary, approach, files to create/modify, acceptance criteria coverage
+- `review_iteration` — (optional, default 1) iteration number within this task's review loop; used for logging and history
 - `targeted_reviewers` — (optional) list of reviewer names to re-run; if provided, skip normal triage panel selection and invoke only these reviewers. Override: if triage classifies diff scope as `large`, ignore targeted_reviewers and run full panel (note the override in output).
 - `prior_round_findings` — (optional) findings array from the previous iteration; passed through verbatim to output for history tracking
 
@@ -25,7 +27,7 @@ You are a step-agent that invokes the `multi-perspective-review` skill and retur
 
 ## Step 1 — Skip gate
 
-If **all** entries in `files_modified` end with `_test.go`: return this immediately and stop.
+**Code review only** (`review_type == "code"` or unset): If **all** entries in `files_modified` end with `_test.go`: return this immediately and stop.
 
 ```json
 {
@@ -44,9 +46,13 @@ If **all** entries in `files_modified` end with `_test.go`: return this immediat
 }
 ```
 
+**Plan review** (`review_type == "plan"`): skip this gate entirely — proceed to Step 2.
+
 ---
 
-## Step 2 — Fetch diff
+## Step 2 — Fetch diff / prepare input
+
+**When `review_type == "code"` (or unset):**
 
 Run:
 ```bash
@@ -54,6 +60,10 @@ git -C /Users/vikrantdhawan/repos/backtesting-algo-trading diff HEAD~1 -- <each 
 ```
 
 Capture stdout. This is the diff passed to the skill.
+
+**When `review_type == "plan"`:**
+
+Skip git diff fetch entirely. Use `plan_text` verbatim as the review input. Treat scope as `"medium"` by default — plan reviews don't have a line count. The skill will re-assess scope based on the plan's content.
 
 ---
 
@@ -66,8 +76,8 @@ Determine review mode before calling:
 
 Call `Skill("multi-perspective-review")` with these inputs:
 
-- **Diff**: output from Step 2
-- **PR description**: `build_summary`
+- **Diff / Change**: output from Step 2 (code diff for `review_type == "code"`; plan text for `review_type == "plan"`)
+- **PR description**: `build_summary` (code review) or `"Plan review — pre-build"` (plan review)
 - **Ticket/spec**: `task_id` — `task_title` + `task_context`
 - **Urgency**: normal (use `hotfix` only if task_title contains "hotfix" or "Fix —" with a severity note)
 - **Reviewer panel**: if targeted mode, explicitly instruct the skill to only run the reviewers in `targeted_reviewers` by listing them in the prompt as "run only these reviewers: <list>"

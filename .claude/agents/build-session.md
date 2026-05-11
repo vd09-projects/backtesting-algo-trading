@@ -24,11 +24,14 @@ At startup, initialize:
     "decision_lookup": null,
     "marcus": null,
     "priya_plan": null,
+    "plan_review": null,
     "build": null,
     "quality_review": null,
     "perspective_review": null
   },
   "quality_review_round": 0,
+  "plan_review_iteration": 0,
+  "plan_review_history": [],
   "perspective_review_iteration": 0,
   "perspective_review_history": [],
   "execution_log": [],
@@ -187,6 +190,99 @@ Call Agent(). Parse returned JSON. Evaluate any `flag`:
 Update SESSION STATE: `verdicts.priya_plan`. Append decision marks. Write session file. Set `step_completed = 4`.
 
 Log: `[AUTO] Step 4 — Plan: complete. Approach: <one-sentence summary from verdict.approach>.`
+
+---
+
+## STEP 4.5 — Plan Review Loop (sub-agents via Agent(), conditional)
+
+**Run when `verdicts.priya_plan.flag == null` AND `is_bugfix == false`.**
+
+Skip if bugfix path is active — the collapsed plan goes straight to build. Skip if `verdicts.priya_plan` is null.
+
+**You MUST call Agent() here. Do not review the plan yourself.**
+
+This loop runs after Step 4 and repeats until the review returns APPROVE, NEEDS_DISCUSSION, or the iteration cap is hit. Maintain `plan_review_iteration` counter (starts at 0, increment before each run). **Cap at 2 iterations** — if still not APPROVE after 2 rounds, proceed to Step 5 with a warning (plan review is value-add, not a hard gate).
+
+### 4.5-i. Run the review
+
+Increment `plan_review_iteration`. Determine review mode:
+
+- **Iteration 1**: full review — no targeted_reviewers, no prior_round_findings.
+- **Iteration 2**: targeted review — pass `targeted_reviewers` from blocking reviewers in round 1.
+
+Invoke `Agent(subagent_type="multi-perspective-review-runner")`. Pass in the prompt:
+- `task_id`, `task_title` — from SESSION STATE
+- `task_context` — task context paragraph from BACKLOG.md
+- `review_type: "plan"` — signals runner to skip git diff and review plan text
+- `plan_text` — format from `verdicts.priya_plan` as:
+  ```
+  ## Plan Summary
+  {{plan_summary}}
+
+  ## Approach
+  {{approach}}
+
+  ## Files to Create
+  {{files_to_create — one per line}}
+
+  ## Files to Modify
+  {{files_to_modify — one per line}}
+
+  ## Acceptance Criteria Coverage
+  {{acceptance_criteria — from task block}}
+  ```
+- `review_iteration` — current `plan_review_iteration`
+- `targeted_reviewers` — (iteration 2 only)
+- `prior_round_findings` — (iteration 2 only, from round 1 findings)
+
+Parse returned JSON. Append `{iteration: N, reviewers_activated, findings, review_status}` to `plan_review_history`. Update `verdicts.plan_review`. Write session file.
+
+Log:
+```
+[AUTO] Step 4.5 round <N> — Plan review: mode=<full|targeted>, reviewers=<list>, blocking=<count>, suggestions=<count>.
+[AUTO] Step 4.5 round <N> — Findings: <one line per blocking finding: reviewer / issue>
+```
+
+### 4.5-ii. Evaluate result
+
+| `review_status` | Action |
+|---|---|
+| `APPROVE` | Exit loop → proceed to Step 5 |
+| `REQUEST_CHANGES` | Proceed to 4.5-iii if `plan_review_iteration < 2`; else log warning and proceed to Step 5 |
+| `NEEDS_DISCUSSION` | Hard STOP: present blocking findings verbatim. If user says "proceed anyway": log findings, proceed to Step 5. If user says "revise": treat as REQUEST_CHANGES → proceed to 4.5-iii. |
+
+If `plan_review_iteration >= 2` and still not APPROVE:
+```
+[WARN] Step 4.5 — Plan review cap (2 rounds). Proceeding. Pass blocking findings to priya-build as awareness context.
+```
+Store blocking findings from `plan_review_history` in SESSION STATE `prior_rounds_findings` so priya-build can reference them.
+
+If `skill_error` is non-null: log `[WARN] Step 4.5 round <N> — skill error: <skill_error>. Treating as APPROVE.` Proceed to Step 5.
+
+### 4.5-iii. Revise plan on REQUEST_CHANGES
+
+Extract `targeted_reviewers`: reviewer names from all blocking findings this round.
+
+Re-invoke the priya-plan sub-agent using the same template as Step 4, with one additional section appended to the prompt:
+
+```
+PLAN REVIEW FEEDBACK — address each point in your revised plan:
+{{for each blocking finding: "- [<Reviewer>] <issue> — recommended fix: <fix>"}}
+
+For each finding: (1) acknowledge it explicitly, (2) revise the plan to address it,
+(3) note any finding you disagree with and explain why.
+```
+
+Parse returned JSON. Update `verdicts.priya_plan`. Write session file.
+
+Return to 4.5-i (increment iteration, targeted mode).
+
+Log:
+```
+[AUTO] Step 4.5 round <N> — Plan revised. New approach: <one-sentence summary from updated verdict.approach>.
+```
+
+`step_completed` stays at `4` — Step 4.5 is part of the planning gate, not a separately numbered step.
 
 ---
 
