@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/signalaudit"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 )
@@ -288,6 +289,40 @@ func TestAllStrategyFactories_NamesMatchAuditParamOverrides(t *testing.T) {
 	for _, f := range factories {
 		if _, ok := auditParamOverrides[f.Name]; !ok {
 			t.Errorf("factory name %q not found in auditParamOverrides", f.Name)
+		}
+	}
+}
+
+// TestSignalAuditCoversAllStrategies asserts that every non-stub strategy
+// registered in cmdutil.GlobalRegistry appears in the slice returned by
+// allStrategyFactories. This enforces the invariant that when a new strategy
+// is added to GlobalRegistry, its audit params must also be added to
+// auditParamOverrides in cmd/signal-audit/main.go — otherwise the strategy
+// silently disappears from the signal-frequency audit.
+//
+// allStrategyFactories emits a stderr warning and skips strategies missing
+// from auditParamOverrides; without this test, that skip goes undetected in CI.
+func TestSignalAuditCoversAllStrategies(t *testing.T) {
+	t.Parallel()
+
+	factories := allStrategyFactories(model.TimeframeDaily)
+
+	// Build a set of names that allStrategyFactories actually produced.
+	covered := make(map[string]bool, len(factories))
+	for _, f := range factories {
+		covered[f.Name] = true
+	}
+
+	for _, name := range cmdutil.GlobalRegistry.ListStrategies() {
+		if name == "stub" {
+			continue // stub is a test tool, not a real strategy; intentionally excluded
+		}
+		if !covered[name] {
+			t.Errorf(
+				"strategy %q is registered in GlobalRegistry but missing from allStrategyFactories output; "+
+					"add an entry to auditParamOverrides in cmd/signal-audit/main.go",
+				name,
+			)
 		}
 	}
 }

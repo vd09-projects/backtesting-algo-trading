@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-11 | **Open tasks:** 24 | **Next up:** TASK-0074
+**Last updated:** 2026-05-13 | **Open tasks:** 23 | **Next up:** TASK-0074
 
 ---
 
@@ -151,22 +151,6 @@
   - [ ] All existing tests pass: `go1.25.0 test -race ./cmd/evaluate/...`
   - [ ] `golangci-lint run ./cmd/evaluate/...` passes
 - **Notes:** Discovered during TASK-0073 multi-perspective review (Domain Logic Reviewer). One-line change. The numerical outcome is unchanged; this is pure clarity/traceability. `len(universeSurvivors)` counts instruments with `Sharpe > 0 && !InsufficientData` from the sweep loop, which is the same count as `gateResult.PositiveSharpeInstruments` — they're equivalent by construction. The canonical field just makes it obvious.
-
----
-
-### [TASK-0092] Tech debt — add `TestSignalAuditCoversAllStrategies` to `cmd/signal-audit`
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-05-08
-- **Source:** session
-- **Context:** `cmd/signal-audit/allStrategyFactories()` is manually maintained — new strategies added to `cmdutil.GlobalRegistry` do not automatically appear in the audit. The strategy wiring centralization (2026-05-08) makes all other cmd mains auto-update; signal-audit is the only one that can silently fall behind. A coverage test is the only enforcement mechanism.
-- **Acceptance criteria:**
-  - [ ] `TestSignalAuditCoversAllStrategies` added to `cmd/signal-audit/main_test.go` (or a new `_test.go` file): iterates `cmdutil.GlobalRegistry.ListStrategies()`, skips `"stub"`, asserts each name appears in the slice returned by `allStrategyFactories(model.TimeframeDaily)`
-  - [ ] Test fails if a new strategy is registered in GlobalRegistry but not added to `allStrategyFactories`
-  - [ ] `go1.25.0 test -race ./cmd/signal-audit/...` passes
-  - [ ] `golangci-lint run ./cmd/signal-audit/...` passes
-- **Notes:** Signal-audit is intentionally excluded from the centralized registry Build path because it uses audit-tuned non-default params (e.g. donchian period=10, macd fast=17) verified by Marcus for signal frequency. Auto-populating from GlobalRegistry defaults would silently change audit results. The test enforces coverage without changing the construction approach. Single test, no production code changes.
 
 ---
 

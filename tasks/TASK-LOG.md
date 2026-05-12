@@ -285,3 +285,4 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-11 | TASK-0075 | notes updated | TASK-0098 (PriceExit) done 2026-05-11; removed from blocker list; blocked solely on Marcus rules now | no status change |
 | 2026-05-11 | TASK-0105 | created | priority: low, source: discovery | pkg/strategy/price_exit.go NewPriceExit godoc: add note that negative pct values are treated as disabled (same as 0); Tech Debt Sentinel finding from TASK-0098 perspective review |
 | 2026-05-11 | TASK-0106 | created | priority: low, source: discovery | internal/walkforward: add TestRun_PriceExitFoldStateIsolation analogous to TestRun_TimedExitFoldStateIsolation; Concurrency & State Safety finding from TASK-0098 perspective review |
+| 2026-05-13 | TASK-0092 | status → done | all 4 AC met; single test added to cmd/signal-audit/main_test.go; quality gate PASS | archived to tasks/archive/2026-05.md |
