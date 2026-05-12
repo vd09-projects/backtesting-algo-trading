@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-11-price-exit-tp-boundary-test-uses-20-pct
+    title: "PriceExit TP exact-boundary tests use 20% threshold, not 10%"
+    date: 2026-05-11
+    status: experimental
+    category: convention
+    tags: [pkg/strategy, PriceExit, wrapper, target-profit, float64, boundary-test, test-design, TASK-0098]
+    path: convention/2026-05-11-price-exit-tp-boundary-test-uses-20-pct.md
+    summary: "100*(1+0.10) produces 110.00000000000001 in float64, so Close=110.0 fails the >= boundary check. Tests use 20% (100*1.20=120.0 exact) to correctly pin the >= operator. Test-design constraint only; production implementation uses >= as specified."
+
+  - id: 2026-05-11-price-exit-inner-not-called-on-sl-tp-bars
+    title: "PriceExit does not call inner.Next() on bars where SL or TP fires"
+    date: 2026-05-11
+    status: experimental
+    category: convention
+    tags: [pkg/strategy, PriceExit, wrapper, stop-loss, target-profit, inner-delegation, stateful, TASK-0098]
+    path: convention/2026-05-11-price-exit-inner-not-called-on-sl-tp-bars.md
+    summary: "inner.Next() is skipped on SL/TP-exit bars — price exits take unambiguous priority per AC. For stateful inner strategies, internal position state may lag by one bar after a PriceExit exit. Harmless under the engine's no-pyramiding rule and factory-per-fold guarantee. Documented in type godoc."
+
+  - id: 2026-05-11-price-exit-zero-guard-uses-gt-zero
+    title: "PriceExit zero-guard condition uses `> 0` not `!= 0`"
+    date: 2026-05-11
+    status: experimental
+    category: convention
+    tags: [pkg/strategy, PriceExit, wrapper, stop-loss, target-profit, guard, zero-value, TASK-0098]
+    path: convention/2026-05-11-price-exit-zero-guard-uses-gt-zero.md
+    summary: "stopLossPct and targetProfitPct guards check > 0, not != 0. Negative values are silently treated as disabled (same as zero) rather than inverting threshold direction. Matches natural semantics for an internal composable wrapper with no error-return path."
+
   - id: 2026-05-11-signal-audit-uses-registry-iteration-local
     title: "signal-audit uses GlobalRegistry iteration + local auditParamOverrides"
     date: 2026-05-11

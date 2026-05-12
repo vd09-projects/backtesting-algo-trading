@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-10 | **Open tasks:** 23 | **Next up:** TASK-0098
+**Last updated:** 2026-05-11 | **Open tasks:** 24 | **Next up:** TASK-0074
 
 ---
 
@@ -14,27 +14,6 @@
 
 <!-- Prioritized queue. The top item here is the answer to "what should I work on next?" -->
 
-### [TASK-0098] Strategy — `PriceExit` wrapper: fixed stop-loss and target-profit
-
-- **Status:** todo
-- **Priority:** high
-- **Created:** 2026-05-10
-- **Source:** session
-- **Context:** Engine has `TimedExit` for time-based exits. No equivalent exists for price-based exits. Marcus ruled fixed SL and TP make sense for intraday strategies (ORB, Gap-and-Go) and must NOT affect MACD or any existing daily-bar strategy. Implementation follows the `TimedExit` pattern exactly: a Strategy wrapper in `pkg/strategy/` that wraps an inner Strategy, tracks entry price, and overrides with SELL when Close crosses SL or TP threshold. Zero values = disabled — existing strategies unaffected.
-- **Acceptance criteria:**
-  - [ ] `pkg/strategy/price_exit.go`: `PriceExit` struct implementing `Strategy` interface; fields `inner Strategy`, `stopLossPct float64`, `targetProfitPct float64`, `entryPrice float64`, `inPosition bool`
-  - [ ] `NewPriceExit(inner Strategy, stopLossPct, targetProfitPct float64) Strategy` constructor; zero value for either pct = that guard disabled
-  - [ ] `Next(candles []model.Candle)`: on BUY from inner, record `entryPrice = bar.Close`; on subsequent bars, if `bar.Close <= entryPrice*(1-stopLossPct)` emit SELL; if `bar.Close >= entryPrice*(1+targetProfitPct)` emit SELL; inner SELL always passes through and resets state
-  - [ ] SL and TP checked before delegating to inner — price-based exits take priority
-  - [ ] `Name()` returns `"price-exit(" + inner.Name() + ")"` matching `TimedExit` naming convention
-  - [ ] `Lookback()` and `Timeframe()` delegate to inner
-  - [ ] Golden tests: SL fires, TP fires, neither fires (inner exits), re-entry after SL reset, both disabled (zero pct)
-  - [ ] `go1.25.0 test -race ./pkg/strategy/...` passes
-  - [ ] `golangci-lint run ./pkg/strategy/...` passes
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya. Compose order for intraday strategies: `NewPriceExit(NewTimedExit(inner, N), slPct, tpPct)` — price exit wraps timed exit, price-based exits fire first, time-stop is fallback. Do NOT wire into MACD or any existing strategy — explicitly opt-in per Marcus ruling (2026-05-10). SL/TP percentages as decimals (0.05 = 5%), not percentages. Unblocks: TASK-0074 (ORB build phase), TASK-0075 (Gap-and-Go build phase).
-
----
 
 ## Blocked
 
@@ -77,7 +56,7 @@
   - [ ] CLI registered in all strategy registries (`cmd/backtest`, `cmd/universe-sweep`, `cmd/walk-forward`)
   - [ ] All public functions tested; golden test for range computation and signal generation
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — done 2026-05-07) before implementation begins. Infrastructure dependencies resolved. Additional pre-build requirement: TASK-0098 (PriceExit wrapper — needed for SL/TP support in strategy). TASK-0099 done 2026-05-10, TASK-0101 done 2026-05-10 — 5-min cache fully populated, 15/15 large-cap instruments available (HDFCBANK and ICICIBANK now included; 1 candle skipped each at candle[450]). Blocked solely on Marcus rules + TASK-0098.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). Depends on TASK-0059 (walk-forward factory API — done 2026-05-07), TASK-0071 (gap handling verified — done 2026-05-07), and TASK-0078 (session-boundary utilities — done 2026-05-07) before implementation begins. Infrastructure dependencies resolved. TASK-0098 (PriceExit wrapper) done 2026-05-11. TASK-0099 done 2026-05-10, TASK-0101 done 2026-05-10 — 5-min cache fully populated, 15/15 large-cap instruments available (HDFCBANK and ICICIBANK now included; 1 candle skipped each at candle[450]). Blocked solely on Marcus rules.
 
 ---
 
@@ -96,7 +75,7 @@
   - [ ] CLI registered in all strategy registries
   - [ ] All public functions tested; golden test covering gap-up enter, gap-down enter, no-gap skip
   - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here) done 2026-05-07. Infrastructure dependencies resolved. Additional pre-build requirement: TASK-0098 (PriceExit wrapper — needed for SL/TP support in strategy). TASK-0099 done 2026-05-10, TASK-0101 done 2026-05-10 — 5-min cache fully populated, 48/48 midcap instruments available (all 8 previously excluded now included; 1 candle skipped each at candle[450]). Blocked solely on Marcus rules + TASK-0098. Long-only initially.
+- **Notes:** Owner: Marcus (edge definition) → Priya (implementation). TASK-0071 (gap handling verified) done 2026-05-07 — gap-down fills are engine-correct, gap-and-go strategy will see realistic gap P&L. TASK-0078 (session-boundary utilities — `PreviousSessionClose` is the primary dependency here) done 2026-05-07. Infrastructure dependencies resolved. TASK-0098 (PriceExit wrapper) done 2026-05-11. TASK-0099 done 2026-05-10, TASK-0101 done 2026-05-10 — 5-min cache fully populated, 48/48 midcap instruments available (all 8 previously excluded now included; 1 candle skipped each at candle[450]). Blocked solely on Marcus rules. Long-only initially.
 
 ---
 
@@ -429,6 +408,36 @@
   - [ ] Three `model.Trade` struct literals in `TestBuildSyntheticCurve_Order` updated to include `Instrument: "NSE:TEST"` — satisfies repo rule "every Trade must carry an instrument identifier"
   - [ ] `go1.25.0 test -race ./cmd/monitor/...` and `golangci-lint run ./cmd/monitor/...` still pass after changes
 - **Notes:** Discovered during go-quality-review standard gate on TASK-0048. Both fixes are in `cmd/monitor/monitor_test.go` only — no production code changes.
+
+---
+
+### [TASK-0105] Tech debt — `pkg/strategy/price_exit.go`: document negative-pct behavior in `NewPriceExit` godoc
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-11
+- **Source:** discovery
+- **Context:** `NewPriceExit` godoc says "Set to 0 to disable" for stopLossPct and targetProfitPct. Negative values are silently treated as disabled (the `> 0` guard means negative inputs behave identically to zero). A caller passing `-0.05` expecting a 5% stop-loss would get no stop-loss at all without any error. Low risk for current internal usage, but the behavior should be named.
+- **Acceptance criteria:**
+  - [ ] One sentence added to `NewPriceExit` godoc: "Negative values are treated as 0 (disabled)."
+  - [ ] `golangci-lint run ./pkg/strategy/...` still passes
+  - [ ] `go1.25.0 test -race ./pkg/strategy/...` still passes
+- **Notes:** Discovered during TASK-0098 multi-perspective review (Tech Debt Sentinel). One-line doc change, no production logic change. Low priority — PriceExit is an internal composable wrapper used by strategy authors, not a public API receiving untrusted input.
+
+---
+
+### [TASK-0106] Tech debt — add `PriceExit` fold-isolation test to `internal/walkforward`
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-11
+- **Source:** discovery
+- **Context:** `internal/walkforward` has `TestRun_TimedExitFoldStateIsolation` that verifies a shared `TimedExit` instance causes cross-fold state corruption and a factory-constructed one does not. No equivalent test exists for `PriceExit`. Both are stateful wrappers that must not be shared across folds. The walk-forward factory API already enforces this structurally, but a regression test would document the broken behavior and prevent silent regressions.
+- **Acceptance criteria:**
+  - [ ] `TestRun_PriceExitFoldStateIsolation` added to `internal/walkforward/` test suite (or equivalent file matching `TestRun_TimedExitFoldStateIsolation`): construct a `PriceExit` wrapping a scripted inner, run two folds, verify second fold gets correct fresh state (entryPrice and inPosition reset)
+  - [ ] `go1.25.0 test -race ./internal/walkforward/...` passes
+  - [ ] `golangci-lint run ./internal/walkforward/...` passes
+- **Notes:** Discovered during TASK-0098 multi-perspective review (Concurrency & State Safety Reviewer). Prerequisite: TASK-0074 or TASK-0075 must be built first so there is a realistic factory usage to model the test after. Low priority — the walk-forward factory API already enforces safety; this is a documentation-via-test improvement.
 
 ---
 

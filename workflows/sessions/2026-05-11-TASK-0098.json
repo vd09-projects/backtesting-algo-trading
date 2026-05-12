@@ -1,0 +1,82 @@
+{
+  "session_date": "2026-05-11",
+  "workflow": "build",
+  "task_id": "TASK-0098",
+  "task_title": "Strategy — `PriceExit` wrapper: fixed stop-loss and target-profit",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/convention/2026-04-27-timed-exit-statefulness-pkg-strategy.md",
+        "decisions/convention/2026-05-07-nolint-gocritic-hugeparam-candle-pkg-strategy.md"
+      ],
+      "context_files": [
+        "decisions/architecture/2026-05-07-walkforward-strategy-factory-per-fold.md",
+        "decisions/convention/2026-05-07-ist-package-level-var-time-fixedzone.md",
+        "decisions/architecture/2026-05-08-strategy-wiring-fully-centralized-in-cmdutil.md"
+      ]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Add PriceExit wrapper to pkg/strategy/ following TimedExit pattern. 7 golden tests written first (TDD), then price_exit.go implementation. No registry changes.",
+      "files_to_create": ["pkg/strategy/price_exit_test.go", "pkg/strategy/price_exit.go"],
+      "files_to_modify": []
+    },
+    "plan_review": {
+      "review_status": "APPROVE",
+      "round": 2
+    },
+    "build": {
+      "quality_gate": "PASS",
+      "files_modified": ["pkg/strategy/price_exit_test.go", "pkg/strategy/price_exit.go"],
+      "build_summary": "PriceExit stateful Strategy wrapper implemented. TDD: tests written first (compile-fail confirmed), implementation written second. 7 golden scenarios + 3 metadata tests. 100% coverage. golangci-lint 0 issues.",
+      "test_results": "ok pkg/strategy — all 10 tests pass with -race",
+      "lint_results": "0 issues"
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "round": 1
+    },
+    "perspective_review": {
+      "review_status": "APPROVE",
+      "round": 1,
+      "blocking": 0
+    }
+  },
+  "quality_review_round": 1,
+  "plan_review_iteration": 2,
+  "plan_review_history": [
+    {"iteration": 1, "review_status": "REQUEST_CHANGES", "blocking": 1},
+    {"iteration": 2, "review_status": "APPROVE", "blocking": 0}
+  ],
+  "perspective_review_iteration": 1,
+  "perspective_review_history": [
+    {
+      "iteration": 1,
+      "reviewers_activated": ["Domain Logic Reviewer", "Concurrency & State Safety Reviewer", "Test Coverage Auditor", "Naming & Clarity Guardian", "Tech Debt Sentinel"],
+      "findings": [{"severity": "FYI", "reviewer": "Tech Debt Sentinel", "issue": "Negative pct values silently treated as disabled — godoc could mention this"}],
+      "review_status": "APPROVE"
+    }
+  ],
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0098 picked from Up Next.",
+    "[AUTO] Step 2 — Decision lookup: 2 standing orders, 3 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (prior decision applies).",
+    "[AUTO] Step 4 — Plan: complete.",
+    "[AUTO] Step 4.5 round 1 — REQUEST_CHANGES: missing half-disabled tests.",
+    "[AUTO] Step 4.5 round 2 — APPROVE: plan revised to 7 tests.",
+    "[AUTO] Step 5 — Build: PASS.",
+    "[AUTO] Step 5b round 1 — Quality: clean.",
+    "[AUTO] Step 5c round 1 — Perspective: APPROVE.",
+    "[AUTO] Step 6 — Verify and Close."
+  ],
+  "decision_marks_pending": [
+    "**Decision (PriceExit zero-guard uses > 0 not != 0) — convention: experimental** — stopLossPct/targetProfitPct guards check > 0; negative values treated as disabled rather than inverting threshold direction.",
+    "**Decision (PriceExit inner not called on SL/TP-exit bars) — convention: experimental** — inner.Next() not called when SL or TP fires. Price exits take priority per AC; inner-state desync for stateful inners is harmless under engine's no-pyramiding rule. Documented in type godoc.",
+    "**Decision (PriceExit TP boundary test uses 20% not 10%) — convention: experimental** — Exact-boundary TP tests use 20% (100*1.20=120.0 exact float64) because 100*(1+0.10)=110.00000000000001 in float64. Test-design constraint only; implementation uses >= as specified."
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": []
+}
