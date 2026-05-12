@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-13 | **Open tasks:** 23 | **Next up:** TASK-0074
+**Last updated:** 2026-05-13 | **Open tasks:** 25 | **Next up:** TASK-0058
 
 ---
 
@@ -363,20 +363,53 @@
 
 ---
 
-### [TASK-0083] Tech debt — handle `*ErrIncompleteData` typed error at cmd/ layer boundary
+
+### [TASK-0107] Tech debt — `internal/universesweep.Run`: synchronize stderr writes across goroutines
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-13
+- **Source:** discovery
+- **Context:** `universesweep.Run` fans out per-instrument engine runs via errgroup and passes a shared `stderr io.Writer` to each goroutine. When multiple instruments return `*ErrIncompleteData` concurrently, each goroutine calls `fmt.Fprintf(stderr, ...)` on the shared writer. `bytes.Buffer` (used in tests) is not goroutine-safe for concurrent writes — concurrent incomplete-data writes are a theoretical data race under `go test -race` on multi-core machines. Production uses `os.Stderr` whose small-write syscalls are atomic on Linux/macOS, so production is safe, but tests are technically racy.
+- **Acceptance criteria:**
+  - [ ] `Run` wraps `stderr` in a mutex-protected writer before passing to goroutines, OR adds a doc comment to `Run`'s signature stating "stderr must be safe for concurrent writes (os.Stderr is safe; bytes.Buffer is not)"
+  - [ ] Preferred fix: introduce `syncWriter` in `internal/universesweep/universesweep.go`: `type syncWriter struct { mu sync.Mutex; w io.Writer }` with a `Write` method; wrap `stderr` in `Run` before goroutine launch
+  - [ ] `TestRun_IncompleteData_AllInstrumentsIncomplete` (existing) passes reliably under race detector with `bytes.Buffer` after fix
+  - [ ] `go1.25.0 test -race ./internal/universesweep/...` passes
+  - [ ] `golangci-lint run ./internal/universesweep/...` passes
+- **Notes:** Discovered during TASK-0083 multi-perspective review (Concurrency & State Safety Reviewer). Production is safe — `os.Stderr` write(2) syscalls ≤ PIPE_BUF are atomic on Linux/macOS. The risk is test-only: `bytes.Buffer` concurrent writes are a data race that the race detector may or may not catch depending on goroutine scheduling and GOMAXPROCS. syncWriter wrapper is ~10 lines.
+
+---
+
+### [TASK-0108] Tech debt — `cmd/universe-sweep`: add `insufficient_data=true` CSV assertion to incomplete-data sweep test
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-13
+- **Source:** discovery
+- **Context:** `TestRun_IncompleteData_SweepContinues` in `cmd/universe-sweep/main_test.go` (added in TASK-0083) verifies that the sweep doesn't abort and that the diagnostic appears on stderr. It does not verify that the incomplete instrument's CSV row has `insufficient_data=true`. The behavior is guaranteed by the `internal/universesweep` layer, but the cmd-layer test should round-trip the full signal.
+- **Acceptance criteria:**
+  - [ ] `TestRun_IncompleteData_SweepContinues` updated to parse the CSV stdout and assert the NSE:RELIANCE row contains `insufficient_data=true` (6th column)
+  - [ ] `go1.25.0 test -race ./cmd/universe-sweep/...` passes
+  - [ ] `golangci-lint run ./cmd/universe-sweep/...` passes
+- **Notes:** Discovered during TASK-0083 multi-perspective review (Test Coverage Auditor). One assertion added to an existing test — no new test function, no production code changes. The behavior is already guaranteed; this closes the cmd-layer assertion gap.
+
+---
+
+### [TASK-0109] Tech debt — `cmd/fetch-history`: wire `HandleIncompleteDataError` for `*ErrIncompleteData` in `fetchOne`
 
 - **Status:** todo
 - **Priority:** medium
-- **Created:** 2026-05-05
+- **Created:** 2026-05-13
 - **Source:** session
-- **Context:** TASK-0081 introduced `*ErrIncompleteData` as a typed error from `FetchCandles` when chunk merge returns fewer candles than 90% of the weekday estimate. The cmd/ entrypoints (`cmd/universe-sweep`, `cmd/backtest`, `cmd/walk-forward`, `cmd/fetch-history`) currently propagate this as a generic `error` — no user-facing message distinguishes "no data" from "partial data". Callers should type-assert and print a clear diagnostic before exiting.
+- **Context:** TASK-0083 added `cmdutil.HandleIncompleteDataError` and wired it into `cmd/backtest`, `cmd/walk-forward`, and `internal/universesweep`. `cmd/fetch-history` (TASK-0070, done 2026-05-09) was explicitly excluded from TASK-0083 scope. TASK-0070 notes state "*ErrIncompleteData handling applies to this CLI but is tracked separately." This task closes that gap: `fetchOne` should detect `*ErrIncompleteData`, log the per-instrument diagnostic to stderr, and treat it as a fetch failure (not a hard process exit) — consistent with how `internal/universesweep` handles it for universe-sweep.
 - **Acceptance criteria:**
-  - [ ] `cmd/universe-sweep`, `cmd/backtest`, `cmd/walk-forward`: any `FetchCandles` error path type-asserts `*zerodha.ErrIncompleteData`; if matched, prints `incomplete data: instrument=%s from=%s to=%s expected≈%d got=%d` and exits with code 2 (distinct from generic error exit code 1)
-  - [ ] `cmd/fetch-history` (TASK-0070): same typed-error handling wired in when that CLI is built
-  - [ ] `golangci-lint run ./cmd/...` passes
-  - [ ] Tests: mock provider returns `*ErrIncompleteData` → CLI prints correct diagnostic and exits with code 2
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Discovered during TASK-0081 harvest — the typed error is defined but not handled at the cmd/ boundary. Exit code 2 for incomplete data follows Unix convention (1 = generic error, 2 = misuse/data problem). `cmd/fetch-history` handling should be added as part of TASK-0070 build, not this task.
+  - [ ] `fetchOne` in `cmd/fetch-history/main.go`: after `FetchCandles` returns an error, call `cmdutil.HandleIncompleteDataError(err, stderr)`; if non-nil, log the diagnostic (already printed by the helper) and return the error — treated as a per-instrument fetch failure, partial-failure manifest path applies
+  - [ ] Existing partial-failure behavior preserved: other instruments continue fetching; `fetch-progress.json` updated for successful instruments only
+  - [ ] `TestFetchOne_IncompleteData` added: mock provider returns `*ErrIncompleteData` for one instrument; assert (a) stderr contains the `incomplete data:` diagnostic, (b) error is returned, (c) successful instruments still fetched
+  - [ ] `go1.25.0 test -race ./cmd/fetch-history/...` passes
+  - [ ] `golangci-lint run ./cmd/fetch-history/...` passes
+- **Notes:** Owner: Priya (dev). `cmd/fetch-history` is a bulk fetcher — unlike `cmd/backtest` (single instrument, hard exit 2) or `cmd/walk-forward` (single instrument, hard exit 2), fetch-history accumulates errors and continues. Per-instrument failure (not process exit) is the correct semantic, matching `internal/universesweep.runInstrument`. The `HandleIncompleteDataError` helper prints the diagnostic — `fetchOne` just needs to treat the returned `*ExitCodeError{Code:2}` as a regular per-instrument error.
 
 ---
 

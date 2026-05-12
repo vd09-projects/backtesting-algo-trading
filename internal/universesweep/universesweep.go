@@ -26,6 +26,7 @@ package universesweep
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -40,6 +41,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/engine"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 )
 
@@ -152,6 +154,11 @@ func ParseUniverseFile(path string) ([]string, error) {
 // pre-sort ordering is deterministic regardless of goroutine scheduling.
 // The returned Report has Results sorted descending by Sharpe ratio.
 //
+// When an instrument's FetchCandles returns *zerodha.ErrIncompleteData, Run does
+// NOT propagate the error — the sweep continues. The diagnostic is written to
+// stderr and the instrument result is flagged InsufficientData=true. All other
+// error kinds from engine.Run are still propagated and abort the sweep.
+//
 // **Decision (errgroup for universe fan-out, GOMAXPROCS ceiling) — tradeoff: experimental**
 // scope: internal/universesweep
 // tags: concurrency, errgroup, parallelism, GOMAXPROCS
@@ -163,7 +170,18 @@ func ParseUniverseFile(path string) ([]string, error) {
 // "parallel across runs" pattern from go-patterns.md. golang.org/x/sync is
 // already in go.mod. The ceiling avoids spawning N goroutines for a 500-stock
 // universe on a 4-core machine; each goroutine holds a full candle series.
-func Run(ctx context.Context, cfg *Config, p provider.DataProvider) (Report, error) {
+//
+// **Decision (Run and runInstrument gain stderr io.Writer for per-instrument incomplete-data logging) — convention: experimental**
+// scope: internal/universesweep
+// tags: ErrIncompleteData, per-instrument-warning, stderr, TASK-0083
+// owner: priya
+//
+// universe-sweep must not abort on incomplete data for a single instrument —
+// the operator needs the sweep to complete so other instruments can be evaluated.
+// Diagnostic logging goes to the caller's stderr rather than os.Stderr so
+// cmd/ tests can capture and assert on it. The io.Writer param mirrors the
+// established pattern from cmd/walk-forward and cmd/universe-sweep.
+func Run(ctx context.Context, cfg *Config, p provider.DataProvider, stderr io.Writer) (Report, error) {
 	if len(cfg.Instruments) == 0 {
 		return Report{}, fmt.Errorf("universesweep: instruments list must not be empty")
 	}
@@ -183,7 +201,7 @@ func Run(ctx context.Context, cfg *Config, p provider.DataProvider) (Report, err
 
 	for i := range cfg.Instruments {
 		g.Go(func() error {
-			result, err := runInstrument(gctx, cfg, p, cfg.Instruments[i])
+			result, err := runInstrument(gctx, cfg, p, cfg.Instruments[i], stderr)
 			if err != nil {
 				return fmt.Errorf("universesweep: instrument %q: %w", cfg.Instruments[i], err)
 			}
@@ -206,12 +224,28 @@ func Run(ctx context.Context, cfg *Config, p provider.DataProvider) (Report, err
 
 // runInstrument executes a single engine run for the given instrument and
 // returns the corresponding Result.
-func runInstrument(ctx context.Context, cfg *Config, p provider.DataProvider, instrument string) (Result, error) {
+//
+// If engine.Run returns an error wrapping *zerodha.ErrIncompleteData, the
+// diagnostic is printed to stderr and the function returns a flagged
+// Result{InsufficientData: true} with a nil error — the sweep continues.
+// All other errors are returned normally.
+func runInstrument(ctx context.Context, cfg *Config, p provider.DataProvider, instrument string, stderr io.Writer) (Result, error) {
 	engCfg := cfg.EngineConfig
 	engCfg.Instrument = instrument
 
 	eng := engine.New(engCfg)
 	if err := eng.Run(ctx, p, cfg.NewStrategy()); err != nil {
+		var ie *zerodha.ErrIncompleteData
+		if errors.As(err, &ie) {
+			fmt.Fprintf(stderr, "incomplete data: instrument=%s from=%s to=%s expected≈%d got=%d\n", //nolint:errcheck // diagnostic; non-fatal write
+				ie.Instrument,
+				ie.From.Format("2006-01-02"),
+				ie.To.Format("2006-01-02"),
+				ie.Expected,
+				ie.Got,
+			)
+			return Result{Instrument: instrument, InsufficientData: true}, nil
+		}
 		return Result{}, fmt.Errorf("engine run: %w", err)
 	}
 

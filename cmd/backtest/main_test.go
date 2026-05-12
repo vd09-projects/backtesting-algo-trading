@@ -1,11 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 )
 
 // ---------------------------------------------------------------------------
@@ -170,5 +177,114 @@ func TestParseSizingConfig_UnknownModel(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--sizing-model") {
 		t.Errorf("error should mention --sizing-model, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestRun_ErrIncompleteData — providerFactory injection + exit-code tests
+// ---------------------------------------------------------------------------
+
+// incompleteDataFactory returns a providerFactory whose FetchCandles always
+// returns *zerodha.ErrIncompleteData for the given instrument.
+func incompleteDataFactory(instrument string) func(context.Context) (provider.DataProvider, error) {
+	return func(_ context.Context) (provider.DataProvider, error) {
+		return &incompleteDataProvider{instrument: instrument}, nil
+	}
+}
+
+type incompleteDataProvider struct{ instrument string }
+
+func (p *incompleteDataProvider) FetchCandles(
+	_ context.Context, _ string, _ model.Timeframe, from, to time.Time,
+) ([]model.Candle, error) {
+	return nil, &zerodha.ErrIncompleteData{
+		Instrument: p.instrument,
+		From:       from,
+		To:         to,
+		Expected:   261,
+		Got:        20,
+	}
+}
+
+func (p *incompleteDataProvider) SupportedTimeframes() []model.Timeframe {
+	return []model.Timeframe{model.TimeframeDaily}
+}
+
+// genericErrorFactory returns a providerFactory whose FetchCandles always returns
+// a plain, non-typed error — used to verify exit code 1 path.
+func genericErrorFactory() func(context.Context) (provider.DataProvider, error) {
+	return func(_ context.Context) (provider.DataProvider, error) {
+		return &genericErrorProvider{}, nil
+	}
+}
+
+type genericErrorProvider struct{}
+
+func (p *genericErrorProvider) FetchCandles(
+	_ context.Context, _ string, _ model.Timeframe, _, _ time.Time,
+) ([]model.Candle, error) {
+	return nil, fmt.Errorf("generic provider failure")
+}
+
+func (p *genericErrorProvider) SupportedTimeframes() []model.Timeframe {
+	return []model.Timeframe{model.TimeframeDaily}
+}
+
+// TestRun_IncompleteData_ReturnsExitCodeError2 verifies that when the provider
+// returns *ErrIncompleteData, run() returns *cmdutil.ExitCodeError with Code==2.
+func TestRun_IncompleteData_ReturnsExitCodeError2(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	err := run([]string{
+		"--instrument", "NSE:RELIANCE",
+		"--strategy", "stub",
+		"--from", "2022-01-01",
+		"--to", "2023-01-01",
+	}, &stdout, &stderr, incompleteDataFactory("NSE:RELIANCE"))
+
+	if err == nil {
+		t.Fatal("run() returned nil, want *cmdutil.ExitCodeError")
+	}
+
+	var ee *cmdutil.ExitCodeError
+	if !errors.As(err, &ee) {
+		t.Fatalf("run() error is %T (%v), want *cmdutil.ExitCodeError", err, err)
+	}
+	if ee.Code != 2 {
+		t.Errorf("ExitCodeError.Code = %d, want 2", ee.Code)
+	}
+
+	// Diagnostic must appear on stderr.
+	stderrOut := stderr.String()
+	if !strings.Contains(stderrOut, "incomplete data:") {
+		t.Errorf("stderr missing 'incomplete data:' diagnostic; got: %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, "NSE:RELIANCE") {
+		t.Errorf("stderr missing instrument name; got: %q", stderrOut)
+	}
+}
+
+// TestRun_GenericError_NotExitCodeError2 verifies that a plain (non-typed) provider
+// error does NOT produce *cmdutil.ExitCodeError with Code==2 — generic errors must
+// keep the standard exit-code-1 path so the codes remain distinct.
+func TestRun_GenericError_NotExitCodeError2(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	err := run([]string{
+		"--instrument", "NSE:RELIANCE",
+		"--strategy", "stub",
+		"--from", "2022-01-01",
+		"--to", "2023-01-01",
+	}, &stdout, &stderr, genericErrorFactory())
+
+	if err == nil {
+		t.Fatal("run() returned nil, want an error for generic provider failure")
+	}
+
+	var ee *cmdutil.ExitCodeError
+	if errors.As(err, &ee) && ee.Code == 2 {
+		t.Errorf("run() returned ExitCodeError{Code:2} for a generic error — must not happen")
 	}
 }

@@ -8,6 +8,78 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-13-backtest-exit-code-2-errincompletedataerror
+    title: "cmd/backtest and cmd/walk-forward: exit code 2 for *ErrIncompleteData, exit code 1 for generic errors"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [exit-code, ErrIncompleteData, main, cmd/backtest, cmd/walk-forward, TASK-0083]
+    path: convention/2026-05-13-backtest-exit-code-2-errincompletedataerror.md
+    summary: "Both binaries do errors.As(err, &ee *cmdutil.ExitCodeError) → os.Exit(ee.Code) before Fatalf. Exit code 2 = *ErrIncompleteData (partial data); exit code 1 = all other errors. Enables scripting to distinguish data quality errors from generic failures."
+
+  - id: 2026-05-13-universe-sweep-option-b-per-instrument-warning
+    title: "cmd/universe-sweep *ErrIncompleteData handling — Option B: per-instrument warning, sweep continues"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [ErrIncompleteData, universe-sweep, per-instrument-warning, sweep-continues, TASK-0083]
+    path: convention/2026-05-13-universe-sweep-option-b-per-instrument-warning.md
+    summary: "*ErrIncompleteData in runInstrument logs per-instrument diagnostic and returns InsufficientData=true result — sweep continues. Single-instrument binaries (backtest, walk-forward) still use fatal exit 2. User-chosen Option B over Option A (abort sweep)."
+
+  - id: 2026-05-13-cmd-evaluate-omits-handleincompletedataerror
+    title: "cmd/evaluate omits HandleIncompleteDataError at run() boundary — intentional"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [ErrIncompleteData, cmd/evaluate, WF, bootstrap, TASK-0083]
+    path: convention/2026-05-13-cmd-evaluate-omits-handleincompletedataerror.md
+    summary: "cmd/evaluate does not call HandleIncompleteDataError. Universe sweep stage gets per-instrument handling for free via internal/universesweep. WF and bootstrap stages hard-fail on incomplete data — partial candle series makes Sharpe calculations unreliable."
+
+  - id: 2026-05-13-providerfactory-injection-backtest-walkforward
+    title: "providerFactory injection added to cmd/backtest and cmd/walk-forward for ErrIncompleteData testability"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [testability, providerFactory, ErrIncompleteData, run-function, TASK-0083]
+    path: convention/2026-05-13-providerfactory-injection-backtest-walkforward.md
+    summary: "run() gains providerFactory func(context.Context)(provider.DataProvider,error) param. main() passes buildProductionProvider; tests inject mock returning *ErrIncompleteData. Follows cmd/universe-sweep and cmd/fetch-history pattern."
+
+  - id: 2026-05-13-universesweep-run-stderr-param-for-incomplete-data
+    title: "universesweep.Run and runInstrument gain stderr io.Writer for per-instrument diagnostic logging"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [ErrIncompleteData, per-instrument-warning, stderr, io.Writer, TASK-0083]
+    path: convention/2026-05-13-universesweep-run-stderr-param-for-incomplete-data.md
+    summary: "Run(ctx,cfg,p,stderr) and runInstrument(...,stderr) gain io.Writer param so callers can capture per-instrument diagnostics in tests. Follows run(args,stdout,stderr) testability pattern from cmd packages. Note: shared across goroutines — os.Stderr safe, bytes.Buffer not (TASK-0107)."
+
+  - id: 2026-05-13-universesweep-imports-zerodha-for-error-inspect
+    title: "internal/universesweep imports pkg/provider/zerodha for ErrIncompleteData type assertion"
+    date: 2026-05-13
+    status: experimental
+    category: architecture
+    tags: [ErrIncompleteData, zerodha, package-boundary, TASK-0083]
+    path: architecture/2026-05-13-universesweep-imports-zerodha-for-error-inspect.md
+    summary: "CLAUDE.md 'no package outside pkg/provider/ should know about Zerodha' targets data access, not error inspection. errors.As(*zerodha.ErrIncompleteData) in runInstrument is error inspection on a value that already crossed the DataProvider boundary. Approved explicitly. Same pattern as cache/2026-05-10."
+
+  - id: 2026-05-13-handleincompletedataerror-extracted-to-cmdutil
+    title: "HandleIncompleteDataError extracted to internal/cmdutil — not duplicated across cmd binaries"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [ErrIncompleteData, exit-code, DRY, diagnostic, TASK-0083]
+    path: convention/2026-05-13-handleincompletedataerror-extracted-to-cmdutil.md
+    summary: "HandleIncompleteDataError(err,stderr) in internal/cmdutil/errors.go does errors.As for *ErrIncompleteData, prints diagnostic, returns *ExitCodeError{Code:2}. Used by backtest and walk-forward; fetch-history will use it in TASK-0109. Diagnostic format defined once."
+
+  - id: 2026-05-13-exitcodeerror-promoted-to-internal-cmdutil
+    title: "ExitCodeError promoted to internal/cmdutil, shared across cmd binaries"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [exit-code, errors, DRY, ErrIncompleteData, TASK-0083]
+    path: convention/2026-05-13-exitcodeerror-promoted-to-internal-cmdutil.md
+    summary: "ExitCodeError{Code int} in internal/cmdutil/errors.go replaces cmd/walk-forward's local unexported exitCodeError. All single-instrument cmd binaries use *cmdutil.ExitCodeError. Exported Code field (PascalCase) replaces unexported code field."
+
   - id: 2026-05-11-price-exit-tp-boundary-test-uses-20-pct
     title: "PriceExit TP exact-boundary tests use 20% threshold, not 10%"
     date: 2026-05-11

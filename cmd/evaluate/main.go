@@ -401,7 +401,7 @@ func runUniverseSweep(pl evalPipeline, stderr io.Writer) ( //nolint:gocritic // 
 		Timeframe: pl.tf,
 	}
 
-	sweepReport, err := universesweep.Run(pl.ctx, &sweepCfg, pl.provider)
+	sweepReport, err := universesweep.Run(pl.ctx, &sweepCfg, pl.provider, stderr)
 	if err != nil {
 		return universesweep.GateResult{}, nil, nil, nil, fmt.Errorf("universe sweep: %w", err)
 	}

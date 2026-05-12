@@ -63,13 +63,20 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/walkforward"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
 )
 
+// buildProductionProvider constructs the cached Zerodha provider used in production.
+func buildProductionProvider(_ context.Context) (provider.DataProvider, error) {
+	cmdutil.LoadDotEnv(".env")
+	return cmdutil.BuildProvider(context.Background())
+}
+
 func main() {
-	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		var ee *exitCodeError
+	if err := run(os.Args[1:], os.Stdout, os.Stderr, buildProductionProvider); err != nil {
+		var ee *cmdutil.ExitCodeError
 		if errors.As(err, &ee) {
-			os.Exit(ee.code)
+			os.Exit(ee.Code)
 		}
 		cmdutil.Fatalf("%v", err)
 	}
@@ -90,7 +97,17 @@ func main() {
 // commission paths without spawning a subprocess or requiring live credentials.
 // Tests that reach walkforward.Run still need a live provider — those paths are
 // integration-only and are not exercised in unit tests.
-func run(args []string, stdout, stderr io.Writer) error {
+// run is the testable entry point.
+//
+// **Decision (add providerFactory injection to cmd/walk-forward to enable ErrIncompleteData unit tests) — convention: experimental**
+// scope: cmd/walk-forward
+// tags: testability, providerFactory, ErrIncompleteData, TASK-0083
+// owner: priya
+//
+// Previously run() called cmdutil.BuildProvider directly, making the ErrIncompleteData
+// path untestable. providerFactory injection follows cmd/universe-sweep and
+// cmd/fetch-history precedents. main() passes buildProductionProvider; tests inject mocks.
+func run(args []string, stdout, stderr io.Writer, providerFactory func(context.Context) (provider.DataProvider, error)) error {
 	fs := flag.NewFlagSet("walk-forward", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
@@ -144,9 +161,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	ctx := context.Background()
-	cmdutil.LoadDotEnv(".env")
 
-	p, err := cmdutil.BuildProvider(ctx)
+	p, err := providerFactory(ctx)
 	if err != nil {
 		return fmt.Errorf("provider: %w", err)
 	}
@@ -169,6 +185,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 	report, err := walkforward.Run(ctx, wfCfg, baseCfg, p, factory)
 	if err != nil {
+		if ee := cmdutil.HandleIncompleteDataError(err, stderr); ee != nil {
+			return ee
+		}
 		return fmt.Errorf("walk-forward: %w", err)
 	}
 
@@ -186,17 +205,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	if determineExitCode(report) != 0 {
-		return &exitCodeError{code: 1}
+		return &cmdutil.ExitCodeError{Code: 1}
 	}
 	return nil
-}
-
-// exitCodeError is returned by run() when the walk-forward report has flags set.
-// main() translates it to os.Exit(1).
-type exitCodeError struct{ code int }
-
-func (e *exitCodeError) Error() string {
-	return fmt.Sprintf("exit code %d", e.code)
 }
 
 // parseAndValidateFlags validates the four required flags and parses dates.

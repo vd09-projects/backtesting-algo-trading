@@ -11,6 +11,7 @@ import (
 
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 )
 
 // ---------------------------------------------------------------------------
@@ -50,6 +51,37 @@ func mockFactory() func(context.Context) (provider.DataProvider, error) {
 func panicFactory() func(context.Context) (provider.DataProvider, error) {
 	return func(_ context.Context) (provider.DataProvider, error) {
 		panic("providerFactory must not be called during flag-validation errors")
+	}
+}
+
+// incompleteDataProvider returns *zerodha.ErrIncompleteData for one named
+// instrument and delegates to flatProvider for all others.
+type incompleteDataProvider struct {
+	targetInstrument string
+}
+
+func (p *incompleteDataProvider) FetchCandles(
+	ctx context.Context, instrument string, tf model.Timeframe, from, to time.Time,
+) ([]model.Candle, error) {
+	if instrument == p.targetInstrument {
+		return nil, &zerodha.ErrIncompleteData{
+			Instrument: instrument,
+			From:       from,
+			To:         to,
+			Expected:   261,
+			Got:        20,
+		}
+	}
+	return (&flatProvider{}).FetchCandles(ctx, instrument, tf, from, to)
+}
+
+func (p *incompleteDataProvider) SupportedTimeframes() []model.Timeframe {
+	return []model.Timeframe{model.TimeframeDaily}
+}
+
+func incompleteFactory(targetInstrument string) func(context.Context) (provider.DataProvider, error) {
+	return func(_ context.Context) (provider.DataProvider, error) {
+		return &incompleteDataProvider{targetInstrument: targetInstrument}, nil
 	}
 }
 
@@ -338,4 +370,48 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// ---------------------------------------------------------------------------
+// TestRun_IncompleteData — Option B: sweep continues on per-instrument failure
+// ---------------------------------------------------------------------------
+
+// TestRun_IncompleteData_SweepContinues verifies that when one instrument
+// returns *ErrIncompleteData, run() does NOT return an error. The sweep
+// completes, CSV is written (with the incomplete instrument flagged), and a
+// diagnostic is printed to stderr.
+func TestRun_IncompleteData_SweepContinues(t *testing.T) {
+	t.Parallel()
+
+	universePath := writeUniverseYAML(t, []string{"NSE:RELIANCE", "NSE:INFY"})
+
+	var stdout, stderr bytes.Buffer
+	err := run([]string{
+		"--universe", universePath,
+		"--strategy", "stub",
+		"--from", "2022-01-01",
+		"--to", "2023-01-01",
+		"--timeframe", "daily",
+	}, &stdout, &stderr, incompleteFactory("NSE:RELIANCE"))
+	if err != nil {
+		t.Fatalf("run() returned error (sweep must continue): %v", err)
+	}
+
+	// CSV must contain both instruments.
+	out := stdout.String()
+	if !strings.Contains(out, "NSE:RELIANCE") {
+		t.Error("CSV missing NSE:RELIANCE row")
+	}
+	if !strings.Contains(out, "NSE:INFY") {
+		t.Error("CSV missing NSE:INFY row")
+	}
+
+	// Diagnostic must appear on stderr.
+	stderrOut := stderr.String()
+	if !strings.Contains(stderrOut, "incomplete data:") {
+		t.Errorf("stderr missing 'incomplete data:' diagnostic; got: %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, "NSE:RELIANCE") {
+		t.Errorf("stderr missing instrument name in diagnostic; got: %q", stderrOut)
+	}
 }

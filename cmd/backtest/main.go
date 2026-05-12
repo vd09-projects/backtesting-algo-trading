@@ -64,6 +64,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -77,6 +78,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/montecarlo"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/output"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
 )
 
 type flags struct {
@@ -98,8 +100,18 @@ type flags struct {
 	doRegimeGate  bool
 }
 
+// buildProductionProvider constructs the cached Zerodha provider used in production.
+func buildProductionProvider(_ context.Context) (provider.DataProvider, error) {
+	cmdutil.LoadDotEnv(".env")
+	return cmdutil.BuildProvider(context.Background())
+}
+
 func main() {
-	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
+	if err := run(os.Args[1:], os.Stdout, os.Stderr, buildProductionProvider); err != nil {
+		var ee *cmdutil.ExitCodeError
+		if errors.As(err, &ee) {
+			os.Exit(ee.Code)
+		}
 		cmdutil.Fatalf("%v", err)
 	}
 }
@@ -108,7 +120,22 @@ func main() {
 // strategy, connects to the provider, runs the backtest, and writes output.
 // It returns an error rather than calling os.Exit, so tests can invoke it
 // directly without spawning a subprocess.
-func run(args []string, stdout, stderr io.Writer) error {
+//
+// When the provider returns *zerodha.ErrIncompleteData, run returns
+// *cmdutil.ExitCodeError{Code: 2}. main() translates this to os.Exit(2).
+// Any other error is returned as-is; main() calls cmdutil.Fatalf (exit 1).
+//
+// **Decision (add providerFactory injection to cmd/backtest to enable ErrIncompleteData unit tests) — convention: experimental**
+// scope: cmd/backtest
+// tags: testability, providerFactory, ErrIncompleteData, TASK-0083
+// owner: priya
+//
+// cmd/backtest previously called cmdutil.BuildProvider directly inside run(),
+// making the ErrIncompleteData path untestable without a live Zerodha connection.
+// The providerFactory parameter follows the pattern established by cmd/universe-sweep
+// and cmd/fetch-history. Production behavior is unchanged: main() passes
+// buildProductionProvider. Tests inject a mock that returns *ErrIncompleteData.
+func run(args []string, stdout, stderr io.Writer, providerFactory func(context.Context) (provider.DataProvider, error)) error {
 	fs := flag.NewFlagSet("backtest", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
@@ -167,9 +194,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 	ctx := context.Background()
 
-	cmdutil.LoadDotEnv(".env")
-
-	prov, err := cmdutil.BuildProvider(ctx)
+	prov, err := providerFactory(ctx)
 	if err != nil {
 		return fmt.Errorf("provider: %w", err)
 	}
@@ -193,6 +218,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 		from.Format("2006-01-02"), to.Format("2006-01-02"))
 
 	if err := eng.Run(ctx, prov, selectedStrategy); err != nil {
+		if ee := cmdutil.HandleIncompleteDataError(err, stderr); ee != nil {
+			return ee
+		}
 		return fmt.Errorf("engine: %w", err)
 	}
 

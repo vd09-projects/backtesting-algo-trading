@@ -137,7 +137,7 @@ func run(args []string, stdout, stderr io.Writer, providerFactory func(context.C
 		Timeframe: tf,
 	}
 
-	report, err := universesweep.Run(ctx, &cfg, p)
+	report, err := universesweep.Run(ctx, &cfg, p, stderr)
 	if err != nil {
 		return fmt.Errorf("universe sweep: %w", err)
 	}

@@ -1,0 +1,158 @@
+{
+  "session_date": "2026-05-13",
+  "workflow": "build",
+  "task_id": "TASK-0083",
+  "task_title": "Tech debt — handle *ErrIncompleteData typed error at cmd/ layer boundary",
+  "step_completed": 6,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/tradeoff/2026-05-05-fetch-candles-completeness-threshold-90-pct.md",
+        "decisions/convention/2026-05-09-run-extraction-for-testability-in-cmd-fetch-history.md"
+      ],
+      "context_files": [
+        "decisions/convention/2026-05-10-run-extraction-for-testability-in-cmd-evaluate.md",
+        "decisions/convention/2026-05-07-run-extraction-for-testability-in-cmd-monitor.md",
+        "decisions/architecture/2026-05-05-instruments-cache-dir-explicit-config-field.md"
+      ]
+    },
+    "marcus": null,
+    "priya_plan": {
+      "plan_summary": "Add *ErrIncompleteData typed-error handling at cmd/ layer per Option B.",
+      "files_to_create": ["internal/cmdutil/errors.go"],
+      "files_to_modify": [
+        "internal/universesweep/universesweep.go",
+        "internal/universesweep/universesweep_test.go",
+        "cmd/backtest/main.go",
+        "cmd/backtest/main_test.go",
+        "cmd/walk-forward/main.go",
+        "cmd/walk-forward/main_test.go",
+        "cmd/universe-sweep/main.go",
+        "cmd/universe-sweep/main_test.go",
+        "cmd/evaluate/main.go"
+      ],
+      "approach": "TDD throughout. ExitCodeError in internal/cmdutil; universesweep.Run gains stderr param; providerFactory injection in cmd/backtest and cmd/walk-forward."
+    },
+    "plan_review": {
+      "review_status": "APPROVED_BY_USER",
+      "blocking": 0
+    },
+    "build": {
+      "build_summary": "Option B ErrIncompleteData handling implemented. internal/cmdutil/errors.go new; universesweep.Run/runInstrument gain stderr; cmd/backtest and cmd/walk-forward get providerFactory injection and HandleIncompleteDataError; cmd/universe-sweep and cmd/evaluate updated to pass stderr. All tests TDD.",
+      "files_modified": [
+        "internal/cmdutil/errors.go",
+        "internal/cmdutil/errors_test.go",
+        "internal/universesweep/universesweep.go",
+        "internal/universesweep/universesweep_test.go",
+        "cmd/backtest/main.go",
+        "cmd/backtest/main_test.go",
+        "cmd/walk-forward/main.go",
+        "cmd/walk-forward/main_test.go",
+        "cmd/universe-sweep/main.go",
+        "cmd/universe-sweep/main_test.go",
+        "cmd/evaluate/main.go"
+      ],
+      "quality_gate": "PASS",
+      "quality_findings": []
+    },
+    "quality_review": {
+      "gate_status": "clean",
+      "round": 1,
+      "findings": [
+        {
+          "file": "internal/universesweep/universesweep.go",
+          "line": "Run()",
+          "description": "Suggestion: stderr writer passed to goroutines is not synchronized; bytes.Buffer is not goroutine-safe for concurrent writes",
+          "code_change_required": false
+        }
+      ]
+    },
+    "perspective_review": {
+      "review_status": "APPROVE",
+      "iteration": 1,
+      "reviewers_activated": ["Tech Debt Sentinel", "Ripple Effect Analyst", "Naming & Clarity Guardian", "Test Coverage Auditor", "Error Handling & Resilience Inspector", "Concurrency & State Safety Reviewer", "Domain Logic Reviewer"],
+      "blocking": 0,
+      "suggestions": 4,
+      "findings": [
+        {
+          "reviewer": "Concurrency & State Safety Reviewer",
+          "location": "internal/universesweep/universesweep.go:Run()",
+          "issue": "stderr io.Writer passed to goroutines not synchronized; bytes.Buffer not goroutine-safe for concurrent writes in tests",
+          "severity": "suggestion"
+        },
+        {
+          "reviewer": "Test Coverage Auditor",
+          "location": "cmd/universe-sweep/main_test.go:TestRun_IncompleteData_SweepContinues",
+          "issue": "Test does not assert incomplete instrument CSV row has insufficient_data=true",
+          "severity": "suggestion"
+        },
+        {
+          "reviewer": "Naming & Clarity Guardian",
+          "location": "cmd/walk-forward/main.go:run()",
+          "issue": "Fragmented godoc comment — two decision marks concatenated, breaking godoc rendering",
+          "severity": "suggestion"
+        },
+        {
+          "reviewer": "Ripple Effect Analyst",
+          "location": "cmd/evaluate/main.go:runWalkForward()",
+          "issue": "ErrIncompleteData in WF fold bubbles up with multi-layer wrapping; error message is verbose",
+          "severity": "suggestion"
+        }
+      ]
+    }
+  },
+  "quality_review_round": 1,
+  "plan_review_iteration": 1,
+  "plan_review_history": [
+    {
+      "iteration": 1,
+      "review_status": "APPROVED_BY_USER",
+      "note": "User resolved NEEDS_DISCUSSION with Option B."
+    }
+  ],
+  "perspective_review_iteration": 1,
+  "perspective_review_history": [
+    {
+      "iteration": 1,
+      "reviewers_activated": ["Tech Debt Sentinel", "Ripple Effect Analyst", "Naming & Clarity Guardian", "Test Coverage Auditor", "Error Handling & Resilience Inspector", "Concurrency & State Safety Reviewer", "Domain Logic Reviewer"],
+      "findings": [
+        {"reviewer": "Concurrency & State Safety Reviewer", "location": "internal/universesweep/universesweep.go:Run()", "issue": "stderr not synchronized for concurrent writes"},
+        {"reviewer": "Test Coverage Auditor", "location": "cmd/universe-sweep/main_test.go:TestRun_IncompleteData_SweepContinues", "issue": "missing insufficient_data=true CSV assertion"},
+        {"reviewer": "Naming & Clarity Guardian", "location": "cmd/walk-forward/main.go:run()", "issue": "fragmented godoc comment"},
+        {"reviewer": "Ripple Effect Analyst", "location": "cmd/evaluate/main.go:runWalkForward()", "issue": "verbose error message on ErrIncompleteData in WF fold"}
+      ],
+      "review_status": "APPROVE"
+    }
+  ],
+  "execution_log": [
+    "[AUTO] Step 1 — Task: TASK-0083 'Tech debt — handle *ErrIncompleteData typed error at cmd/ layer boundary' picked from Todo section. Source: tech debt (session).",
+    "[AUTO] Step 1.5a — Not a wrong-agent redirect.",
+    "[AUTO] Step 1.5b — Not a bugfix. Normal plan path.",
+    "[AUTO] Step 1.5c — Strategy registration: 7 strategies, all registered in GlobalRegistry.",
+    "[AUTO] Step 1.5d — Quality gate sentinel: last-pass exists (2026-05-12T22:05:22Z). Will re-run.",
+    "[AUTO] Step 2 — Decision lookup: 2 standing orders, 3 context files.",
+    "[AUTO] Step 3 — Marcus: skipped (no methodology concerns).",
+    "[AUTO] Step 4 — Plan: complete. Original approach.",
+    "[USER] Plan review NEEDS_DISCUSSION resolved: user chose Option B.",
+    "[AUTO] Step 4 (revised) — Plan updated with Option B.",
+    "[AUTO] Step 5 — Build: complete. Quality gate: PASS. 11 files.",
+    "[AUTO] Step 5b round 1 — Quality review: 0 blockers, 0 warnings, 1 suggestion. Gate status: clean. Sentinel written.",
+    "[AUTO] Step 5c round 1 — Perspective review: scope=medium, mode=full, 7 reviewers, blocking=0, suggestions=4. Status: APPROVE.",
+    "[AUTO] Step 6 — Verifying acceptance criteria and running session-end procedures."
+  ],
+  "decision_marks_pending": [
+    "**Decision (exitCodeError pattern extended to cmd/backtest and cmd/universe-sweep — exit code 2 for ErrIncompleteData) — convention: experimental**",
+    "**Decision (ErrIncompleteData in fetch-history treated as per-instrument failure, not hard process exit) — convention: experimental**",
+    "**Decision (ExitCodeError promoted to internal/cmdutil, shared across cmd/backtest and cmd/walk-forward) — convention: experimental**",
+    "**Decision (HandleIncompleteDataError in internal/cmdutil, not duplicated in 3 package main files) — convention: experimental**",
+    "**Decision (internal/universesweep imports pkg/provider/zerodha for ErrIncompleteData type assertion — error inspection not data access) — architecture: experimental**",
+    "**Decision (Run and runInstrument gain stderr io.Writer for per-instrument incomplete-data logging) — convention: experimental**",
+    "**Decision (add providerFactory injection to cmd/backtest and cmd/walk-forward to enable ErrIncompleteData unit tests) — convention: experimental**",
+    "**Decision (cmd/evaluate omits HandleIncompleteDataError at run() boundary — WF/bootstrap hard-fail on incomplete data is correct; sweep stage gets per-instrument handling for free via internal/universesweep change) — convention: experimental**"
+  ],
+  "hard_stop_active": null,
+  "preflight_passed": true,
+  "is_bugfix": false,
+  "prior_rounds_findings": [],
+  "status": "done"
+}

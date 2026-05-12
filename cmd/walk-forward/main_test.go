@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -12,6 +14,8 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/cmdutil"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/walkforward"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 )
 
 // ---------------------------------------------------------------------------
@@ -469,7 +473,7 @@ func TestWriteFoldsCSVFile_CreateFailure(t *testing.T) {
 func TestRun_MissingRequiredFlags(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	err := run([]string{}, &stdout, &stderr)
+	err := run([]string{}, &stdout, &stderr, nil)
 	if err == nil {
 		t.Fatal("expected error when required flags are missing, got nil")
 	}
@@ -500,7 +504,7 @@ func TestRun_UnknownStrategy(t *testing.T) {
 		"--to", "2023-01-01",
 		"--strategy", "no-such-strategy",
 	}
-	_ = run(args, &stdout, &stderr) //nolint:errcheck // expect panic before return
+	_ = run(args, &stdout, &stderr, nil) //nolint:errcheck // expect panic before return
 }
 
 func TestRun_InvalidCommission(t *testing.T) {
@@ -513,7 +517,7 @@ func TestRun_InvalidCommission(t *testing.T) {
 		"--strategy", "sma-crossover",
 		"--commission", "not-a-model",
 	}
-	err := run(args, &stdout, &stderr)
+	err := run(args, &stdout, &stderr, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid commission model, got nil")
 	}
@@ -528,7 +532,7 @@ func TestRun_ToNotAfterFrom(t *testing.T) {
 		"--to", "2020-01-01",
 		"--strategy", "sma-crossover",
 	}
-	err := run(args, &stdout, &stderr)
+	err := run(args, &stdout, &stderr, nil)
 	if err == nil {
 		t.Fatal("expected error when --to is before --from, got nil")
 	}
@@ -547,7 +551,7 @@ func TestRun_InvalidStrategyParams(t *testing.T) {
 		"--fast-period", "50",
 		"--slow-period", "10",
 	}
-	err := run(args, &stdout, &stderr)
+	err := run(args, &stdout, &stderr, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid sma-crossover params (fast >= slow), got nil")
 	}
@@ -557,15 +561,108 @@ func TestRun_InvalidStrategyParams(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// exitCodeError
+// TestRun_ErrIncompleteData — providerFactory injection + exit-code tests
 // ---------------------------------------------------------------------------
 
-func TestExitCodeError_Error(t *testing.T) {
+// wfIncompleteDataProvider returns *zerodha.ErrIncompleteData from FetchCandles.
+type wfIncompleteDataProvider struct{}
+
+func (p *wfIncompleteDataProvider) FetchCandles(
+	_ context.Context, instrument string, _ model.Timeframe, from, to time.Time,
+) ([]model.Candle, error) {
+	return nil, &zerodha.ErrIncompleteData{
+		Instrument: instrument,
+		From:       from,
+		To:         to,
+		Expected:   261,
+		Got:        20,
+	}
+}
+
+func (p *wfIncompleteDataProvider) SupportedTimeframes() []model.Timeframe {
+	return []model.Timeframe{model.TimeframeDaily}
+}
+
+func wfIncompleteFactory() func(context.Context) (provider.DataProvider, error) {
+	return func(_ context.Context) (provider.DataProvider, error) {
+		return &wfIncompleteDataProvider{}, nil
+	}
+}
+
+// wfGenericErrorProvider returns a plain non-typed error.
+type wfGenericErrorProvider struct{}
+
+func (p *wfGenericErrorProvider) FetchCandles(
+	_ context.Context, _ string, _ model.Timeframe, _, _ time.Time,
+) ([]model.Candle, error) {
+	return nil, fmt.Errorf("generic walk-forward provider failure")
+}
+
+func (p *wfGenericErrorProvider) SupportedTimeframes() []model.Timeframe {
+	return []model.Timeframe{model.TimeframeDaily}
+}
+
+func wfGenericErrorFactory() func(context.Context) (provider.DataProvider, error) {
+	return func(_ context.Context) (provider.DataProvider, error) {
+		return &wfGenericErrorProvider{}, nil
+	}
+}
+
+// TestRun_IncompleteData_ReturnsExitCodeError2 verifies that when the provider
+// returns *ErrIncompleteData during walk-forward, run() returns
+// *cmdutil.ExitCodeError with Code==2.
+func TestRun_IncompleteData_ReturnsExitCodeError2(t *testing.T) {
 	t.Parallel()
-	e := &exitCodeError{code: 1}
-	got := e.Error()
-	if !strings.Contains(got, "1") {
-		t.Errorf("Error() = %q, want it to contain the exit code", got)
+
+	var stdout, stderr bytes.Buffer
+	err := run([]string{
+		"--instrument", "NSE:TCS",
+		"--from", "2020-01-01",
+		"--to", "2023-01-01",
+		"--strategy", "sma-crossover",
+	}, &stdout, &stderr, wfIncompleteFactory())
+
+	if err == nil {
+		t.Fatal("run() returned nil, want *cmdutil.ExitCodeError")
+	}
+
+	var ee *cmdutil.ExitCodeError
+	if !errors.As(err, &ee) {
+		t.Fatalf("run() error is %T (%v), want *cmdutil.ExitCodeError", err, err)
+	}
+	if ee.Code != 2 {
+		t.Errorf("ExitCodeError.Code = %d, want 2", ee.Code)
+	}
+
+	stderrOut := stderr.String()
+	if !strings.Contains(stderrOut, "incomplete data:") {
+		t.Errorf("stderr missing 'incomplete data:' diagnostic; got: %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, "NSE:TCS") {
+		t.Errorf("stderr missing instrument name; got: %q", stderrOut)
+	}
+}
+
+// TestRun_GenericError_NotExitCodeError2 verifies that a plain provider error
+// does NOT produce *cmdutil.ExitCodeError with Code==2.
+func TestRun_GenericError_NotExitCodeError2(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	err := run([]string{
+		"--instrument", "NSE:TCS",
+		"--from", "2020-01-01",
+		"--to", "2023-01-01",
+		"--strategy", "sma-crossover",
+	}, &stdout, &stderr, wfGenericErrorFactory())
+
+	if err == nil {
+		t.Fatal("run() returned nil, want an error for generic provider failure")
+	}
+
+	var ee *cmdutil.ExitCodeError
+	if errors.As(err, &ee) && ee.Code == 2 {
+		t.Errorf("run() returned ExitCodeError{Code:2} for a generic error — must not happen")
 	}
 }
 

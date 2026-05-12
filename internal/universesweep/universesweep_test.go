@@ -3,6 +3,7 @@ package universesweep_test
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/engine"
 	"github.com/vikrantdhawan/backtesting-algo-trading/internal/universesweep"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/model"
+	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/provider/zerodha"
 	"github.com/vikrantdhawan/backtesting-algo-trading/pkg/strategy"
 )
 
@@ -61,6 +63,38 @@ func (t *toggleStrategy) Next(candles []model.Candle) model.Signal {
 		return model.SignalBuy
 	}
 	return model.SignalSell
+}
+
+// incompleteProvider returns *zerodha.ErrIncompleteData for a named target
+// instrument and delegates to staticProvider for all others.
+type incompleteProvider struct {
+	targetInstrument string
+	from             time.Time
+	to               time.Time
+	expected         int
+	got              int
+}
+
+func (p *incompleteProvider) FetchCandles(
+	ctx context.Context,
+	instrument string,
+	tf model.Timeframe,
+	from, to time.Time,
+) ([]model.Candle, error) {
+	if instrument == p.targetInstrument {
+		return nil, &zerodha.ErrIncompleteData{
+			Instrument: instrument,
+			From:       p.from,
+			To:         p.to,
+			Expected:   p.expected,
+			Got:        p.got,
+		}
+	}
+	return (&staticProvider{}).FetchCandles(ctx, instrument, tf, from, to)
+}
+
+func (p *incompleteProvider) SupportedTimeframes() []model.Timeframe {
+	return []model.Timeframe{model.TimeframeDaily}
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +223,7 @@ func TestRun_TwoInstruments_ProducesTwoResults(t *testing.T) {
 		Timeframe: model.TimeframeDaily,
 	}
 
-	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{})
+	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{}, io.Discard)
 	if err != nil {
 		t.Fatalf("Run: unexpected error: %v", err)
 	}
@@ -236,7 +270,7 @@ func TestRun_ResultsSortedDescendingBySharpe(t *testing.T) {
 		Timeframe: model.TimeframeDaily,
 	}
 
-	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{})
+	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{}, io.Discard)
 	if err != nil {
 		t.Fatalf("Run: unexpected error: %v", err)
 	}
@@ -273,7 +307,7 @@ func TestRun_InsufficientDataFlaggedWhenTradeCountBelowThreshold(t *testing.T) {
 		Timeframe: model.TimeframeDaily,
 	}
 
-	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{})
+	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{}, io.Discard)
 	if err != nil {
 		t.Fatalf("Run: unexpected error: %v", err)
 	}
@@ -299,7 +333,7 @@ func TestRun_ReturnsErrorOnEmptyInstruments(t *testing.T) {
 		Timeframe: model.TimeframeDaily,
 	}
 
-	_, err := universesweep.Run(context.Background(), &cfg, &staticProvider{})
+	_, err := universesweep.Run(context.Background(), &cfg, &staticProvider{}, io.Discard)
 	if err == nil {
 		t.Fatal("expected error for empty instruments list, got nil")
 	}
@@ -571,7 +605,7 @@ func TestApplyUniverseGate_TradesCarriedOnResult(t *testing.T) {
 		Timeframe: model.TimeframeDaily,
 	}
 
-	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{})
+	report, err := universesweep.Run(context.Background(), &cfg, &staticProvider{}, io.Discard)
 	if err != nil {
 		t.Fatalf("Run: unexpected error: %v", err)
 	}
@@ -615,7 +649,7 @@ func TestRun_FreshStrategyInstancePerInstrument(t *testing.T) {
 		Timeframe: model.TimeframeDaily,
 	}
 
-	_, err := universesweep.Run(context.Background(), &cfg, &staticProvider{})
+	_, err := universesweep.Run(context.Background(), &cfg, &staticProvider{}, io.Discard)
 	if err != nil {
 		t.Fatalf("Run: unexpected error: %v", err)
 	}
@@ -623,4 +657,158 @@ func TestRun_FreshStrategyInstancePerInstrument(t *testing.T) {
 	if got := int(calls.Load()); got != len(instruments) {
 		t.Errorf("NewStrategy factory called %d times, want %d (one fresh instance per instrument)", got, len(instruments))
 	}
+}
+
+// ---------------------------------------------------------------------------
+// TestRun_IncompleteData — Option B per-instrument warning behavior
+// ---------------------------------------------------------------------------
+
+// TestRun_IncompleteData_SweepContinues verifies that when one instrument's
+// FetchCandles returns *ErrIncompleteData, Run does NOT return an error —
+// the sweep continues, the failing instrument is flagged InsufficientData=true,
+// and the other instrument produces a normal result.
+func TestRun_IncompleteData_SweepContinues(t *testing.T) {
+	t.Parallel()
+
+	from := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	p := &incompleteProvider{
+		targetInstrument: "NSE:RELIANCE",
+		from:             from,
+		to:               to,
+		expected:         261,
+		got:              20,
+	}
+
+	cfg := universesweep.Config{
+		Instruments: []string{"NSE:RELIANCE", "NSE:INFY"},
+		NewStrategy: func() strategy.Strategy { return &toggleStrategy{} },
+		EngineConfig: engine.Config{
+			From:                 from,
+			To:                   to,
+			InitialCash:          100_000,
+			PositionSizeFraction: 0.10,
+			OrderConfig: model.OrderConfig{
+				SlippagePct:     0.0005,
+				CommissionModel: model.CommissionZerodha,
+			},
+		},
+		Timeframe: model.TimeframeDaily,
+	}
+
+	var stderr bytes.Buffer
+	report, err := universesweep.Run(context.Background(), &cfg, p, &stderr)
+	if err != nil {
+		t.Fatalf("Run: unexpected error (sweep must continue): %v", err)
+	}
+
+	if len(report.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(report.Results))
+	}
+
+	// Find the two results by instrument name.
+	results := make(map[string]universesweep.Result, 2)
+	for _, r := range report.Results {
+		results[r.Instrument] = r
+	}
+
+	reliance, ok := results["NSE:RELIANCE"]
+	if !ok {
+		t.Fatal("result for NSE:RELIANCE missing from report")
+	}
+	if !reliance.InsufficientData {
+		t.Error("NSE:RELIANCE: want InsufficientData=true, got false")
+	}
+
+	infy, ok := results["NSE:INFY"]
+	if !ok {
+		t.Fatal("result for NSE:INFY missing from report")
+	}
+	if infy.InsufficientData {
+		t.Error("NSE:INFY: want InsufficientData=false (normal run), got true")
+	}
+
+	// Diagnostic must have been written to stderr.
+	stderrOut := stderr.String()
+	if !strings.Contains(stderrOut, "incomplete data:") {
+		t.Errorf("stderr missing 'incomplete data:' diagnostic; got: %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, "NSE:RELIANCE") {
+		t.Errorf("stderr missing instrument name; got: %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, "261") {
+		t.Errorf("stderr missing expected count; got: %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, "20") {
+		t.Errorf("stderr missing got count; got: %q", stderrOut)
+	}
+}
+
+// TestRun_IncompleteData_AllInstrumentsIncomplete verifies that even when every
+// instrument returns *ErrIncompleteData, Run returns no error — just all results
+// flagged InsufficientData=true.
+func TestRun_IncompleteData_AllInstrumentsIncomplete(t *testing.T) {
+	t.Parallel()
+
+	from := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// allIncompleteProvider returns *ErrIncompleteData for every instrument.
+	allIncomplete := &allIncompleteProvider{from: from, to: to, expected: 261, got: 5}
+
+	cfg := universesweep.Config{
+		Instruments: []string{"NSE:RELIANCE", "NSE:INFY"},
+		NewStrategy: func() strategy.Strategy { return &toggleStrategy{} },
+		EngineConfig: engine.Config{
+			From:                 from,
+			To:                   to,
+			InitialCash:          100_000,
+			PositionSizeFraction: 0.10,
+			OrderConfig: model.OrderConfig{
+				SlippagePct:     0.0005,
+				CommissionModel: model.CommissionZerodha,
+			},
+		},
+		Timeframe: model.TimeframeDaily,
+	}
+
+	var stderr bytes.Buffer
+	report, err := universesweep.Run(context.Background(), &cfg, allIncomplete, &stderr)
+	if err != nil {
+		t.Fatalf("Run: unexpected error when all instruments incomplete: %v", err)
+	}
+	if len(report.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(report.Results))
+	}
+	for _, r := range report.Results {
+		if !r.InsufficientData {
+			t.Errorf("%s: want InsufficientData=true, got false", r.Instrument)
+		}
+	}
+}
+
+// allIncompleteProvider returns *ErrIncompleteData for every instrument.
+type allIncompleteProvider struct {
+	from, to      time.Time
+	expected, got int
+}
+
+func (p *allIncompleteProvider) FetchCandles(
+	_ context.Context,
+	instrument string,
+	_ model.Timeframe,
+	_, _ time.Time,
+) ([]model.Candle, error) {
+	return nil, &zerodha.ErrIncompleteData{
+		Instrument: instrument,
+		From:       p.from,
+		To:         p.to,
+		Expected:   p.expected,
+		Got:        p.got,
+	}
+}
+
+func (p *allIncompleteProvider) SupportedTimeframes() []model.Timeframe {
+	return []model.Timeframe{model.TimeframeDaily}
 }
