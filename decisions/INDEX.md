@@ -8,6 +8,69 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-13-run-extraction-for-testability-cmd-param-search
+    title: "run() extraction for testability in cmd/param-search — providerFactory injection"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [testability, run-function, flag-newFlagSet, providerFactory, cmd/param-search, TASK-0077]
+    path: convention/2026-05-13-run-extraction-for-testability-cmd-param-search.md
+    summary: "main() is a one-liner; all logic in run() split across buildSearchPipeline and runSearchPipeline. providerFactory injection enables 15 cmd-layer tests without live credentials. Follows cmd/walk-forward, cmd/monitor, cmd/fetch-history, cmd/evaluate precedents."
+
+  - id: 2026-05-13-out-dir-existence-validated-at-startup
+    title: "--out-dir existence validated at startup before any engine runs in cmd/param-search"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [validation, out-dir, startup, cmd/param-search, fail-fast, TASK-0077]
+    path: convention/2026-05-13-out-dir-existence-validated-at-startup.md
+    summary: "os.Stat(outDir) checked in buildSearchPipeline before any engine runs. Missing --out-dir on a 200-variant run fails immediately rather than after all compute work. Tool does not create the directory — caller controls lifecycle."
+
+  - id: 2026-05-13-params-column-as-json-in-csv-output
+    title: "params column serialized as JSON object in param-search-results.csv"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [CSV, params, JSON, serialization, cmd/param-search, TASK-0077]
+    path: convention/2026-05-13-params-column-as-json-in-csv-output.md
+    summary: "params map serialized as compact JSON in one 'params' CSV column rather than one column per axis. Fixed headers across all grid dimensionalities; self-describing schema. pandas: df['params'].apply(json.loads). Rejected: dynamic per-axis headers (schema varies per grid)."
+
+  - id: 2026-05-13-internal-paramsearch-as-new-package
+    title: "internal/paramsearch as a new package for grid search logic"
+    date: 2026-05-13
+    status: experimental
+    category: architecture
+    tags: [package-boundary, DSR, grid-search, testability, param-search, TASK-0077]
+    path: architecture/2026-05-13-internal-paramsearch-as-new-package.md
+    summary: "Grid iteration, per-variant DSR aggregation, and InsufficientData filtering extracted to internal/paramsearch rather than inline in cmd/param-search. Testable invariants (DSR monotonicity, nTrials=gridSize, sort order, insufficient filtering) justify isolation. Matches internal/sweep and internal/sweep2d precedents. 92.9% coverage."
+
+  - id: 2026-05-13-param-search-outer-sequential-inner-parallel
+    title: "param-search concurrency: outer variants sequential, inner instruments parallel"
+    date: 2026-05-13
+    status: experimental
+    category: tradeoff
+    tags: [concurrency, errgroup, grid-search, GOMAXPROCS, param-search, TASK-0077]
+    path: tradeoff/2026-05-13-param-search-outer-sequential-inner-parallel.md
+    summary: "Outer variant loop sequential; inner instrument fan-out via errgroup with GOMAXPROCS ceiling. Prevents gridSize×instruments goroutines. Dominant cost is network fetch per instrument; inner parallelism saturates cores. Matches universesweep.Run pattern."
+
+  - id: 2026-05-13-insufficient-instruments-excluded-per-variant
+    title: "Insufficient instruments excluded per variant in param-search; all-insufficient variant flagged"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [InsufficientData, aggregation, filtering, param-search, universesweep, TASK-0077]
+    path: convention/2026-05-13-insufficient-instruments-excluded-per-variant.md
+    summary: "Mirrors universesweep.runInstrument: TradeMetricsInsufficient || CurveMetricsInsufficient instruments excluded from per-variant DSR aggregate. VariantResult.InsufficientData=true when zero sufficient instruments — sorted last, present in CSV so caller sees full grid."
+
+  - id: 2026-05-13-param-search-dsr-aggregation-matches-applyuniverse
+    title: "param-search DSR aggregation: mean(DSR per instrument) matching ApplyUniverseGate"
+    date: 2026-05-13
+    status: experimental
+    category: convention
+    tags: [DSR, aggregation, methodology, universesweep, param-search, TASK-0077]
+    path: convention/2026-05-13-param-search-dsr-aggregation-matches-applyuniverse.md
+    summary: "Per-variant DSR = mean(analytics.DSR(instrumentSharpe, gridSize, instrumentTradeCount)) across sufficient instruments. Matches universesweep.ApplyUniverseGate exactly. Rejected: DSR(avgSharpe, gridSize, totalTradeCount) — inflates nObs and DSR(avg) ≠ avg(DSR)."
+
   - id: 2026-05-13-backtest-exit-code-2-errincompletedataerror
     title: "cmd/backtest and cmd/walk-forward: exit code 2 for *ErrIncompleteData, exit code 1 for generic errors"
     date: 2026-05-13
