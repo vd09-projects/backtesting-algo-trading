@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-13 | **Open tasks:** 25 | **Next up:** TASK-0058
+**Last updated:** 2026-05-13 | **Open tasks:** 24 | **Next up:** TASK-0102
 
 ---
 
@@ -86,25 +86,6 @@
 
 <!-- Lower-priority items. Ordered by priority within this section. -->
 
-### [TASK-0077] Tooling — parameter optimization with DSR correction (`cmd/param-search`)
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-05-04
-- **Source:** session
-- **Context:** Grid-search tool finding DSR-corrected optimal parameters for a strategy. Extends existing `internal/sweep2d` infrastructure. Critical constraint: search runs on training window only; OOS window never touched during search; ranking by DSR-corrected Sharpe, not raw Sharpe. Without these constraints the tool is a professional overfitting engine.
-- **Acceptance criteria:**
-  - [ ] `cmd/param-search/main.go`: flags `--strategy`, `--param-grid` (JSON file defining axes and ranges), `--universe`, `--timeframe`, `--train-from`, `--train-to`, `--out-dir`
-  - [ ] Grid search runs exclusively on `[--train-from, --train-to]` window
-  - [ ] DSR correction applied to all variants (number of trials = grid size); ranking by DSR-corrected Sharpe, not raw Sharpe
-  - [ ] OOS date range not accepted as a flag — caller must run `cmd/evaluate` separately on winning params; architectural enforcement, not convention
-  - [ ] Top-N results written to `--out-dir/param-search-results.csv` with DSR, raw Sharpe, trade count per variant
-  - [ ] `--param-grid` JSON schema documented in cmd/param-search/README.md or flag help text
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Marcus standing order 2026-05-04: "parameter search on training window only, DSR-corrected rank, OOS untouched during search." No OOS flag is the architectural enforcement — not a docs warning. Unblocked 2026-05-10 — TASK-0073 (cmd/evaluate) is done.
-
----
-
 ### [TASK-0102] Tech debt — `cmd/evaluate`: wire `universesweep.Result.Trades` to skip bootstrap engine re-run
 
 - **Status:** todo
@@ -151,21 +132,6 @@
   - [ ] All existing tests pass: `go1.25.0 test -race ./cmd/evaluate/...`
   - [ ] `golangci-lint run ./cmd/evaluate/...` passes
 - **Notes:** Discovered during TASK-0073 multi-perspective review (Domain Logic Reviewer). One-line change. The numerical outcome is unchanged; this is pure clarity/traceability. `len(universeSurvivors)` counts instruments with `Sharpe > 0 && !InsufficientData` from the sweep loop, which is the same count as `gateResult.PositiveSharpeInstruments` — they're equivalent by construction. The canonical field just makes it obvious.
-
----
-
-### [TASK-0058] Tooling — fix cyclomatic complexity in `cmd/rsi-diagnostic/main.go`
-
-- **Status:** todo
-- **Priority:** medium
-- **Created:** 2026-04-27
-- **Source:** discovery
-- **Context:** `cmd/rsi-diagnostic/main.go` `main()` function has cyclomatic complexity 17, exceeding the project's golangci-lint cyclop limit of 15. Discovered during TASK-0043 build session — the file was pre-existing, not introduced by TASK-0043. The fix pattern is established: extract strategy-dispatch and parameter-parsing logic into named helper functions, matching the refactor applied to `cmd/sweep/main.go` in TASK-0043 (smaFactory, rsiFactory, donchianFactory extraction).
-- **Acceptance criteria:**
-  - [ ] `golangci-lint run ./cmd/rsi-diagnostic/...` reports 0 issues
-  - [ ] `go1.25.0 test -race ./...` still passes
-  - [ ] No behavioral changes — refactor only
-- **Notes:** The same cyclop issue does NOT exist in cmd/backtest or cmd/sweep after TASK-0043 refactored sweep's factoryRegistry. rsi-diagnostic is the only remaining offender.
 
 ---
 
@@ -455,6 +421,23 @@
   - [ ] `go1.25.0 test -race ./internal/walkforward/...` passes
   - [ ] `golangci-lint run ./internal/walkforward/...` passes
 - **Notes:** Discovered during TASK-0098 multi-perspective review (Concurrency & State Safety Reviewer). Prerequisite: TASK-0074 or TASK-0075 must be built first so there is a realistic factory usage to model the test after. Low priority — the walk-forward factory API already enforces safety; this is a documentation-via-test improvement.
+
+---
+
+---
+
+### [TASK-0112] Tech debt — `internal/paramsearch`: add read-only contract to `Config.StrategyFactory` godoc
+
+- **Status:** todo
+- **Priority:** low
+- **Created:** 2026-05-13
+- **Source:** discovery
+- **Context:** `Config.StrategyFactory` receives the `params` map as a shared reference across concurrent goroutine calls for the same variant. The factory must not mutate or retain the map. No doc comment states this contract. The single internal caller (`cmd/param-search`) honors the contract, but the API is exported and the invariant is invisible.
+- **Acceptance criteria:**
+  - [ ] One sentence added to `StrategyFactory` field godoc in `internal/paramsearch/paramsearch.go` (~line 134): "params is shared read-only across concurrent goroutine calls for the same variant; the factory must not mutate or retain it."
+  - [ ] `golangci-lint run ./internal/paramsearch/...` passes
+  - [ ] `go1.25.0 test -race ./internal/paramsearch/...` passes
+- **Notes:** Discovered during TASK-0077 multi-perspective review (Concurrency & State Safety Reviewer). One-sentence doc addition, no production logic change. Low priority — current caller is safe; this is a clarity/contract improvement.
 
 ---
 
