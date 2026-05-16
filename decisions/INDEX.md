@@ -8,6 +8,33 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-17-composite-signals-regime-filters-only
+    title: "Composite signals on 5-min are regime filters only — not oscillator conjunction"
+    date: 2026-05-17
+    status: accepted
+    category: algorithm
+    tags: [composite-signals, regime-filter, VWAP, overfitting, 5min]
+    path: algorithm/2026-05-17-composite-signals-regime-filters-only.md
+    summary: "Composite signal strategies acceptable only as regime filters (independent economic mechanism) on a base strategy. Oscillator conjunction (MACD AND RSI AND WMA) rejected — highly correlated, cuts trade count without adding independent information. Accepted combinations: MACD+VWAP (institutional benchmark), RSI+volume-confirmation, SMA+session-timing. Requires TASK-0131 VWAP utility. Composite tickets deferred until TASK-0127 identifies surviving base strategies."
+
+  - id: 2026-05-17-multiple-strategy-variants-allowed
+    title: "Multiple parameter variants per strategy allowed; evaluation pipeline decides survivors"
+    date: 2026-05-17
+    status: accepted
+    category: algorithm
+    tags: [parameter-variants, strategy-naming, evaluation, 5min]
+    path: algorithm/2026-05-17-multiple-strategy-variants-allowed.md
+    summary: "When porting to a new timeframe, create 2-3 named variants (e.g. macd-5min-fast/standard/slow). Register each in GlobalRegistry. Run each through full evaluation pipeline independently. Naming: {strategy}-{timeframe}-{variant}. Max 3 variants per strategy. Each variant counts as independent nTrials in DSR correction. If all 3 fail universe gate, strategy is killed — not retried with more variants."
+
+  - id: 2026-05-17-5min-primary-timeframe-strategy-direction
+    title: "5-min bars are primary strategy development timeframe; daily bars secondary"
+    date: 2026-05-17
+    status: accepted
+    category: algorithm
+    tags: [timeframe, 5min, strategy-direction, daily-bars, 1min]
+    path: algorithm/2026-05-17-5min-primary-timeframe-strategy-direction.md
+    summary: "All new strategy development targets 5-min bars. Existing daily strategies (MACD portfolio) stay live but no new daily strategies. 1-min contingent on TASK-0129 empirical verification. Engine, walk-forward, analytics annualization already generalized for 5-min. Two daily-specific issues filed: MinCurvePointsForMetrics (TASK-0130), NSERegimes coverage gap (TASK-0130). 5-min data confirmed 5+ years available (15/15 large-cap, 48/48 midcap)."
+
   - id: 2026-05-13-gap-and-go-pipeline-risk-wf-orb-correlation
     title: "Gap-and-Go pipeline risks: walk-forward OverfitFlag (2022) and ORB/Gap-and-Go correlation gate"
     date: 2026-05-13

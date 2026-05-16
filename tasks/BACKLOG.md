@@ -1,6 +1,6 @@
 # Project Task Backlog
 
-**Last updated:** 2026-05-13 | **Open tasks:** 37 | **Next up:** TASK-0074
+**Last updated:** 2026-05-17 | **Open tasks:** 38 | **Next up:** TASK-0074
 
 ---
 
@@ -50,6 +50,75 @@
   - [ ] All public functions tested; golden test covering: gap-up enter, no-gap skip, volume-below-threshold skip, gap-already-chased skip, SL exit, TP exit, time-stop exit
   - [ ] Tests written before implementation (TDD)
 - **Notes:** Owner: Priya (implementation). Marcus rules written 2026-05-13 to `decisions/algorithm/2026-05-13-gap-and-go-marcus-rules.md`. Unblocked. All infra complete: TASK-0059 (WF factory API), TASK-0071 (gap handling), TASK-0078 (session helpers — `PreviousSessionClose`), TASK-0098 (PriceExit), TASK-0099/0101 (5-min cache 48/48 midcap + 15/15 large-cap). Concrete rules: gap threshold=1.0%; volume=1.3× 20-day avg; entry=close of bar index 1 (09:20 IST); no-entry if abs(bars[1].Close-PrevClose)/PrevClose >= 1.5×gapPct; SL=0.8×gapPct; TP=2.0×gapPct; time-stop=150 bars (2 sessions); long-only, no pyramid; CommissionZerodhaFull (CNC). Sweep axes: gap [0.75,1.0,1.5%], volume [1.0,1.3,1.5×], SL multiplier [0.5,0.8,1.0×], hold bars [75,150,225]. Orientation instrument: NSE:INDHOTEL. TASK-0119 (signal audit) and TASK-0120 (param sensitivity) blocked on this task.
+
+---
+
+### [TASK-0126] Research spike — 5-min strategy canvas (broad, 10+ candidates)
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-17
+- **Source:** session
+- **Context:** Cast a wide net across strategy types for 5-min NSE trading before committing engineering effort. The current portfolio (MACD, SMA, RSI, Bollinger, CCI, Momentum — all daily-bar) shares the same edge bucket. We need candidates from structurally different buckets: structural session-boundary effects, volume-based, volatility-regime, multi-timeframe, relative strength (stock vs index), and statistical (pairs). The output is a prioritized candidate list, not code.
+- **Acceptance criteria:**
+  - [ ] Written canvas covering at least 10 candidate strategies, each with: (1) one-sentence edge thesis, (2) behavioral mechanism (who is on the other side), (3) data requirements on current NSE 5-min Kite infrastructure, (4) feasibility verdict (yes/needs-engine-change/no), (5) Marcus pre-screen go/evaluate/skip
+  - [ ] Candidates span at least 4 distinct edge buckets: structural, volume-based, volatility-regime, relative-strength/multi-timeframe, statistical-arbitrage (scope-only for pairs)
+  - [ ] Candidate list ranked by: feasibility on current infra first, edge strength second
+  - [ ] Output recorded as `decisions/algorithm/2026-05-17-5min-strategy-canvas.md`
+  - [ ] Top 2-3 candidates each get a Marcus evaluation session ticket created (source: decision)
+- **Notes:** Owner: Marcus (research) → task-manager (create evaluation tickets). Do NOT implement anything from this research — the output feeds evaluation sessions only. Existing strategy adaptations (MACD/RSI/SMA on 5-min) are covered separately in TASK-0127 and are NOT part of this canvas.
+
+---
+
+### [TASK-0127] Strategy — adapt existing daily-bar strategies to 5-min (MACD, RSI, SMA, Bollinger, CCI, Momentum)
+
+- **Status:** todo
+- **Priority:** high
+- **Created:** 2026-05-17
+- **Source:** session
+- **Context:** Six existing strategies built for daily bars should be evaluated at 5-min resolution. Key challenges: (1) parameters need recalibration — MACD(12,26,9) on 5-min tracks 60-min and 130-min trends, not 2-week/5-week; (2) session-boundary behavior — most indicators tolerate cross-session computation for trend-following, but mean-reversion strategies may need session-reset logic; (3) signal frequency on 5-min is ~75× higher than daily, so per-trade P&L must cover commission at this frequency. Each strategy gets a signal audit before any walk-forward work.
+- **Acceptance criteria:**
+  - [ ] For each strategy (MACD, RSI mean-reversion, SMA crossover, Bollinger mean-reversion, CCI mean-reversion, Momentum): recalibrated parameter set proposed with rationale (what market duration is the strategy targeting at 5-min?)
+  - [ ] Session-boundary decision recorded per strategy: cross-session indicator computation accepted or session-reset required — rationale in one sentence
+  - [ ] Signal audit run on each adapted strategy across NSE midcap/large-cap 5-min universe; per-instrument trade counts recorded; strategies with <20 trades/year on >80% of instruments flagged for kill
+  - [ ] For strategies passing signal audit: universe gate run (`cmd/universe-sweep`) with 5-min data; results in `runs/`
+  - [ ] Marcus analysis: which adapted strategies survive signal audit and deserve full evaluation pipeline? Record in `decisions/algorithm/`
+  - [ ] Tests written before any implementation changes (TDD)
+- **Notes:** Owner: Marcus (parameter recalibration decision) → Priya (implementation changes) → Marcus (analysis). This is not a new strategy package — it's adapting existing `strategies/` packages to accept 5-min timeframe. The GlobalRegistry already registers these strategies; the engine is timeframe-agnostic. Primary risk: commission drag at 5-min frequency. Zerodha CNC commission is ₹20 flat — at average NSE midcap price of ~₹800, that's 2.5% round-trip on a 1-share position. Position sizing must account for this. TASK-0128 (composite signals) depends on which strategies survive this task. **Multiple parameter variants:** For each strategy, create 2–3 named variants with different parameter sets (e.g., `macd-5min-fast` 9/21/9, `macd-5min-standard` 12/26/9, `macd-5min-slow` 26/52/18) rather than forcing a single calibration choice. Register each variant in `GlobalRegistry`. The evaluation pipeline runs all variants independently — survivors self-select. **Session-boundary decision:** For trend-following strategies (MACD, SMA, Momentum), cross-session indicator computation is acceptable — trends persist across sessions. For intraday mean-reversion strategies (RSI, Bollinger, CCI), document explicitly whether indicator should reset at session open or compute continuously — decision matters for signal quality.
+
+---
+
+### [TASK-0128] Research — composite signal design for 5-min (regime filters, not signal stacking)
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-05-17
+- **Source:** session
+- **Context:** Three composite combinations worth evaluating, each structured as a regime filter on an existing strategy (not oscillator conjunction). (1) MACD crossover + price above VWAP: long signal only when price > VWAP at signal time — VWAP is the institutional benchmark, aligning with institutional flow. (2) RSI oversold (<30) + volume >= 1.5× session average: volume confirms exhaustion selling vs. slow bleed. (3) SMA golden cross + first 120 min of session (09:15–11:15 IST): morning crossovers have more follow-through on NSE due to institutional participation peak. Each combination needs Marcus evaluation before implementation.
+- **Acceptance criteria:**
+  - [ ] Marcus evaluation session run for each combination (3 evaluations); verdict recorded in `decisions/algorithm/`
+  - [ ] VWAP computation added as a utility in `pkg/strategy/` if MACD+VWAP combination is approved (VWAP = cumulative (price×volume) / cumulative volume, session-reset at session open)
+  - [ ] For each approved combination: signal audit on 5-min universe, result in `runs/`; strategies with fewer total trades than the base strategy by >60% flagged (filter too aggressive)
+  - [ ] Implementation only after Marcus go verdict + signal audit pass
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Blocked on TASK-0127 AND TASK-0131 (VWAP utility needed for MACD+VWAP combination). Need to know which base strategies survive 5-min adaptation before designing filters on them. The combinations listed are concrete candidates but Marcus may add or remove at evaluation. Key constraint: adding a filter must reduce false positives (improve precision), not just reduce trade count. A filter that cuts trades by 60% while improving Sharpe by 20% is marginal — the confidence interval widens. Composite signal design tickets (one per combination) should be created after TASK-0127 signals which base strategies survive — don't design filters for strategies that failed.
+
+---
+
+### [TASK-0129] Research spike — verify 1-min historical data depth on Kite Connect
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-05-17
+- **Source:** session
+- **Context:** The Kite Connect API specifies 60-day windows per call for 1-min bars. Whether the underlying data store goes back further (like 5-min which empirically has 5+ years) is unverified. If 1-min data extends to 2022 or earlier, the chunking infrastructure already handles multi-call pagination and 1-min becomes viable for backtesting. If total available history is only 60 days, 1-min is not useful for strategy evaluation and should be dropped as a focus area.
+- **Acceptance criteria:**
+  - [ ] Test fetch attempted on NSE:RELIANCE 1-min from 2022-01-01 to 2022-03-01 via `cmd/fetch-history --timeframe 1min --from 2022-01-01 --to 2022-03-01`
+  - [ ] Result recorded: actual available start date, bar count returned, any API errors
+  - [ ] If data available from 2022: estimate total history depth; update `maxDaysPerInterval` in `pkg/provider/zerodha/chunk.go` if needed; create TASK for adding `Timeframe1Min` to the model and provider
+  - [ ] If data not available past 60 days: record as decision, drop 1-min from strategy focus
+  - [ ] Result documented in `decisions/infrastructure/2026-05-17-1min-kite-historical-depth.md`
+- **Notes:** Quick empirical test — no code changes expected unless 1-min is viable. Requires valid Kite access token. The existing 5-min depth test (TASK-0099) proved Kite stores much more than the per-call window — same hypothesis for 1-min. Owner: anyone with a valid access token.
 
 ---
 
@@ -590,75 +659,6 @@
 
 <!-- === LARGER ITEMS === -->
 
-### [TASK-0076] Model — add Timeframe30Min and Timeframe60Min
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-05-04
-- **Source:** session
-- **Context:** Kite Connect serves 30-min and 60-min bars. Neither is currently in `pkg/model/timeframe.go`. Adding them unblocks hourly-bar strategy testing — useful for strategies that need more resolution than daily but less noise than 5-min.
-- **Acceptance criteria:**
-  - [ ] `Timeframe30Min` and `Timeframe60Min` constants added to `pkg/model/timeframe.go` with correct `Duration()` implementations
-  - [ ] `maxDaysPerInterval` in `pkg/provider/zerodha/chunk.go` updated (Kite limits: 30-min ≈ 200 days, 60-min ≈ 400 days — verify against Kite docs before committing)
-  - [ ] `timeframeToInterval` and `SupportedTimeframes` in `pkg/provider/zerodha/provider.go` updated
-  - [ ] `provider_test.go` updated: supported timeframe count increases from 4 to 6
-  - [ ] `pkg/provider/zerodha/chunk_test.go` updated to include 30-min and 60-min chunk-window cases
-  - [ ] `lazyProvider.SupportedTimeframes()` in `internal/cmdutil/cmdutil.go` updated to include `Timeframe30Min` and `Timeframe60Min` — this hardcoded list does not auto-update from the Zerodha provider; missing entries here means cached runs will not advertise the new timeframes
-  - [ ] `golangci-lint run ./...` and `go1.25.0 test -race ./...` pass
-  - [ ] Tests written before implementation (TDD)
-- **Notes:** Owner: Priya (dev). Small change — 3 files, ~20 lines total. Verify exact Kite API limits for 30-min and 60-min before setting chunk sizes. The `lazyProvider` AC above is a maintenance trap introduced in 2026-05-07 (lazy auth fix) — the hardcoded list in `cmdutil.go` is the only place that doesn't derive from `provider.go`.
-
----
-
-### [TASK-0084] Tooling — update evaluation-run agent to read bootstrap stats from JSON output
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-05-06
-- **Source:** session
-- **Context:** The evaluation-run pipeline agent (used in TASK-0069) parsed bootstrap distribution stats from stdout because the `--out` JSON did not contain them. TASK-0082 added bootstrap stats to the JSON output under a `"bootstrap"` key. The agent's stdout parsing is now redundant and fragile — it should be updated to read `bootstrap.sharpe_p5`, `bootstrap.prob_positive_sharpe`, etc. directly from the JSON file instead.
-- **Acceptance criteria:**
-  - [ ] Evaluation-run pipeline agent updated to read bootstrap stats from `--out` JSON (`bootstrap.sharpe_p5`, `bootstrap.sharpe_p50`, `bootstrap.sharpe_p95`, `bootstrap.prob_positive_sharpe`, `bootstrap.worst_drawdown_p95`, `bootstrap.n`, `bootstrap.seed`) instead of parsing stdout
-  - [ ] Stdout parsing of bootstrap block removed from agent logic
-  - [ ] Agent still works correctly when `bootstrap` key is absent (non-bootstrap runs)
-- **Notes:** TASK-0082 is the prerequisite — it added the bootstrap fields to the JSON. The agent file to update is in `.claude/agents/` (evaluation-run agent). Low priority: stdout parsing still works; this is a fragility reduction.
-
----
-
-### [TASK-0036] Research tooling — Python notebooks layer + file contract
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-04-16
-- **Source:** session
-- **Context:** The 2D heatmap, equity curve plots, and regime visualizations have nowhere to live.
-  A `notebooks/` directory with a documented file contract is the prerequisite for any
-  visualization work and establishes the Go-writes/Python-reads boundary explicitly.
-- **Acceptance criteria:**
-  - [ ] `notebooks/` directory at project root, version-controlled
-  - [ ] `notebooks/README.md` documents file contract: equity curve CSV schema, sweep CSV schema, analytics JSON schema, column names, timestamp format
-  - [ ] `notebooks/requirements.txt` with pyarrow, pandas, matplotlib pinned
-  - [ ] At least one working notebook: `notebooks/equity-curve.ipynb` reads `runs/<name>-curve.csv` and plots equity curve with regime shading
-- **Notes:** Depends on TASK-0029 (equity curve CSV output) for the first working notebook. The file contract in README.md is the formal boundary — Python never feeds back into Go inputs.
-
----
-
-### [TASK-0037] Rigor — bootstrap re-run to fill kill-switch p5 Sharpe thresholds
-
-- **Status:** todo
-- **Priority:** low
-- **Created:** 2026-04-21
-- **Source:** session
-- **Context:** TASK-0026 documented drawdown and duration kill-switch thresholds for SMA crossover and RSI mean-reversion, but the bootstrap p5 Sharpe threshold is PENDING for both. The CLI commands are ready; the Zerodha token needs to be refreshed to run them.
-- **Acceptance criteria:**
-  - [ ] Run `go run ./cmd/backtest --strategy sma-crossover ... --bootstrap` (full command in `decisions/algorithm/2026-04-21-kill-switch-sma-crossover.md`)
-  - [ ] Run `go run ./cmd/backtest --strategy rsi-mean-reversion ... --bootstrap` (full command in `decisions/algorithm/2026-04-21-kill-switch-rsi-mean-reversion.md`)
-  - [ ] Paste the `Per-trade Sharpe p5` value from each run into the respective decision file, replacing `PENDING`
-  - [ ] Update decision file status from `accepted` (PENDING) to reflect actual values
-- **Notes:** Both strategies failed the proliferation gate — these thresholds are reference values, not live deployment approval. With only 7 and 22 trades respectively, the p5 Sharpe will have wide confidence intervals. Document that caveat alongside the values.
-
----
-
 ### [TASK-0057] Engine — migrate accounting layer from float64 to shopspring/decimal
 
 - **Status:** todo
@@ -676,6 +676,47 @@
   - [ ] Golden tests in `commission_zerodha_full_test.go` updated to use exact decimal comparisons
   - [ ] Benchmark (`BenchmarkEngineRun`) remains within 1ms/op budget after migration
 - **Notes:** Coordinated migration — do not migrate commission.go alone. Deferred from TASK-0038 per decision `2026-04-25-float64-for-commission-arithmetic`. `shopspring/decimal` dependency must be discussed with the user before implementation per the no-new-dependencies rule in CLAUDE.md.
+
+---
+
+### [TASK-0130] Fix — `internal/analytics`: timeframe-aware `MinCurvePointsForMetrics` + add `NSERegimes5Min` for 5-min strategies
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-05-17
+- **Source:** discovery
+- **Context:** Two daily-specific assumptions in `internal/analytics/` break for 5-min strategies. (1) `MinCurvePointsForMetrics = 252` — correct for daily (252 days = 1 year), wrong for 5-min (252 bars = 3.4 trading days). If this threshold is used to gate Sharpe computation, it's trivially easy to pass at 5-min even on a meaningless 4-day backtest. Should be timeframe-aware: `MinCurvePoints(tf) = sharpeAnnualizationFactor(tf)` (i.e., one year of bars for the given timeframe). (2) `NSERegimes2018_2024` includes a Pre-COVID window (2018–Jan 2020) for which there is zero 5-min data. Any 5-min regime analysis using this variable gets empty data for pre-COVID. Need `NSERegimes5Min2021_2024` (three regimes within the 2021–2024 data window: recovery/bull 2021–Q1 2022, rate shock 2022, grind 2022–2024).
+- **Acceptance criteria:**
+  - [ ] `MinCurvePointsForMetrics` replaced with `MinCurvePoints(tf model.Timeframe) int` function: returns `sharpeAnnualizationFactor(tf)` as int — 252 for daily, 18900 for 5-min, 94500 for 1-min
+  - [ ] All callers of `MinCurvePointsForMetrics` updated to `MinCurvePoints(tf)` with appropriate timeframe passed through
+  - [ ] `NSERegimes5Min2021_2024` defined in `internal/analytics/regime.go`: three windows within 2021–2024 (recovery/bull, rate-shock, grind); dates to be determined based on actual NSE 5-min data availability
+  - [ ] Existing `NSERegimes2018_2024` and `NSERegimesGate` unchanged — daily strategy evaluation not affected
+  - [ ] All existing tests pass; new tests for `MinCurvePoints` covering all supported timeframes
+  - [ ] `go1.25.0 test -race ./internal/analytics/...` passes
+  - [ ] `golangci-lint run ./internal/analytics/...` passes
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** `MinCurvePointsForMetrics` is a const today — changing it to a function is a breaking change to the public API of `internal/analytics`. All callers must be updated (search for `MinCurvePointsForMetrics` across codebase). The practical impact on existing daily-bar backtests: none (252 → `MinCurvePoints(TimeframeDaily)` = 252, same value). The impact on 5-min backtests: prevents spurious Sharpe computation on tiny evaluation windows.
+
+---
+
+### [TASK-0131] Feature — `pkg/strategy/vwap.go`: session-aware VWAP computation utility
+
+- **Status:** todo
+- **Priority:** medium
+- **Created:** 2026-05-17
+- **Source:** session
+- **Context:** VWAP (Volume-Weighted Average Price) is the primary institutional benchmark for intraday execution. Composite strategies that use price-vs-VWAP as a regime filter (e.g., MACD+VWAP: take long signals only when price > VWAP) require a session-reset VWAP computation. VWAP = cumulative(Price × Volume) / cumulative(Volume), reset at session open. NSE 5-min bars include volume data. This utility is a prerequisite for TASK-0128 (composite signal design).
+- **Acceptance criteria:**
+  - [ ] `VWAP` type in `pkg/strategy/vwap.go`: pre-allocated struct with running `cumulativePV float64`, `cumulativeVolume float64`, `lastSessionDate time.Time`
+  - [ ] `VWAP.Update(bar model.Candle) float64`: updates running VWAP, detects session reset via `IsSessionOpen` from `pkg/strategy/session.go`, returns current VWAP; session reset: zero both accumulators before processing the new bar
+  - [ ] `VWAP.Current() float64`: returns current VWAP without updating (0 before first bar of session)
+  - [ ] No allocations in `Update` (pre-allocated struct, no slice growth)
+  - [ ] `NewVWAP() *VWAP` constructor
+  - [ ] Golden tests: single-session VWAP computation verified against manual calculation; session reset verified (second session starts fresh); zero-volume bar handling (skip or treat as previous VWAP)
+  - [ ] `go1.25.0 test -race ./pkg/strategy/...` passes
+  - [ ] `golangci-lint run ./pkg/strategy/...` passes
+  - [ ] Tests written before implementation (TDD)
+- **Notes:** Owner: Priya (dev). Price for VWAP = `(High + Low + Close) / 3` (typical price), standard convention. Session reset uses `IsSessionOpen` from `pkg/strategy/session.go` (TASK-0078, done) — a bar is the first of a new session when the previous bar was not in a session or has a different date. Zero-volume bars: if `bar.Volume == 0`, carry forward previous VWAP without updating accumulators. TASK-0128 is blocked on this.
 
 ---
 

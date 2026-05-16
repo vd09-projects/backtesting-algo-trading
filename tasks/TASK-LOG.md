@@ -315,3 +315,18 @@ Append-only record of all task operations. Newest entries at the bottom.
 | 2026-05-13 | TASK-0123 | created | priority: high, source: decision; blocked by TASK-0122 | Gap-and-Go Monte Carlo bootstrap — 10,000 simulations, SharpeP5 kill-switch threshold |
 | 2026-05-13 | TASK-0124 | created | priority: high, source: decision; blocked by TASK-0123 | Gap-and-Go correlation gate — vs MACD midcap portfolio and ORB (highest-risk pair) |
 | 2026-05-13 | TASK-0125 | created | priority: medium, source: decision; blocked by TASK-0124 | Gap-and-Go pre-live brief — kill-switch thresholds, Rs 1.5L position cap, go/no-go sign-off |
+| 2026-05-17 | TASK-0126 | created | priority: high, source: session | Research spike: 5-min strategy canvas, 10+ candidates across edge buckets; output is ranked candidate list with Marcus pre-screen verdicts; feeds evaluation session tickets |
+| 2026-05-17 | TASK-0127 | created | priority: high, source: session | Adapt existing daily-bar strategies (MACD, RSI, SMA, Bollinger, CCI, Momentum) to 5-min; recalibrate parameters; session-boundary decision per strategy; signal audit + universe gate |
+| 2026-05-17 | TASK-0128 | created | priority: medium, source: session | Composite signal design on 5-min: MACD+VWAP, RSI+volume, SMA+session-timing; regime filters only, not oscillator stacking; blocked on TASK-0127 |
+| 2026-05-17 | TASK-0129 | created | priority: medium, source: session | Empirical 1-min Kite data depth verification: test fetch from 2022, record actual available window, update chunk constants or drop 1-min if only 60 days available |
+| 2026-05-17 | TASK-0076 | status → cancelled | strategy focus shifted to 1-min/5-min; 30/60-min bars move wrong direction; archived to tasks/archive/2026-05.md |
+| 2026-05-17 | TASK-0084 | status → cancelled | stdout parsing still works; fragility reduction not worth effort at current priorities; archived |
+| 2026-05-17 | TASK-0036 | status → cancelled | no results to visualize yet; revisit after ORB/Gap-and-Go complete evaluation pipeline; archived |
+| 2026-05-17 | TASK-0037 | status → cancelled | SMA/RSI are dead strategies; bootstrap on dead strategy is graveyard maintenance; archived |
+| 2026-05-17 | TASK-0057 | status → cancelled | live-trading concern, not backtesting; re-open at live deployment stage with explicit dep approval; archived |
+| 2026-05-17 | BACKLOG | reordered | Added TASK-0126/0127/0128/0129 to Up Next; cancelled 5 stale tasks (TASK-0036/0037/0057/0076/0084); open count 37→36 |
+| 2026-05-17 | TASK-0127 | updated | Notes: added multiple-variants instruction (2-3 named variants per strategy, e.g. macd-5min-fast/standard/slow); session-boundary decision requirement per strategy (trend-following=cross-session OK, mean-reversion=document explicitly) |
+| 2026-05-17 | TASK-0128 | updated | Notes: added blocked on TASK-0131 (VWAP utility); added note to defer composite ticket creation until TASK-0127 survivors known |
+| 2026-05-17 | TASK-0130 | created | priority: medium, source: discovery | internal/analytics: MinCurvePointsForMetrics→timeframe-aware function + NSERegimes5Min2021_2024; daily-specific issues discovered in 5-min audit |
+| 2026-05-17 | TASK-0131 | created | priority: medium, source: session | pkg/strategy/vwap.go: session-aware VWAP utility; prerequisite for TASK-0128 composite signal work |
+| 2026-05-17 | BACKLOG | updated | open count 36→38 |
