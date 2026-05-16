@@ -1,30 +1,41 @@
 ---
-name: Portfolio construction state — MACD on SBIN + TITAN
-description: Current portfolio construction state: MACD crossover on SBIN+TITAN expected portfolio, sizing rule, kill-switch thresholds, pending gates
+name: Portfolio construction state — MACD complete, ORB and Gap-and-Go evaluation queued
+description: Current portfolio state: MACD complete on large-cap and midcap; ORB and Gap-and-Go have GO verdicts, awaiting implementation and evaluation pipeline
 type: project
 ---
 
-As of 2026-05-06, Marcus gave a GO verdict on portfolio construction for the 4 MACD crossover bootstrap survivors (SBIN, BAJFINANCE, TITAN, ICICIBANK).
+As of 2026-05-13:
 
-**Expected final portfolio:** NSE:SBIN + NSE:TITAN (subject to TASK-0085 actual correlation computation).
+**MACD crossover — Large-cap (COMPLETE)**
+- Survivors: NSE:SBIN + NSE:TITAN
+- Sizing: vol-target 10% annualized, Rs 1.5L notional each
+- Kill-switch: SBIN SharpeP5=0.0719, MaxDD=4.10%, MaxDDDuration=448 days; TITAN SharpeP5=0.0854, MaxDD=4.72%, MaxDDDuration=1,388 days
+- Decisions: `decisions/algorithm/2026-05-06-macd-correlation-gate-results-sbin-titan-survivors.md`, `decisions/algorithm/2026-05-07-kill-switch-thresholds-live-brief.md`
 
-**Why SBIN over ICICIBANK/BAJFINANCE:** Banking cluster (SBIN, ICICIBANK, BAJFINANCE) structurally correlated — rate-sensitive, Nifty Bank constituents. SBIN has highest DSR-corrected Sharpe (0.7042). TITAN is jewelry/consumer discretionary — structurally uncorrelated with banking names.
+**MACD crossover — Midcap (COMPLETE)**
+- Survivors: PERSISTENT, TORNTPHARM, COFORGE, SUNDARMFIN, INDHOTEL, MUTHOOTFIN
+- Sizing: vol-target 10%, Rs 50k base notional; IT-sector cap (PERSISTENT+COFORGE <= Rs 40k each when co-deployed)
+- Kill-switches: per `decisions/algorithm/2026-05-09-macd-crossover-midcap-correlation-killswitch-portfolio.md`
+- All 6 pass pairwise correlation (max r=0.36 full-period, 0.47 stress — below all thresholds)
 
-**How to apply:** If a new strategy is being evaluated and it survives to portfolio stage, check correlation against MACD-SBIN and MACD-TITAN first. Trend-following on Nifty Bank constituents will almost certainly fail the correlation gate against MACD-SBIN.
+**ORB (Opening Range Breakout) — 5-min, CNC, large-cap (EVALUATION QUEUED)**
+- Marcus GO verdict: 2026-05-13
+- Rules: `decisions/algorithm/2026-05-13-orb-marcus-rules.md`
+- Entry: 1st close > RangeHigh × 1.001 after 6-bar range window; no-entry cutoff 11:30 IST
+- Exit: SL = 1.5× range width; TP = 2.0× range width; time-stop = 225 bars (3 sessions)
+- Sizing: vol-target 10%, no hard cap (trend-following, not event-clustered)
+- Evaluation tasks: TASK-0113 through TASK-0118, all blocked on TASK-0074 implementation
+- Primary risk: walk-forward OverfitFlag in 2022 choppy regime
+- Secondary risk: ORB/Gap-and-Go mutual correlation if both pass bootstrap (stress-period r may > 0.6)
 
-**Capital allocation (pre-regime gate adjustment):**
-- NSE:SBIN: ₹1,50,000 notional
-- NSE:TITAN: ₹1,50,000 notional
-- SizingVolatilityTarget: fraction = 0.10/(instrumentVol × sqrt(252)), capped at 1.0, no leverage
+**Gap-and-Go — 5-min, CNC, midcap primary (EVALUATION QUEUED)**
+- Marcus GO verdict: 2026-05-13
+- Rules: `decisions/algorithm/2026-05-13-gap-and-go-marcus-rules.md`
+- Entry: 2nd bar close (09:20 IST); gapThreshold=1.0%; volumeMultiplier=1.3× 20-day avg; no-entry if gap chased 1.5× by bar 1
+- Exit: SL = 0.8× gapPct; TP = 2.0× gapPct; time-stop = 150 bars (2 sessions)
+- Sizing: vol-target 10%, hard per-position cap Rs 1.5L (50% of Rs 3L) — prevents over-concentration on event days
+- Orientation instrument: NSE:INDHOTEL (not RELIANCE — midcap universe strategy)
+- Evaluation tasks: TASK-0119 through TASK-0125, all blocked on TASK-0075 implementation
+- Primary risk: walk-forward OverfitFlag in 2022; secondary: ORB/Gap-and-Go mutual correlation
 
-**Kill-switch thresholds (pre-committed 2026-05-06):**
-- SBIN: Sharpe p5=0.0719, MaxDD=4.10%, MaxDDDuration=448 days
-- TITAN: Sharpe p5=0.0854, MaxDD=4.72%, MaxDDDuration=1,388 days
-- Source: `decisions/algorithm/2026-05-06-macd-portfolio-sizing-sbin-titan-vol-targeting.md`
-
-**Pending before portfolio is final:**
-- TASK-0085: Run pairwise Pearson r on all 6 MACD survivor pairs — validate banking cluster assumption with actual numbers
-- TASK-0086: Regime gate computation — per-regime Sharpe contributions for surviving instruments
-- TASK-0087: Final portfolio composition decision file (blocked by TASK-0085 and TASK-0086)
-
-**BAJFINANCE status:** Borderline (estimated full-period r vs SBIN: 0.55–0.72). If TASK-0085 shows SBIN/BAJFINANCE r < 0.7 full-period AND r < 0.6 both stress periods, BAJFINANCE enters the portfolio as a third instrument at ₹1,00,000 (and SBIN/TITAN rebase to ₹1,00,000 each).
+**How to apply:** Any new strategy evaluation must account for: (1) MACD long-only large-cap trend-following and MACD long-only midcap trend-following as existing correlations to check against; (2) ORB and Gap-and-Go as queued long-only intraday strategies that will need correlation checks once they reach bootstrap. The portfolio is building toward MACD (daily) + ORB (intraday) + Gap-and-Go (intraday) — all long-only, which concentrates long exposure in crash regimes.

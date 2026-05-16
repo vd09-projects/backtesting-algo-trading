@@ -8,6 +8,69 @@
 
 ```yaml
 decisions:
+  - id: 2026-05-13-gap-and-go-pipeline-risk-wf-orb-correlation
+    title: "Gap-and-Go pipeline risks: walk-forward OverfitFlag (2022) and ORB/Gap-and-Go correlation gate"
+    date: 2026-05-13
+    status: experimental
+    category: algorithm
+    tags: [gap-and-go, walk-forward, correlation-gate, ORB, TASK-0075]
+    path: algorithm/2026-05-13-gap-and-go-pipeline-risk-wf-orb-correlation.md
+    summary: "Two pipeline risks identified by Marcus: (1) Walk-forward OverfitFlag primary risk — 2022 choppy regime may degrade OOS Sharpe; watch OverfitFlag clustering on Consumer/FMCG names. (2) ORB/Gap-and-Go mutual correlation secondary risk — both 5-min CNC morning-event long-only strategies; stress-period r may exceed 0.6 gate threshold; if both pass bootstrap and fail correlation gate, retain higher DSR per tiebreaker rule."
+
+  - id: 2026-05-13-gap-and-go-orientation-instrument-indhotel
+    title: "Gap-and-Go parameter sweep uses NSE:INDHOTEL as orientation instrument, not NSE:RELIANCE"
+    date: 2026-05-13
+    status: experimental
+    category: algorithm
+    tags: [gap-and-go, parameter-sweep, midcap, orientation, TASK-0075]
+    path: algorithm/2026-05-13-gap-and-go-orientation-instrument-indhotel.md
+    summary: "NSE:INDHOTEL chosen as primary orientation instrument for Gap-and-Go sensitivity sweep: midcap volatility profile matching target universe, MACD bootstrap survivor with representative behavior, confirmed 98,906 5-min bars. RELIANCE convention applied to daily-bar large-cap strategies; Gap-and-Go targets midcap universe, so midcap orientation is methodologically correct. RELIANCE acceptable as optional secondary large-cap cross-check."
+
+  - id: 2026-05-13-gap-and-go-sizing-vol-target-1-5l-position-cap
+    title: "Gap-and-Go sizing: vol-target 10% annualized with Rs 1.5 lakh hard per-position cap"
+    date: 2026-05-13
+    status: experimental
+    category: algorithm
+    tags: [gap-and-go, vol-targeting, position-cap, TASK-0075]
+    path: algorithm/2026-05-13-gap-and-go-sizing-vol-target-1-5l-position-cap.md
+    summary: "Vol-target 10% annualized (20-bar rolling std, sample variance). Hard per-position cap Rs 1.5 lakh (50% of Rs 3L capital base) guards against simultaneous multi-instrument gap entries on index-driven event days (budget, RBI, global macro). Cap ensures 2 simultaneous positions remain within capital limits. MACD midcap portfolio does not need equivalent cap — MACD entries are temporally dispersed; gap-and-go entries can cluster."
+
+  - id: 2026-05-13-gap-and-go-default-params-1pct-1-3x-volume-sweep
+    title: "Gap-and-Go default parameters: gapThreshold=1.0%, volumeMultiplier=1.3×; sweep axes defined"
+    date: 2026-05-13
+    status: experimental
+    category: algorithm
+    tags: [gap-and-go, volume-threshold, gap-threshold, signal-audit, TASK-0075]
+    path: algorithm/2026-05-13-gap-and-go-default-params-1pct-1-3x-volume-sweep.md
+    summary: "Defaults: gapThreshold=1.0%, volumeMultiplier=1.3× 20-day avg. 81-variant sweep: gap [0.75,1.0,1.5%] × volume [1.0,1.3,1.5×] × SL [0.5,0.8,1.0×] × hold [75,150,225 bars]. Expected 20-30 trades/year per instrument (50-75 over 2021-2023); signal audit gate is marginal. Flag: if >20% instruments excluded at 1.0%, re-test at 0.75% before kill."
+
+  - id: 2026-05-13-gap-and-go-exit-sl-0-8x-tp-2-0x-time-stop-150
+    title: "Gap-and-Go exits: SL=0.8× gapPct, TP=2.0× gapPct, time-stop=150 bars (2 sessions)"
+    date: 2026-05-13
+    status: experimental
+    category: algorithm
+    tags: [gap-and-go, stop-loss, take-profit, time-stop, TASK-0075]
+    path: algorithm/2026-05-13-gap-and-go-exit-sl-0-8x-tp-2-0x-time-stop-150.md
+    summary: "SL at 0.8× gapPct (gap-flip signal); TP at 2.0× gapPct (2:1 R/R on gap magnitude); time-stop at 150 bars (2 sessions). Composition: NewTimedExit(NewPriceExit(inner, stopLossPct, targetProfitPct), 150). SL/TP are dynamic — computed at entry from actual gapPct, not fixed percentages. Time-stop is shorter than ORB's 225 bars: gap events decay faster than range breakouts, catalyst is stale after 2 sessions."
+
+  - id: 2026-05-13-gap-and-go-entry-second-bar-09-20-no-chase
+    title: "Gap-and-Go entry on close of second bar (09:20 IST); no-entry if gap chased by bar 1"
+    date: 2026-05-13
+    status: experimental
+    category: algorithm
+    tags: [gap-and-go, entry-bar, 5min, CNC, NSE-midcap, TASK-0075]
+    path: algorithm/2026-05-13-gap-and-go-entry-second-bar-09-20-no-chase.md
+    summary: "Entry at close of bar index 1 (09:20 IST), filled at bar index 2 Open. Not the 09:15 gap bar open (spread widest, prints most adversarial post-gap). No-entry guard: if abs(bars[1].Close-PrevClose)/PrevClose >= 1.5×gapPct, skip — gap already chased, buying exhaustion. Gap detection via PreviousSessionClose(bars, i). One position per instrument per day, no pyramid."
+
+  - id: 2026-05-13-gap-and-go-marcus-rules
+    title: "Gap-and-Go — Marcus Rules (GO verdict, entry/exit/sizing/pipeline rules)"
+    date: 2026-05-13
+    status: experimental
+    category: algorithm
+    tags: [gap-and-go, 5min, CNC, intraday, event-driven, behavioral, TASK-0075]
+    path: algorithm/2026-05-13-gap-and-go-marcus-rules.md
+    summary: "GO verdict. Entry on close of second bar (09:20 IST, bar 1 from session start); SL=0.8x gapPct, TP=2.0x gapPct, time-stop=150 bars (2 sessions). Defaults: gapThreshold=1.0%, volumeMultiplier=1.3x 20-day avg. Orientation: NSE:INDHOTEL. Sizing: vol-target 10%, hard cap Rs 1.5L per position. Primary risk: walk-forward OverfitFlag in 2022; secondary: ORB/Gap-and-Go mutual correlation gate post-bootstrap. Sweep axes: gap [0.75,1.0,1.5%], volume [1.0,1.3,1.5x], SL [0.5,0.8,1.0x], hold [75,150,225 bars]."
+
   - id: 2026-05-13-run-extraction-for-testability-cmd-param-search
     title: "run() extraction for testability in cmd/param-search — providerFactory injection"
     date: 2026-05-13

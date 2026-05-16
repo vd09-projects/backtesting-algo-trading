@@ -1,0 +1,121 @@
+{
+  "session_date": "2026-05-13",
+  "workflow": "evaluate",
+  "evaluation_id": "2026-05-13-evaluate-gap-and-go",
+  "strategy_name": "Gap-and-Go",
+  "strategy_description": "NSE large/midcap stocks opening 1-2%+ above/below prior close on above-average volume tend to continue in the gap direction for 1-2 sessions before reversion. 5-min bars, CNC overnight hold. PreviousSessionClose from pkg/strategy/session.go detects gap conditions. TimedExit provides N-day time-stop. PriceExit provides optional SL/TP. Long-only initially. Primary universe: Nifty Midcap liquid (48 instruments); also applicable to large-cap 15 instruments.",
+  "step_completed": 4,
+  "iterate_round": 0,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/convention/2026-05-07-overnight-gap-fill-confirmed-correct.md",
+        "decisions/algorithm/2026-04-25-cross-instrument-proliferation-gate.md",
+        "decisions/algorithm/2026-05-05-walk-forward-instrument-count-gate-relaxed.md",
+        "decisions/algorithm/2026-04-27-bootstrap-gate.md",
+        "decisions/algorithm/2026-04-27-correlation-gate.md",
+        "decisions/algorithm/2026-04-29-plateau-procedure-trade-count-constrained.md",
+        "decisions/algorithm/2026-04-29-fallback-to-defaults-no-valid-plateau.md",
+        "decisions/algorithm/2026-04-21-kill-switch-derivation-methodology.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-05-10-5min-data-coverage-both-universes.md",
+        "decisions/algorithm/2026-04-10-nse-annualization-factors.md",
+        "decisions/algorithm/2026-05-09-macd-crossover-midcap-correlation-killswitch-portfolio.md",
+        "decisions/algorithm/2026-05-09-macd-crossover-midcap-universe-gate-passed.md",
+        "decisions/algorithm/2026-04-25-2025-live-data-as-true-holdout.md",
+        "decisions/convention/2026-05-07-ist-package-level-var-time-fixedzone.md",
+        "decisions/algorithm/2026-04-25-intraday-session-detection-ist-cutoff.md",
+        "decisions/algorithm/2026-05-07-nifty-midcap-150-universe-instrument-list.md",
+        "decisions/algorithm/2026-05-07-adv-floor-midcap-daily-bar-universe.md"
+      ]
+    },
+    "marcus": {
+      "verdict": "go",
+      "summary": "Gap-and-Go receives GO verdict. Edge is behavioral/structural (institutional flow lag on NSE midcap catalyst events), structurally distinct from killed Donchian breakout. Entry on close of second bar (09:20 IST), SL at 0.8x gapPct, TP at 2.0x gapPct, time-stop 150 bars (2 sessions). Default parameters: gapThreshold=1.0%, volumeMultiplier=1.3x. Orientation instrument: NSE:INDHOTEL. Walk-forward gate is primary structural risk (2022 choppy regime); ORB/Gap-and-Go mutual correlation is secondary post-bootstrap risk.",
+      "decision_marks": [
+        "Decision (2026-05.1.0) — algorithm: experimental — entry on close of second bar (09:20 IST)",
+        "Decision (2026-05.1.1) — algorithm: experimental — SL=0.8x gapPct, TP=2.0x gapPct, time-stop=150 bars",
+        "Decision (2026-05.1.2) — algorithm: experimental — gapThreshold=1.0%, volumeMultiplier=1.3x",
+        "Decision (2026-05.1.3) — algorithm: experimental — sizing: vol-target 10%, hard cap Rs 1.5L per position",
+        "Decision (2026-05.1.4) — algorithm: experimental — orientation: NSE:INDHOTEL",
+        "Decision (2026-05.1.5) — algorithm: experimental — pipeline risks: WF OverfitFlag 2022, ORB correlation"
+      ]
+    },
+    "go_iterate_kill": "go"
+  },
+  "project_state": {
+    "implemented_strategies": [
+      "bollinger",
+      "ccimeanrev",
+      "donchian",
+      "macd",
+      "momentum",
+      "rsimeanrev",
+      "smacrossover",
+      "stub",
+      "testutil"
+    ],
+    "killed_strategies": [
+      {
+        "name": "rsi-mean-reversion",
+        "edge_category": "mean-reversion",
+        "failure_mode": "signal frequency — only 7 trades/7 years on RELIANCE; proliferation gate (Sharpe 0.469 < 0.5)"
+      },
+      {
+        "name": "sma-crossover (fast20/slow50 variant)",
+        "edge_category": "momentum/trend",
+        "failure_mode": "universe gate — SMA 20/50 failed universe gate; earlier SMA variant also failed proliferation gate"
+      },
+      {
+        "name": "bollinger-mean-reversion",
+        "edge_category": "mean-reversion",
+        "failure_mode": "universe gate — DSR-corrected Sharpe failed; signal frequency too low (excluded on most instruments)"
+      },
+      {
+        "name": "cci-mean-reversion",
+        "edge_category": "mean-reversion",
+        "failure_mode": "universe gate — DSR-corrected Sharpe failed"
+      },
+      {
+        "name": "donchian-breakout",
+        "edge_category": "breakout/momentum",
+        "failure_mode": "universe gate — DSR-corrected average Sharpe negative; only 7/15 instruments with >= 30 trades"
+      },
+      {
+        "name": "momentum",
+        "edge_category": "momentum",
+        "failure_mode": "universe gate — extremely low signal frequency (1-4 trades per instrument)"
+      }
+    ],
+    "surviving_strategies": [
+      {
+        "name": "macd-crossover",
+        "edge_category": "momentum/trend-following",
+        "status": "pipeline complete — 6 midcap instruments in portfolio (PERSISTENT, TORNTPHARM, COFORGE, SUNDARMFIN, INDHOTEL, MUTHOOTFIN); SBIN and TITAN survived large-cap pipeline",
+        "note": "Daily bars; separate from intraday 5-min strategies"
+      }
+    ],
+    "pipeline_stage": "New intraday strategies pipeline. ORB (TASK-0074) received GO verdict 2026-05-13 — waiting on Marcus design rules implementation. Gap-and-Go (TASK-0075) is next in queue for evaluation. 5-min bar cache complete for 48/48 midcap and 15/15 large-cap instruments.",
+    "available_helpers": {
+      "pkg/strategy/strategy.go": "Strategy interface; base types",
+      "pkg/strategy/session.go": "IsSessionOpen(bar Candle) bool; PreviousSessionClose(bars []Candle, i int) (float64, bool)",
+      "pkg/strategy/timed_exit.go": "TimedExit wrapper — N-bar time-stop",
+      "pkg/strategy/price_exit.go": "PriceExit wrapper — fixed stop-loss and target-profit percentages",
+      "pkg/strategy/strategy_test.go": "test helpers",
+      "pkg/strategy/session_test.go": "session helper tests",
+      "pkg/strategy/timed_exit_test.go": "timed exit tests",
+      "pkg/strategy/price_exit_test.go": "price exit tests"
+    },
+    "helper_gaps": []
+  },
+  "decision_marks_pending": [
+    "Decision (2026-05.1.0) — algorithm: experimental — Gap-and-Go entry on close of second bar (09:20 IST, bar index 1 from session start); no-entry if price moved 1.5x gapPct from PreviousSessionClose by bar 1",
+    "Decision (2026-05.1.1) — algorithm: experimental — Gap-and-Go exits: SL=0.8x gapPct, TP=2.0x gapPct, time-stop=150 bars (2 sessions). Composition: NewTimedExit(NewPriceExit(inner, stopLossPct, targetProfitPct), 150)",
+    "Decision (2026-05.1.2) — algorithm: experimental — Default parameters: gapThreshold=1.0%, volumeMultiplier=1.3x 20-day avg. Sweep axes: gap [0.75,1.0,1.5%], volume [1.0,1.3,1.5x], SL [0.5,0.8,1.0x gap], hold [75,150,225 bars]. Flag if >20% instruments fail signal audit at defaults",
+    "Decision (2026-05.1.3) — algorithm: experimental — Sizing: vol-target 10% annualized; hard per-position cap Rs 1.5 lakh (50% of Rs 3L capital) to guard against simultaneous multi-instrument gap events",
+    "Decision (2026-05.1.4) — algorithm: experimental — Orientation instrument: NSE:INDHOTEL (midcap profile, bootstrap MACD survivor, confirmed 5-min data)",
+    "Decision (2026-05.1.5) — algorithm: experimental — Pipeline risks: (1) walk-forward OverfitFlag in 2022 choppy regime; (2) ORB/Gap-and-Go mutual correlation gate if both pass bootstrap — highest-risk pair"
+  ],
+  "hard_stop_active": null
+}

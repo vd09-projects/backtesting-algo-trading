@@ -1,0 +1,63 @@
+{
+  "session_date": "2026-05-13",
+  "workflow": "evaluate",
+  "evaluation_id": "2026-05-13-evaluate-orb",
+  "strategy_name": "Opening Range Breakout (ORB)",
+  "strategy_description": "5-min bars, CNC overnight hold 2-3 days. Range defined from first 30-60 min of NSE session. Breakout from that range enters long (initially). TimedExit for N-day time-stop, PriceExit for stop-loss/target.",
+  "step_completed": 2,
+  "iterate_round": 0,
+  "verdicts": {
+    "decision_lookup": {
+      "standing_order_files": [
+        "decisions/algorithm/2026-04-25-intraday-forced-close-fill-price.md",
+        "decisions/algorithm/2026-04-25-intraday-session-detection-ist-cutoff.md",
+        "decisions/convention/2026-05-07-overnight-gap-fill-confirmed-correct.md",
+        "decisions/algorithm/2026-04-21-kill-switch-derivation-methodology.md"
+      ],
+      "context_files": [
+        "decisions/algorithm/2026-04-16-rsi-signal-frequency-diagnostic-reliance.md",
+        "decisions/algorithm/2026-04-29-plateau-procedure-trade-count-constrained.md",
+        "decisions/algorithm/2026-04-29-fallback-to-defaults-no-valid-plateau.md",
+        "decisions/algorithm/2026-04-27-bootstrap-gate.md",
+        "decisions/algorithm/2026-04-27-correlation-gate.md"
+      ]
+    },
+    "marcus": {
+      "edge_thesis": "NSE opening range dynamics reflect real institutional order flow. First 30-min range represents price discovery; breakout signals resolved directional bias. 2-3 day CNC hold captures institutional program follow-through, distinct from Donchian daily-bar breakout mechanism.",
+      "signal_frequency_estimate": "40-80 trades/year per instrument (6-year window: 240-480 trades). Well above 30-trade signal audit gate and 35/year threshold.",
+      "historical_parallel": "Donchian failed on daily-bar DSR-corrected Sharpe gate. ORB is structurally different: intraday session structure vs multi-week daily lookback. Different mechanism, different competition set.",
+      "pipeline_risk": "Walk-forward gate is most likely structural barrier — IS-to-OOS Sharpe degradation expected in choppy regimes (COVID 2020, rate shock 2022). Correlation risk manageable if ORB concentrates on instruments outside MACD survivors.",
+      "sizing": "Vol-target 10% annualized, 20-bar rolling std dev of daily log returns, fraction capped at 1.0. Per-instrument notional derived post-sweep.",
+      "kill_switch": "Derived per accepted kill-switch methodology after bootstrap: SharpeP5 as rolling Sharpe threshold, 1.5x MaxDD, 2x MaxDDDuration.",
+      "verdict_rationale": "Edge mechanistically sound, infrastructure complete, frequency adequate, structurally distinct from killed daily-bar breakout strategies."
+    },
+    "go_iterate_kill": "go"
+  },
+  "project_state": {
+    "implemented_strategies": ["bollinger", "ccimeanrev", "donchian", "macd", "momentum", "rsimeanrev", "smacrossover", "stub"],
+    "killed_strategies": [
+      {"name": "RSI mean-reversion", "edge_category": "mean-reversion", "failure_gate": "signal-frequency", "failure_mode": "< 30 trades/instrument across all 15 instruments"},
+      {"name": "SMA crossover (10/20)", "edge_category": "trend-following", "failure_gate": "walk-forward", "failure_mode": "33% instrument retention (4/12), gate required 60%"},
+      {"name": "SMA crossover (20/50)", "edge_category": "trend-following", "failure_gate": "universe-gate", "failure_mode": "2-3 trades/year per instrument, far below 30-trade min"},
+      {"name": "Bollinger mean-reversion", "edge_category": "mean-reversion", "failure_gate": "universe-gate", "failure_mode": "DSR-corrected Sharpe gate failed"},
+      {"name": "CCI mean-reversion", "edge_category": "mean-reversion", "failure_gate": "universe-gate", "failure_mode": "DSR-corrected Sharpe gate failed"},
+      {"name": "Donchian breakout", "edge_category": "trend-following", "failure_gate": "universe-gate", "failure_mode": "DSR-corrected Sharpe gate failed"},
+      {"name": "Momentum", "edge_category": "momentum", "failure_gate": "universe-gate", "failure_mode": "DSR-corrected Sharpe gate failed, ~2 trades/year per instrument"}
+    ],
+    "surviving_strategies": ["MACD crossover (fast=17, slow=26, signal=9) on NSE:SBIN and NSE:TITAN — portfolio construction in progress"],
+    "pipeline_stage": "portfolio-construction (TASK-0055) — correlation gate done (SBIN+TITAN survivors), regime gate done, final portfolio composition pending TASK-0087. ORB (TASK-0074) and Gap-and-Go (TASK-0075) blocked on Marcus rules.",
+    "helpers": {
+      "session.go": ["IsSessionOpen(bar model.Candle) bool", "PreviousSessionClose(bars []model.Candle, i int) (float64, bool)"],
+      "timed_exit.go": ["NewTimedExit(inner Strategy, maxHoldBars int) Strategy", "TimedExit.Name() string", "TimedExit.Lookback() int", "TimedExit.Timeframe() model.Timeframe", "TimedExit.Next(candles []model.Candle) model.Signal"],
+      "price_exit.go": ["NewPriceExit(inner Strategy, stopLossPct, targetProfitPct float64) Strategy", "PriceExit.Name() string", "PriceExit.Lookback() int", "PriceExit.Timeframe() model.Timeframe", "PriceExit.Next(candles []model.Candle) model.Signal"],
+      "strategy.go": ["Strategy interface (Name, Lookback, Timeframe, Next)"]
+    },
+    "helper_gaps": []
+  },
+  "decision_marks_pending": [
+    "**Decision (ORB entry definition — range window and breakout confirmation) — algorithm: experimental**",
+    "**Decision (ORB no-entry cutoff time: 11:30 IST) — algorithm: experimental**",
+    "**Decision (ORB exit rules: 1.5x range-width SL, 2x range-width TP, 3-session TimedExit) — algorithm: experimental**"
+  ],
+  "hard_stop_active": null
+}
